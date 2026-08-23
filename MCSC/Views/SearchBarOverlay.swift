@@ -23,7 +23,8 @@ final class SearchBarOverlay {
     private(set) var isVisible = false
 
     init() {
-        setupPanel()
+        // Panel creation is deferred to the first show(query:) call so no
+        // NSPanel is created until a search query is typed.
     }
 
     /// Cocoa frame for the query pill on `screen`. Extracted so tests can
@@ -58,6 +59,9 @@ final class SearchBarOverlay {
     }
 
     func show(query: String) {
+        if panel == nil {
+            setupPanel()
+        }
         guard let panel else { return }
         let mouseLocation = NSEvent.mouseLocation
         let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) })
@@ -96,7 +100,7 @@ final class SearchBarOverlay {
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
         let effectView = NSVisualEffectView(frame: contentRect)

@@ -18,7 +18,24 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
 final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private let accessibilityService: AccessibilityServiceProtocol
     private let isMissionControlActiveProvider: () -> Bool
-    private let overlay: PreviewCloseButtonOverlay
+    private var _injectedOverlay: PreviewCloseButtonOverlay?
+    private var _createdOverlay: PreviewCloseButtonOverlay?
+    private let isOptimized: Bool
+
+    /// Lazily created on first access so no `NSPanel` (and its GPU/IOSurface
+    /// layer tree) exists until the overlay is actually needed. Tests can inject
+    /// a pre-built overlay via the `init(overlay:)` parameter.
+    private var overlay: PreviewCloseButtonOverlay {
+        if let _injectedOverlay {
+            return _injectedOverlay
+        }
+        if let _createdOverlay {
+            return _createdOverlay
+        }
+        let newOverlay = PreviewCloseButtonOverlay(isOptimized: isOptimized)
+        _createdOverlay = newOverlay
+        return newOverlay
+    }
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
@@ -98,8 +115,24 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
     var isEnabled = true {
         didSet {
+            guard isEnabled != oldValue else { return }
             if !isEnabled {
+                // Fully tear down the hover session: stop window polling,
+                // keyboard navigation, and hide the overlay. The Dock
+                // AXObserver and event tap remain alive so we still track
+                // isMissionControlActive for other services.
+                stopWindowFetchTimer()
+                stopKeyboardSession()
                 hideOverlay()
+            } else if isMissionControlActive {
+                // Re-enabled while Mission Control is already open:
+                // spin up the full session so the user sees the button.
+                fetchWindows()
+                startWindowFetchTimer()
+                startKeyboardSession()
+                if let mouseLocation = CGEvent(source: nil)?.location {
+                    updateOverlay(at: mouseLocation)
+                }
             }
         }
     }
@@ -109,10 +142,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
          overlay: PreviewCloseButtonOverlay? = nil,
+         isOptimized: Bool = true,
          isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
-        self.overlay = overlay ?? PreviewCloseButtonOverlay()
+        self._injectedOverlay = overlay
+        self.isOptimized = isOptimized
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider
     }
 
@@ -198,6 +233,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             stopKeyboardSession()
         } else {
             isMissionControlActive = true
+
+            // When the feature is disabled, track Mission Control state
+            // (other services depend on it) but do NOT create the overlay,
+            // start window polling, or install the keyboard tap.
+            guard isEnabled else { return }
+
             fetchWindows()
             startWindowFetchTimer()
             startKeyboardSession()
@@ -383,6 +424,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
             eventTap = nil
         }
     }
@@ -528,6 +570,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
+            CFMachPortInvalidate(tap)
         }
         keyboardTap?.stop()
         // Both timers must die with the service: a repeating `windowFetchTimer`

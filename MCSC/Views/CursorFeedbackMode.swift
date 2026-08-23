@@ -116,12 +116,46 @@ extension CursorFeedbackOverlay {
             }
         }
 
-        /// Optional entry symbol effect played as the feedback lands.
-        ///
-        /// Deliberately a small closed enum instead of a stored `SymbolEffect`
-        /// existential: `addSymbolEffect` takes `some SymbolEffect` (opaque),
-        /// which can't be fed from an `any SymbolEffect` box. The overlay's
-        /// single `switch` here is the only place new animations need wiring.
+        var animationStyle: OverlayAnimationStyle {
+            switch self {
+            case .close, .quit, .newWindow, .eject:
+                return .bouncePop
+            case .closeTab, .reopenTab, .closeAllTabs, .newTab:
+                return .wiggle
+            case .maximize, .almost, .reasonable, .fullscreen:
+                return .pulseExpand
+            case .minimize, .hide, .makeSmaller:
+                return .shrinkDown
+            case .spaceRight:
+                return .slideRight
+            case .spaceLeft:
+                return .slideLeft
+            }
+        }
+
+        /// Base outline symbol displayed initially before smoothly morphing into the filled target symbol.
+        var baseSymbol: String? {
+            switch self {
+            case .almost, .reasonable, .maximize: "rectangle"
+            case .eject: "eject.circle"
+            case .minimize: "minus.circle"
+            case .hide: "eye.slash.circle"
+            case .spaceRight: "arrow.right.circle"
+            case .spaceLeft: "arrow.left.circle"
+            case .newTab: "plus.rectangle.on.rectangle"
+            case .closeAllTabs: "rectangle.badge.xmark"
+            case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil
+            }
+        }
+
+        /// Optional neutral tint palette used for the base outline symbol before morphing.
+        var basePaletteColors: [NSColor]? {
+            switch self {
+            case .minimize, .hide: [.white]
+            default: nil
+            }
+        }
+
         enum EntryAnimation {
             case bounceUpByLayer
             case wiggleByLayer
@@ -136,21 +170,10 @@ extension CursorFeedbackOverlay {
             }
         }
 
-        /// Optional symbol *replacement* transition played as the feedback
-        /// symbol swaps in. Distinct from `entryAnimation` (an in-place
-        /// `addSymbolEffect`): this is a `setSymbolImage` content transition
-        /// that visually morphs from the previous symbol, so it pairs with
-        /// plain appear for close/minimize or the entry effects for quit/hide.
         enum ReplaceTransition {
-            /// `.replace.magic(fallback: .upUp.byLayer)` on macOS 26+; falls
-            /// back to `.replace.upUp.byLayer` on macOS 14/15.
             case magicReveal
-            /// `.replace.magic(fallback: .downUp.wholeSymbol)` on macOS 26+;
-            /// falls back to `.replace.downUp.wholeSymbol` on macOS 14/15.
             case magicDownUpReveal
-            /// `.replace.downUp.byLayer` (macOS 14+; no OS-version fallback).
             case downUpReveal
-            /// Generic `.replace` — SwiftUI `contentTransition(.symbolEffect(.replace))`.
             case replace
         }
 
@@ -158,42 +181,8 @@ extension CursorFeedbackOverlay {
             switch self {
             case .almost, .reasonable, .maximize, .minimize, .hide: .downUpReveal
             case .eject: .magicDownUpReveal
-            case .spaceRight, .spaceLeft: .downUpReveal
-            case .newTab, .closeAllTabs: .replace
+            case .spaceRight, .spaceLeft, .newTab, .closeAllTabs: .replace
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil
-            }
-        }
-
-        /// Optional tint palette used *only* for the base symbol painted
-        /// before the replace transition. `nil` falls back to
-        /// `paletteColors`. Minimize and Hide start from a plain white glyph
-        /// so the pre-morph state reads as neutral before filling in.
-        var basePaletteColors: [NSColor]? {
-            switch self {
-            case .minimize, .hide: [.white]
-            default: nil
-            }
-        }
-
-        /// Plain symbol painted *before* the replacement transition fires, so
-        /// the swap-in always morphs from a stable base instead of whatever
-        /// symbol previously occupied the overlay. The resize modes
-        /// (maximize / reasonable / almost) all start from an empty rectangle;
-        /// eject starts from its plain `eject.fill` glyph.
-        var baseSymbol: String? {
-            switch self {
-            case .almost, .reasonable, .maximize: "rectangle"
-            case .eject: "eject.fill"
-            // Outlined/plain glyphs that morph into their filled counterparts
-            // (minus.circle.fill / eye.slash.circle.fill) via the replace
-            // transitions above.
-            case .minimize: "minus.circle"
-            case .hide: "eye.slash.circle"
-            case .spaceRight: "arrow.right.circle"
-            case .spaceLeft: "arrow.left.circle"
-            case .newTab: "plus.rectangle.on.rectangle"
-            case .closeAllTabs: "rectangle.badge.xmark"
-            default: nil
             }
         }
     }

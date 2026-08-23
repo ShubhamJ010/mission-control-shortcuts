@@ -11,6 +11,7 @@ import Cocoa
 /// - Retain-cycle safety: every closure handed to a service captures `self`
 ///   weakly (`[weak self]`), and heavy blocking AX actions are deferred one
 ///   run-loop turn so the UI (feedback overlay, haptics) can commit first.
+@MainActor
 final class ShortcutViewModel {
     private let eventTapService: EventTapServiceProtocol
     private let accessibilityService: AccessibilityServiceProtocol
@@ -24,12 +25,18 @@ final class ShortcutViewModel {
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
+        isOptimized: config.isOptimizedAnimationModeEnabled,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
         }
     )
 
-    private lazy var cursorFeedback = CursorFeedbackOverlay()
+    private lazy var cursorFeedback: CursorFeedbackOverlay = {
+        let strategy: OverlayAnimationStrategy = config.isOptimizedAnimationModeEnabled
+            ? OptimizedOverlayAnimationStrategy()
+            : NativeSymbolEffectAnimationStrategy()
+        return CursorFeedbackOverlay(strategy: strategy)
+    }()
     private lazy var volumeService: MountedVolumeServiceProtocol = MountedVolumeService()
     /// Lazily-created event tap that swallows App Exposé / context-menu
     /// triggers (smartMagnify, synthesized clicks) while gestures or
@@ -138,7 +145,11 @@ final class ShortcutViewModel {
     }
 
     var isDockActionsOutsideMCEnabled: Bool {
-        get { config.isDockActionsOutsideMCEnabled } set { config.isDockActionsOutsideMCEnabled = newValue }
+        get { config.isDockActionsOutsideMCEnabled }
+        set {
+            config.isDockActionsOutsideMCEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     var isTitleBarActionsOutsideMCEnabled: Bool {
@@ -146,7 +157,11 @@ final class ShortcutViewModel {
     }
 
     var isGesturesEnabled: Bool {
-        get { config.isGesturesEnabled } set { config.isGesturesEnabled = newValue }
+        get { config.isGesturesEnabled }
+        set {
+            config.isGesturesEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     var isPinchInEnabled: Bool {
@@ -189,6 +204,11 @@ final class ShortcutViewModel {
         get { config.isCursorFeedbackEnabled } set { config.isCursorFeedbackEnabled = newValue }
     }
 
+    var isOptimizedAnimationModeEnabled: Bool {
+        get { config.isOptimizedAnimationModeEnabled }
+        set { config.isOptimizedAnimationModeEnabled = newValue }
+    }
+
     /// Gesture action mappings
     func gestureAction(for kind: GestureKind, isCmd: Bool) -> GestureAction {
         config.action(for: kind, isCmd: isCmd)
@@ -208,7 +228,10 @@ final class ShortcutViewModel {
 
     var isHoverCloseButtonEnabled: Bool {
         get { hoverService.isEnabled }
-        set { hoverService.isEnabled = newValue }
+        set {
+            hoverService.isEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     /// Prevents gestures from firing right after Mission Control opens via 3-finger swipe.
@@ -497,12 +520,63 @@ final class ShortcutViewModel {
         return app
     }
 
+    // MARK: - Service Lifecycle Gating
+
+    /// `true` when any feature that consumes trackpad frames is enabled.
+    /// When `false`, `MultitouchService` is not started — avoiding dlopen
+    /// of MultitouchSupport.framework and its 60-120 Hz frame stream.
+    private var needsMultitouch: Bool {
+        config.isGesturesEnabled
+    }
+
+    /// `true` when the dock interaction suppressor should be active.
+    private var needsDockSuppressor: Bool {
+        config.isGesturesEnabled && config.isDockActionsOutsideMCEnabled
+    }
+
+    /// Starts or stops heavyweight services in response to toggle changes.
+    /// Each service's `start()`/`stop()` is idempotent — safe to call when
+    /// already in the desired state.
+    private func syncServiceLifecycles() {
+        if needsMultitouch {
+            multitouchService.start()
+        } else {
+            multitouchService.stop()
+            gestureEngine.reset()
+        }
+
+        if needsDockSuppressor {
+            dockSuppressor.start()
+        } else {
+            dockSuppressor.stop()
+        }
+
+        if isHoverCloseButtonEnabled {
+            hoverService.start()
+        } else {
+            hoverService.stop()
+        }
+    }
+
     func start() {
         eventTapService.start()
         missionControlService.start()
-        multitouchService.start()
-        hoverService.start()
-        dockSuppressor.start()
+
+        // Only spin up services whose features are actually enabled.
+        // This avoids dlopen-ing MultitouchSupport.framework (~60-120 Hz
+        // frame stream), creating the hover-close event tap + overlay
+        // NSPanel, and installing the dock suppressor tap when none of
+        // their toggles are on. Each service is started/stopped on
+        // toggle change via syncServiceLifecycles().
+        if needsMultitouch {
+            multitouchService.start()
+        }
+        if needsDockSuppressor {
+            dockSuppressor.start()
+        }
+        if isHoverCloseButtonEnabled {
+            hoverService.start()
+        }
     }
 
     func stop() {

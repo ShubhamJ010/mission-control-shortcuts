@@ -73,6 +73,7 @@ final class MultitouchService {
 
     private func beginListening() {
         let bridge = MultitouchBridge.shared
+        bridge.ensureLoaded()
         guard bridge.isLoaded else {
             AppLogger.multitouch.error("Cannot start, MultitouchBridge is not loaded")
             return
@@ -113,12 +114,13 @@ final class MultitouchService {
             bridge.unregisterContactFrameCallback?(device, multitouchCallback)
         }
 
-        // Delay stop to avoid crash in framework's internal thread
+        // Delay stop to avoid crash in framework's internal thread, then unload framework
         let devicesToStop = devices
         let work = DispatchWorkItem {
             for device in devicesToStop {
                 MultitouchBridge.shared.deviceStop?(device)
             }
+            MultitouchBridge.shared.unloadFramework()
         }
         pendingStop = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)

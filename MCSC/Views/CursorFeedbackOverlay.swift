@@ -44,6 +44,8 @@ final class CursorFeedbackOverlay {
     private var imageView: NSImageView?
     private var dismissWork: DispatchWorkItem?
 
+    private let strategy: OverlayAnimationStrategy
+
     /// Cache of rendered feedback symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once per process and reused across
     /// triggers.
@@ -77,8 +79,10 @@ final class CursorFeedbackOverlay {
         )
     }
 
-    init() {
-        setupPanel()
+    init(strategy: OverlayAnimationStrategy) {
+        self.strategy = strategy
+        // Panel creation is deferred to the first show() call so no
+        // NSPanel (and its layer tree) is allocated until feedback is displayed.
     }
 
     private func setupPanel() {
@@ -95,7 +99,7 @@ final class CursorFeedbackOverlay {
         panel.hasShadow = false
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.alphaValue = 0.0
 
@@ -106,6 +110,8 @@ final class CursorFeedbackOverlay {
         imageView.layer?.shadowOpacity = 1.0
         imageView.layer?.shadowOffset = CGSize(width: 0, height: -1.5)
         imageView.layer?.shadowRadius = 4.5
+        let circleRect = CGRect(x: 3, y: 3, width: 28, height: 28)
+        imageView.layer?.shadowPath = CGPath(ellipseIn: circleRect, transform: nil)
         imageView.image = image(for: .close)
 
         panel.contentView = imageView
@@ -118,7 +124,10 @@ final class CursorFeedbackOverlay {
     /// display window reset the auto-dismiss timer so the symbol persists a
     /// full beat from the most recent action.
     func show(at point: CGPoint, mode: Mode) {
-        guard let panel else { return }
+        if panel == nil {
+            setupPanel()
+        }
+        guard let panel, let imageView else { return }
 
         // Cancel any pending dismissal so repeated triggers reset the timer.
         dismissWork?.cancel()
@@ -126,123 +135,14 @@ final class CursorFeedbackOverlay {
 
         panel.setFrameOrigin(Self.cocoaAnchorPoint(for: point, panelSize: panel.frame.size))
 
-        // Clear any in-flight symbol effect (e.g. a previous disappear retract)
-        // before swapping to the new symbol.
-        if #available(macOS 14.0, *) {
-            imageView?.removeAllSymbolEffects(animated: false)
-        }
+        guard let feedbackImage = image(for: mode) else { return }
 
-        let feedbackImage = image(for: mode)
-
-        // Modes with a replacement transition first paint a stable base symbol
-        // (an empty rectangle for the resize modes), so the morph below always
-        // starts from a clean silhouette instead of whatever symbol previously
-        // occupied the overlay.
-        let baseImage = mode.baseSymbol.flatMap {
-            SymbolImageFactory.make(
-                symbolName: $0,
-                description: mode.accessibilityDescription,
-                paletteColors: mode.basePaletteColors ?? mode.paletteColors
-            )
-        }
-
-        // Set opacity synchronously instead of via an `animator()` fade-in.
-        // The close/minimize action invoked right after this blocks the main
-        // thread with synchronous AX calls, starving any run-loop animation —
-        // a fade-in would only play *after* the action completes, making the
-        // symbol flicker in and immediately out. Instant alpha guarantees the
-        // symbol is visible from the exact moment the shortcut/gesture fires.
         if !panel.isVisible {
             panel.orderFrontRegardless()
         }
         panel.alphaValue = 1.0
-        imageView?.image = baseImage ?? feedbackImage
-        // Commit the base symbol synchronously so the replacement transition
-        // below morphs from it rather than from stale pixels. The close/minimize
-        // action invoked right after this blocks the main thread with synchronous
-        // AX calls; if the layer commit waits for the next run loop turn, the
-        // symbol's backing store is only uploaded after the action completes —
-        // right before the auto-dismiss fires — which reads as a flicker
-        // ("appears and vanishes").
-        CATransaction.flush()
 
-        // Symbol swap: plain assignment, or a "replace" content transition for
-        // modes that request one (almost / reasonable / maximize morph from the
-        // painted base symbol). `setSymbolImage` needs a live SF Symbol image,
-        // which the cache always provides.
-        if let replace = mode.replaceTransition, let feedbackImage {
-            switch replace {
-            case .magicReveal:
-                if #available(macOS 26.0, *) {
-                    imageView?.setSymbolImage(
-                        feedbackImage,
-                        contentTransition: .replace.magic(fallback: .upUp.byLayer),
-                        options: .nonRepeating
-                    )
-                } else {
-                    // Pre-macOS-26 equivalent of `fallback: .upUp.byLayer`.
-                    imageView?.setSymbolImage(
-                        feedbackImage,
-                        contentTransition: .replace.upUp.byLayer,
-                        options: .nonRepeating
-                    )
-                }
-            case .magicDownUpReveal:
-                if #available(macOS 26.0, *) {
-                    imageView?.setSymbolImage(
-                        feedbackImage,
-                        contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
-                        options: .nonRepeating
-                    )
-                } else {
-                    // Pre-macOS-26 equivalent of `fallback: .downUp.wholeSymbol`.
-                    imageView?.setSymbolImage(
-                        feedbackImage,
-                        contentTransition: .replace.downUp.wholeSymbol,
-                        options: .nonRepeating
-                    )
-                }
-            case .downUpReveal:
-                imageView?.setSymbolImage(
-                    feedbackImage,
-                    contentTransition: .replace.downUp.byLayer,
-                    options: .nonRepeating
-                )
-            case .replace:
-                imageView?.setSymbolImage(feedbackImage, contentTransition: .replace, options: .nonRepeating)
-            }
-        }
-
-        // Play the mode's entry animation (bounce for close/quit, wiggle for
-        // the tab modes) now that the panel is composited. Effects were
-        // cleared above so repeated triggers start clean from the base layer.
-        // Close and quit additionally run a hover-style scale + alpha animation
-        // applied below, on top of their bounce.
-        if #available(macOS 14.0, *), let animation = mode.entryAnimation {
-            switch animation {
-            case .bounceUpByLayer:
-                imageView?.addSymbolEffect(.bounce.up.byLayer, options: .nonRepeating)
-            case .wiggleByLayer:
-                imageView?.addSymbolEffect(.wiggle.byLayer, options: .nonRepeating)
-            }
-        }
-
-        // Hover-style scale + alpha animation for close, quit, eject and fullscreen.
-        // A gentler 1.03× (vs the hover button's 1.08×): the flash panel is only
-        // symbol-sized, so a larger scale clips the glyph at the panel bounds.
-        // Reset first so repeated triggers start from a clean layer, then start
-        // from 0.97 alpha and animate up to full scale + opacity.
-        if mode == .close || mode == .quit || mode == .eject || mode == .fullscreen, let imageView {
-            imageView.layer?.transform = CATransform3DIdentity
-            imageView.alphaValue = 0.97
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                context.allowsImplicitAnimation = true
-                imageView.animator().alphaValue = 1.0
-                imageView.layer?.transform = CATransform3DMakeScale(1.03, 1.03, 1.0)
-            }
-        }
+        strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
 
         scheduleDismiss()
     }
@@ -253,6 +153,11 @@ final class CursorFeedbackOverlay {
         dismissWork = nil
         panel?.orderOut(nil)
         panel?.alphaValue = 0.0
+        imageView?.layer?.transform = CATransform3DIdentity
+        imageView?.layer?.removeAllAnimations()
+        if #available(macOS 14.0, *) {
+            imageView?.removeAllSymbolEffects(animated: false)
+        }
     }
 
     private func scheduleDismiss() {
@@ -267,30 +172,10 @@ final class CursorFeedbackOverlay {
         )
     }
 
-    /// Animates the symbol away: plays the `disappear` symbol effect so each
-    /// symbol layer vanishes sequentially, while the whole panel fades out
-    /// concurrently so no empty "disappear ghost" frame lingers.
-    /// `addSymbolEffect` exposes no completion callback, so the panel is
-    /// dismissed by the fade's completion handler.
+    /// Fades the panel to zero over `retractDuration` and dismisses it via strategy.
     private func retract(panel: NSPanel, imageView: NSImageView) {
-        if #available(macOS 14.0, *) {
-            imageView.addSymbolEffect(.disappear.byLayer, options: .nonRepeating)
-        }
-        fadeOut(panel: panel, imageView: imageView, duration: retractDuration)
-    }
-
-    /// Fades the panel to zero over `duration` and dismisses it. The symbol
-    /// effect is safely cleaned up once the fade completes.
-    private func fadeOut(panel: NSPanel, imageView: NSImageView, duration: TimeInterval) {
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = duration
-            panel.animator().alphaValue = 0.0
-        } completionHandler: {
-            // Only fully dismiss if no newer trigger bumped alpha back up.
-            if panel.alphaValue == 0.0 {
-                panel.orderOut(nil)
-                imageView.removeAllSymbolEffects()
-            }
+        strategy.performRetract(panel: panel, imageView: imageView, duration: retractDuration) {
+            // Dismissal and cleanup finished
         }
     }
 

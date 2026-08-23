@@ -159,10 +159,14 @@ final class SettingsWindowController: NSWindowController {
         fatalError()
     }
 
+    /// Callback invoked when the window is closing to allow releasing controller and views.
+    var onWindowWillClose: (() -> Void)?
+
     private func initialWindowSetup() {
         shouldCascadeWindows = false
         windowFrameAutosaveName = Keys.lastWindowFrame
         window?.styleMask = [.titled, .closable]
+        window?.delegate = self
     }
 
     override func showWindow(_ sender: Any?) {
@@ -218,5 +222,11 @@ final class SettingsWindowController: NSWindowController {
         tabViewController?.panes.forEach { ($0 as? MCSCSettingsPane)?.refresh() }
         showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+}
+
+extension SettingsWindowController: NSWindowDelegate {
+    func windowWillClose(_: Notification) {
+        onWindowWillClose?()
     }
 }

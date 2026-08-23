@@ -58,8 +58,14 @@ final class PreviewCloseButtonOverlay {
     private(set) var isVisible = false
     private var currentAnchorOrigin: CGPoint = .zero
 
-    init() {
-        setupPanel()
+    /// When `true`, uses zero-overhead CoreAnimation effects. When `false`, uses native Apple Symbol Effects.
+    let isOptimized: Bool
+
+    init(isOptimized: Bool = true) {
+        self.isOptimized = isOptimized
+        // Panel creation is deferred to the first show() call so no
+        // layer-backed NSPanel (and its GPU/IOSurface buffers) exists
+        // until the feature is actually used.
     }
 
     private func setupPanel() {
@@ -76,10 +82,11 @@ final class PreviewCloseButtonOverlay {
         panel.hasShadow = false
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
         let button = CloseButtonView(frame: contentRect)
+        button.isOptimized = isOptimized
 
         panel.contentView = button
         self.buttonView = button
@@ -88,6 +95,11 @@ final class PreviewCloseButtonOverlay {
 
     /// Positions and displays the close button overlay centered directly over the top-left corner (x, y) of the window.
     func show(at windowBounds: CGRect, mode: Mode = .close) {
+        // Lazily create the panel on first use so no GPU-backed layer
+        // tree exists until the feature is actually triggered.
+        if panel == nil {
+            setupPanel()
+        }
         guard let panel else { return }
 
         let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin)
@@ -109,8 +121,14 @@ final class PreviewCloseButtonOverlay {
         if !isVisible {
             panel.orderFrontRegardless()
             isVisible = true
-            buttonView?.triggerAppearEffect()
-        } else if isNewOrigin {
+            if isOptimized {
+                if let layer = buttonView?.layer {
+                    OverlayAnimationFactory.applyEntryAnimation(style: .bouncePop, on: layer)
+                }
+            } else {
+                buttonView?.triggerAppearEffect()
+            }
+        } else if isNewOrigin && !isOptimized {
             buttonView?.triggerAppearEffect()
         }
     }
@@ -142,6 +160,7 @@ final class CloseButtonView: NSView {
     private let imageView = NSImageView()
     private(set) var isHovered = false
     private(set) var currentMode: PreviewCloseButtonOverlay.Mode = .close
+    var isOptimized: Bool = true
 
     /// Cache of rendered action symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once and reused across hovers.
@@ -188,6 +207,10 @@ final class CloseButtonView: NSView {
         layer.shadowOpacity = 1.0
         layer.shadowOffset = CGSize(width: 0, height: -1.5)
         layer.shadowRadius = 4.5
+        // Explicit shadow path prevents CoreAnimation from performing an expensive
+        // offscreen pass and allocating separate GPU render targets for dynamic shadow.
+        let circleRect = CGRect(x: 2, y: 2, width: 28, height: 28)
+        layer.shadowPath = CGPath(ellipseIn: circleRect, transform: nil)
     }
 
     private func setupImageView() {
@@ -206,46 +229,68 @@ final class CloseButtonView: NSView {
         ])
     }
 
-    func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool) {
+    func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool = false) {
         guard mode != currentMode else { return }
         currentMode = mode
-
         guard let image = image(for: mode) else { return }
 
-        if animated, #available(macOS 14.0, *) {
-            imageView.setSymbolImage(
-                image,
-                contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
-                options: .nonRepeating
-            )
+        if animated {
+            if isOptimized {
+                if let layer = imageView.layer {
+                    OverlayAnimationFactory.applyMorphTransition(on: layer)
+                }
+                imageView.image = image
+            } else if #available(macOS 14.0, *) {
+                imageView.setSymbolImage(
+                    image,
+                    contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
+                    options: .nonRepeating
+                )
+            } else {
+                imageView.image = image
+            }
         } else {
             imageView.image = image
         }
     }
 
-    /// Plays the `.appear.byLayer` symbol effect on the image.
+    /// Plays the `.appear.byLayer` symbol effect on the image when native symbol effects are active.
     func triggerAppearEffect() {
         if #available(macOS 14.0, *) {
             imageView.addSymbolEffect(.appear.byLayer, options: .nonRepeating)
         }
     }
 
+    /// Cleans up symbol effects and image cache.
+    func reset() {
+        if #available(macOS 14.0, *) {
+            imageView.removeAllSymbolEffects(animated: false)
+        }
+        imageView.layer?.removeAllAnimations()
+        layer?.removeAllAnimations()
+        imageCache.removeAll()
+    }
+
     // MARK: - Hover State (driven by MissionControlHoverService event tap)
 
     /// Scales the button up while the cursor is over it and back to resting
-    /// size when it leaves. Called from the service's global mouse-move tap —
-    /// AppKit tracking areas don't deliver enter/exit while this app is
-    /// inactive behind Mission Control.
+    /// size when it leaves.
     func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
 
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            context.allowsImplicitAnimation = true
-            self.animator().alphaValue = hovered ? 1.0 : 0.97
-            self.layer?.transform = hovered ? CATransform3DMakeScale(1.08, 1.08, 1.0) : CATransform3DIdentity
+        if isOptimized {
+            if let layer = self.layer {
+                OverlayAnimationFactory.applyHoverScale(on: layer, hovered: hovered)
+            }
+        } else {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.15
+                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                context.allowsImplicitAnimation = true
+                self.animator().alphaValue = hovered ? 1.0 : 0.97
+                self.layer?.transform = hovered ? CATransform3DMakeScale(1.08, 1.08, 1.0) : CATransform3DIdentity
+            }
         }
     }
 }
