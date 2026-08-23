@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1-beta (24 Aug 2026)
+
+- **Gesture Settings Pane Rows Implemented**: The Gestures settings pane now renders a real row for every `GestureKind` instead of an empty stub — each row contains the primary-action popup (populated with that gesture's natural actions only), an enable `NSSwitch` accessory, and a stacked ⌘-variant action popup underneath, all wired to the existing `actionChanged` / `cmdActionChanged` / `toggleGestureEnabled` handlers and persisted via `mcsc.gestures.actions`.
+- **Settings Pane Regression Suite**: New `Tests/SettingsPaneTests.swift` loads every settings pane for real and asserts the resulting AppKit control hierarchy (row counts per gesture kind, kind coverage/order, popup contents, switch wiring) by reading production state through `Mirror` reflection — no test-only hooks. This guards against the bug class introduced in e5375d2, where the pane compiled and tests passed while the Gestures UI silently rendered without rows.
+- **Lint Hardening**: Settings pane test suite brought fully under SwiftLint + SwiftFormat CI gates (0 violations).
+
 ## 0.6.0-beta (24 Aug 2026)
 
 - **Desktop-Switch Overlay Flash Fix**: Switching desktops (Ctrl+←/→ or three-finger swipe) no longer flashes the Mission Control hover close button or flips the app into a false "Mission Control active" state. The `activeSpaceDidChangeNotification` handler in `MissionControlHoverService` now recomputes the overlay only while Mission Control is actually open (`handleSpaceChange(at:)`), instead of unconditionally showing it over whatever window sat under the cursor for one frame.
