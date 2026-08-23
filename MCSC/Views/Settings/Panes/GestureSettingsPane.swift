@@ -76,7 +76,76 @@ final class GestureSettingsPane: MCSCSettingsPane {
 
     /// Builds one gesture row: primary-action popup + enable switch accessory,
     /// then the Cmd-variant popup stacked underneath.
-    private func makeGestureRow(for _: GestureKind, index _: Int, on _: SettingsLayoutView) {}
+    private func makeGestureRow(for kind: GestureKind, index: Int, on layoutView: SettingsLayoutView) {
+        let isFirst = (index == 0)
+        let section = layoutView.addColumnSection(label: kind.displayName,
+                                                  itemColumnMaximumWidth: isFirst ? Self
+                                                      .itemColumnMaximumWidth : nil,
+                                                  identifier: .init(kind.rawValue))
+
+        // Primary action — only natural actions for this gesture kind
+        let popup = section.addPopUpButton(
+            controlSize: .regular,
+            target: self,
+            action: #selector(actionChanged(_:))
+        )
+        for action in kind.naturalActions {
+            popup.addItem(withTitle: action.menuTitle)
+            popup.lastItem?.representedObject = action.rawValue
+        }
+        popup.tag = index
+
+        // Toggle switch
+        let toggle = NSSwitch()
+        toggle.target = self
+        toggle.action = #selector(toggleGestureEnabled(_:))
+        toggle.controlSize = .regular
+        toggle.tag = index
+        section.addAccessoryView(toggle, to: popup, spacing: 12)
+
+        let gapView = NSView(frame: .zero)
+        gapView.translatesAutoresizingMaskIntoConstraints = false
+        gapView.heightAnchor.constraint(equalToConstant: 4).isActive = true
+        section.addCustomView(gapView, verticalAlignment: .centerY)
+        gapView.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        gapView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+        // ⌘ variant — second stacked item, regular size
+        let cmdRow = NSStackView()
+        cmdRow.orientation = .horizontal
+        cmdRow.spacing = 6
+        cmdRow.alignment = .centerY
+
+        let cmdLabel = NSTextField(labelWithString: "⌘")
+        cmdLabel.font = .systemFont(ofSize: 18, weight: .semibold)
+        cmdLabel.textColor = .secondaryLabelColor
+        cmdLabel.setContentHuggingPriority(.required, for: .horizontal)
+
+        let cmdPopup = NSPopUpButton(frame: .zero, pullsDown: false)
+        cmdPopup.controlSize = .regular
+        SettingsSectionView.applyControlSize(.regular, to: cmdPopup)
+        cmdPopup.target = self
+        cmdPopup.action = #selector(cmdActionChanged(_:))
+        cmdPopup.tag = index
+        for action in kind.naturalActions {
+            cmdPopup.addItem(withTitle: action.menuTitle)
+            cmdPopup.lastItem?.representedObject = action.rawValue
+        }
+
+        cmdRow.addArrangedSubview(cmdLabel)
+        cmdRow.addArrangedSubview(cmdPopup)
+        cmdPopup.setContentHuggingPriority(.defaultHigh, for: .horizontal)
+
+        section.addCustomView(cmdRow, verticalAlignment: .centerY)
+
+        gestureRows.append(GestureRow(
+            kind: kind,
+            section: section,
+            actionPopup: popup,
+            cmdActionPopup: cmdPopup,
+            enableSwitch: toggle
+        ))
+    }
 
     override func refresh() {
         gesturesToggleCheckbox?.state = viewModel.isGesturesEnabled ? .on : .off

@@ -14,6 +14,7 @@ swiftc \
   -framework Cocoa \
   -framework ApplicationServices \
   -framework Symbols \
+  -framework ServiceManagement \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
   -o "${SCRIPT_DIR}/bin_test_runner" \
@@ -30,6 +31,8 @@ swiftc \
   "${ROOT_DIR}/MCSC/Utilities/Timer+ScheduledCommon.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MCKeyboardTapService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlService.swift" \
+  "${ROOT_DIR}/MCSC/Services/EventTap/EventTapService.swift" \
+  "${ROOT_DIR}/MCSC/Services/LaunchAtLogin/LaunchAtLoginService.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSelectionEngine.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSearchSession.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActivationAction.swift" \
@@ -66,6 +69,20 @@ swiftc \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/ActionRegistry.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/ShortcutActionRouter.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/GestureActionRouter.swift" \
+  "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel.swift" \
+  "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+TargetResolution.swift" \
+  "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+Lifecycle.swift" \
+  "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+EventHandlers.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsLayout.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsLayoutView.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsColumnSectionView.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsPaneViewController.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsTabViewController.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/SettingsWindowController.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/MCSCSettingsPanes.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/GeneralSettingsPane.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/ShortcutSettingsPane.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/GestureSettingsPane.swift" \
   "${SCRIPT_DIR}/Mocks/MockAccessibilityService.swift" \
   "${SCRIPT_DIR}/PinchInRecognizerTests.swift" \
   "${SCRIPT_DIR}/CmdSwipeActionsTests.swift" \
@@ -80,6 +97,7 @@ swiftc \
   "${SCRIPT_DIR}/DockInteractionSuppressorTests.swift" \
   "${SCRIPT_DIR}/PerformanceTests.swift" \
   "${SCRIPT_DIR}/OverlayAnimationStrategyTests.swift" \
+  "${SCRIPT_DIR}/SettingsPaneTests.swift" \
   "${SCRIPT_DIR}/TestRunner.swift"
 
 trap 'rm -f "${SCRIPT_DIR}/bin_test_runner"' EXIT
