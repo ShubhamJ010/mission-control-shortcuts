@@ -16,6 +16,9 @@ struct TestRunner {
             RouterTests.defaultTestSuite,
             DesktopNavigationActionTests.defaultTestSuite,
             ShortcutConfigurationTests.defaultTestSuite,
+            DockInteractionSuppressorTests.defaultTestSuite,
+            PerformanceTests.defaultTestSuite,
+            OverlayAnimationStrategyTests.defaultTestSuite
         ]
 
         var totalFailed = 0

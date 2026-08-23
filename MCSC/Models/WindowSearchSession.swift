@@ -62,7 +62,10 @@ struct WindowSearchSession {
         flags: CGEventFlags,
         windows: [[String: Any]]
     ) -> Effect {
-        guard flags.intersection(Self.blockedModifiers).isEmpty else { return .ignore }
+        // Raw-value mask instead of `intersection(...).isEmpty`: this runs on
+        // every keystroke of the HID tap and CGEventFlags (OptionSet) has no
+        // allocation-free `isDisjoint(with:)`.
+        guard flags.rawValue & Self.blockedModifiers.rawValue == 0 else { return .ignore }
 
         switch keyCode {
         case KeyCode.return, KeyCode.keypadEnter:

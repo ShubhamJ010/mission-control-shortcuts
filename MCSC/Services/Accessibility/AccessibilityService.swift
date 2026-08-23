@@ -72,6 +72,13 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     private var cachedDockElement: AXUIElement?
     private var cachedDockPID: pid_t = 0
 
+    /// Cached frontmost-application element for `isFrontmostWindow`, keyed by
+    /// pid. The title-bar hover path calls `isFrontmostWindow` up to 30×/s per
+    /// gesture frame; without the cache each call allocated a fresh
+    /// `AXUIElementCreateApplication`. The pid check invalidates on app switch.
+    private var cachedFrontmostAppElement: AXUIElement?
+    private var cachedFrontmostAppPID: pid_t = 0
+
     /// Cached bounding frame of the Dock's icon list. Refreshed lazily and on
     /// screen-configuration changes to avoid per-frame AX queries.
     private var cachedDockFrame: CGRect?
@@ -151,7 +158,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let result = AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &window)
 
         if result == .success, let window, CFGetTypeID(window) == AXUIElementGetTypeID() {
-            return (window as! AXUIElement)
+            // TypeID verified above; `as?` cannot check CF types.
+            return unsafeDowncast(window, to: AXUIElement.self)
         }
 
         // If the element itself is a window
@@ -201,7 +209,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                   let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {
                 return nil
             }
-            current = (parent as! AXUIElement)
+            // TypeID verified above; `as?` cannot check CF types.
+            current = unsafeDowncast(parent, to: AXUIElement.self)
             depth += 1
         }
         return nil
@@ -239,13 +248,12 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         // whose Dock AXTitle differed from localizedName.
         guard let title: String = getAttributeValue(kAXTitleAttribute, for: dockItem) else {
             if dockDiagnosticsEnabled {
-                let role: String? = getAttributeValue(kAXRoleAttribute, for: dockItem)
-                let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: dockItem)
-                let url: NSURL? = getAttributeValue(kAXURLAttribute, for: dockItem)
+                let role = getAttributeValue(kAXRoleAttribute, for: dockItem) ?? "?"
+                let subrole = getAttributeValue(kAXSubroleAttribute, for: dockItem) ?? "?"
+                let url = (getAttributeValue(kAXURLAttribute, for: dockItem) as NSURL?)?.absoluteString ?? "nil"
+                let message = "\(role), \(subrole), \(url)"
                 AppLogger.dock
-                    .debug(
-                        "AXURL match failed; AXTitle missing — role='\(role ?? "?", privacy: .public)' subrole='\(subrole ?? "?", privacy: .public)' AXURL=\(url?.absoluteString ?? "nil", privacy: .public)"
-                    )
+                    .debug("AXURL match failed; AXTitle missing — \(message, privacy: .public)")
             }
             return nil
         }
@@ -367,8 +375,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         }
         var point = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(posVal as! AXValue, .cgPoint, &point),
-              AXValueGetValue(sizeVal as! AXValue, .cgSize, &size) else {
+        // TypeIDs verified above; `as?` cannot check CF types.
+        guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+              AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
             return nil
         }
         return CGRect(origin: point, size: size)
@@ -469,10 +478,16 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// `true` when `window` is the focused window of the frontmost application.
     /// Two cheap AX reads (app element + focused-window attribute); only called
     /// when the title-bar feature is enabled and Mission Control is closed.
+    /// The application element is cached per pid — `AXUIElementCreateApplication`
+    /// on every gesture frame was measurable allocator churn.
     func isFrontmostWindow(_ window: AXUIElement) -> Bool {
         guard let frontApp = NSWorkspace.shared.frontmostApplication else { return false }
-        let appElement = AXUIElementCreateApplication(frontApp.processIdentifier)
-        guard let focusedWindow: AXUIElement = getAttributeValue(kAXFocusedWindowAttribute, for: appElement) else {
+        if cachedFrontmostAppElement == nil || cachedFrontmostAppPID != frontApp.processIdentifier {
+            cachedFrontmostAppElement = AXUIElementCreateApplication(frontApp.processIdentifier)
+            cachedFrontmostAppPID = frontApp.processIdentifier
+        }
+        guard let appElement = cachedFrontmostAppElement,
+              let focusedWindow: AXUIElement = getAttributeValue(kAXFocusedWindowAttribute, for: appElement) else {
             return false
         }
         return CFEqual(focusedWindow, window)

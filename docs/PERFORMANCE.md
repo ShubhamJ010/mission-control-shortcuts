@@ -38,6 +38,9 @@ MCSC avoids the usual sources of bloat in macOS utilities:
   window-list refresh, which runs at most every 0.5 seconds and only while
   Mission Control is open.
 - **Cached + coalesced detection (350 ms).** `MissionControlService.swift:48` `detectionCacheInterval` is `0.35 s` (was 0.2 s) with `isDetecting` coalescing, so concurrent `CGEvent` tap + `MultitouchService` misses on the same runloop turn share one `CGWindowListCopyWindowInfo` IPC (`mach_msg2_trap`). Both HID paths are throttled to **30 Hz** (`ShortcutViewModel.swift:212`, `MissionControlHoverService.swift:410` — ~33 ms, `CACurrentMediaTime` gate) so 60-120 Hz trackpad/mouseMoved frames do not each hit the WindowServer. Together this cut `SLWindowListCopyWindowInfo` from ~38 to 7-9 calls per 5 s sample (75% reduction) with <33 ms gesture latency.
+- **Keystroke pre-filter (2026-08-22 audit).** `ShortcutActionRouter.isShortcutCandidate` (`ShortcutActionRouter.swift`) runs before any AX work in `ShortcutViewModel.setupCallbacks`: plain typing (no Cmd) and untracked key codes return immediately, so everyday typing in any app performs **zero** MCSC AX IPC. Previously every keyDown paid an `AXUIElementCopyElementAtPosition` hit-test plus title-bar/frontmost reads before the router discarded it.
+- **Pre-thread-hop frame gate (2026-08-22 audit).** `MultitouchFrameGate` (`MultitouchService.swift`) throttles non-empty trackpad frames to 30 Hz inside the framework's C callback, before the array + closure allocation and `DispatchQueue.main.async` hop. Removes ~60-90 main-queue wakeups/s during any trackpad contact. Empty frames bypass the gate so recognizers see finger-lift immediately.
+- **Cached frontmost-app element (2026-08-22 audit).** `AccessibilityService.isFrontmostWindow` caches its `AXUIElementCreateApplication` result keyed by pid (title-bar hover path ran it up to 30×/s).
 - **Lightweight action structs.** Window-management operations are `struct`s
   with no heap allocation and no long-lived state, so a single shared instance
   per action is reused for the app's lifetime.
@@ -73,7 +76,63 @@ while Mission Control is closed (the quiet baseline) and again during active use
 (gestures over previews) to capture both extremes. A regression past the 13 MB
 ceiling means the change needs redesign before merge.
 
+### Regression guard: budget tests (2026-08-22 audit)
+
+`Tests/PerformanceTests.swift` locks the hot paths behind wall-clock budgets
+(generous enough for any machine, tight enough to fail on an order-of-magnitude
+regression). Run via `./Tests/run_tests.sh`:
+
+| Test | Guards |
+| --- | --- |
+| `testFrameGateThrottles120HzStreamTo30Hz` | Pre-hop 30 Hz cap holds; gestures still get ≥20 forwards/s |
+| `testFrameGatePassesSlowFramesUnthrottled` | Gate coalesces, never delays slow frames; first frame always passes |
+| `testFrameGateIsSafeUnderConcurrentCalls` | Lock-protected gate under 8 concurrent threads respects the cap |
+| `testFrameGateThroughput` | 100k gate checks < 0.5 s (callback-side cost ~ns) |
+| `testShortcutCandidateRejectsPlainTypingAndUntrackedKeys` | Whitelist matches router contract, incl. every `kKey*` constant |
+| `testShortcutCandidateFilterThroughput` | 100k filter calls < 0.25 s (runs on every system keyDown) |
+| `testDetectionCacheShortCircuitsRepeatedChecks` | 10k cached MC checks < 0.2 s — cache actually short-circuits WindowServer IPC |
+| `testFuzzyMatchThroughputOnRealisticWindowList` | 5k fuzzy matches over 60 windows < 2 s (per-keystroke cost in Exposé) |
+| `testRowMajorSortThroughputOnRealisticWindowList` | 5k row-major sorts over 60 windows < 2 s (Tab-cycle cost) |
+
+### Audit findings fixed (2026-08-22, branch `perf/audit-fixes`)
+
+1. **AX IPC on every keystroke** (`ShortcutViewModel`) — resolved by the keystroke pre-filter above. Hottest path in the app: previously 1-3 AX round-trips per typed character system-wide.
+2. **Main-queue churn at trackpad rate** (`MultitouchService.multitouchCallback`) — resolved by `MultitouchFrameGate`; throttle now happens before the allocation + thread hop instead of after.
+3. **Per-call `AXUIElementCreateApplication`** (`AccessibilityService.isFrontmostWindow`) — pid-keyed cache.
+4. **Zombie poll on dealloc without `stop()`** (`MissionControlHoverService.deinit`) — `windowFetchTimer` was never invalidated in `deinit`; a service dropped while Mission Control stayed open would keep fetching windows every 0.5 s forever.
+5. **Oversized window-list copy** (`MissionControlService.checkMissionControlActive`) — added `.excludeDesktopElements` so each detection miss copies fewer windows.
+
+Re-measured after the fixes with the same procedure as below; launch `footprint`
+and idle CPU are unchanged (the wins are IPC/allocation reductions on active
+paths), and `leaks` remains 0.
+
+**Deployed verification (`0.5.2-beta` perf build via `./deploy.sh`, 2026-08-22):**
+after granting Accessibility and two Mission Control open/close cycles,
+idle settles at **21-23 MB `phys_footprint` / 0.0% `ps` CPU**, peak 73 MB only
+during MC's own IOSurface compositing (36 MB of that reclaimable graphics
+memory). Idle `sample` shows **1 `SLWindowListCopyWindowInfo` per 5 s**
+(vs 7-9 pre-audit, ~38 in `0.5.0-beta`) thanks to the keystroke pre-filter +
+frame gate; heap 30k nodes / 4.8 MB; all threads parked in `mach_msg2_trap`
+at rest.
+
+**Mission Control open vs closed (same session, pid 66437):**
+
+| State | `phys_footprint` | `ps` CPU | Heap | vmmap DIRTY | Window-list IPC / 5 s |
+| --- | --- | --- | --- | --- | --- |
+| Mission Control **open** (no cursor motion) | 23 MB (session peak 73 MB) | 0.1% | 44k nodes / 5.8 MB | 10.9 MB | **3** |
+| Mission Control **closed**, settled idle | 23 MB | 0.0% | 43k nodes / 5.7 MB | 10.3 MB | **1** |
+
+Opening/closing Mission Control no longer produces a footprint step or CPU
+spike: dirty memory stays flat at ~10-11 MB (under the 13 MB ceiling), the
+heap grows by <0.2 MB with MC open (window list + overlay surfaces), and the
+only recurring IPC while MC is held open is the 0.5 s window poll — which
+coalesces to ~3 WindowServer round-trips per 5 s when the cursor is not
+moving. The 73 MB session peak is transient `IOSurface`/`IOAccelerator`
+graphics owned by MC compositing itself; 36 MB of it is marked reclaimable
+and returns on idle.
+
 ### Profiling the installed / running build
+
 
 Run against the release binary via `./deploy.sh` (`build/Build/Products/Release`), not a Debug Xcode run.
 

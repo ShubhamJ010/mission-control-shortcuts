@@ -549,17 +549,17 @@ final class RouterTests: XCTestCase {
 
     // MARK: - Title bar actions outside Mission Control
 
-    func testShortcutRouterExecutesTitleBarShortcutOutsideMCWhenEnabled() {
+    func testShortcutRouterExecutesTitleBarShortcutOutsideMCWhenEnabled() throws {
         var config = ShortcutConfiguration()
         config.isTitleBarActionsOutsideMCEnabled = true
 
-        let result = shortcutRouter.routeShortcut(
+        let result = try shortcutRouter.routeShortcut(
             keyCode: ShortcutActionRouter.kKeyW,
             flags: .maskCommand,
             location: CGPoint(x: 100, y: 100),
             config: config,
             isMissionControlActive: false,
-            target: .window(mockService.mockElement!),
+            target: .window(XCTUnwrap(mockService.mockElement)),
             service: mockService,
             isTitleBarHover: true,
             activateApp: { _ in }
@@ -573,17 +573,17 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    func testShortcutRouterIgnoresTitleBarShortcutOutsideMCWhenDisabled() {
+    func testShortcutRouterIgnoresTitleBarShortcutOutsideMCWhenDisabled() throws {
         var config = ShortcutConfiguration()
         config.isTitleBarActionsOutsideMCEnabled = false
 
-        let result = shortcutRouter.routeShortcut(
+        let result = try shortcutRouter.routeShortcut(
             keyCode: ShortcutActionRouter.kKeyW,
             flags: .maskCommand,
             location: CGPoint(x: 100, y: 100),
             config: config,
             isMissionControlActive: false,
-            target: .window(mockService.mockElement!),
+            target: .window(XCTUnwrap(mockService.mockElement)),
             service: mockService,
             isTitleBarHover: true,
             activateApp: { _ in }
@@ -597,17 +597,17 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    func testShortcutRouterIgnoresWindowTitleShortcutWithoutTitleBarHover() {
+    func testShortcutRouterIgnoresWindowTitleShortcutWithoutTitleBarHover() throws {
         var config = ShortcutConfiguration()
         config.isTitleBarActionsOutsideMCEnabled = true
 
-        let result = shortcutRouter.routeShortcut(
+        let result = try shortcutRouter.routeShortcut(
             keyCode: ShortcutActionRouter.kKeyW,
             flags: .maskCommand,
             location: CGPoint(x: 100, y: 100),
             config: config,
             isMissionControlActive: false,
-            target: .window(mockService.mockElement!),
+            target: .window(XCTUnwrap(mockService.mockElement)),
             service: mockService,
             isTitleBarHover: false,
             activateApp: { _ in }
@@ -639,7 +639,7 @@ final class RouterTests: XCTestCase {
             (.swipeUp(atNormalized: (0.5, 0.5)), .minimize),
             (.cmdSwipeUp(atNormalized: (0.5, 0.5)), .hide),
             (.twoFingerDoubleTap, .reasonable),
-            (.cmdTwoFingerDoubleTap, .almost),
+            (.cmdTwoFingerDoubleTap, .almost)
         ]
 
         for (gesture, expectedMode) in gesturesToExpectedModes {

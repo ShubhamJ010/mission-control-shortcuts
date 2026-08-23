@@ -13,6 +13,7 @@ swiftc \
   -framework XCTest \
   -framework Cocoa \
   -framework ApplicationServices \
+  -framework Symbols \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
   -o "${SCRIPT_DIR}/bin_test_runner" \
@@ -23,7 +24,12 @@ swiftc \
   "${ROOT_DIR}/MCSC/Services/Volume/MountedVolumeService.swift" \
   "${ROOT_DIR}/MCSC/Services/Haptics/HapticService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+Observers.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+InputTap.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+KeyboardSearch.swift" \
+  "${ROOT_DIR}/MCSC/Utilities/Timer+ScheduledCommon.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MCKeyboardTapService.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlService.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSelectionEngine.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSearchSession.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActivationAction.swift" \
@@ -31,6 +37,10 @@ swiftc \
   "${ROOT_DIR}/MCSC/Views/SearchBarOverlay.swift" \
   "${ROOT_DIR}/MCSC/Views/CursorFeedbackOverlay.swift" \
   "${ROOT_DIR}/MCSC/Views/CursorFeedbackMode.swift" \
+  "${ROOT_DIR}/MCSC/Views/OverlayAnimationFactory.swift" \
+  "${ROOT_DIR}/MCSC/Views/Strategies/OverlayAnimationStrategy.swift" \
+  "${ROOT_DIR}/MCSC/Views/Strategies/OptimizedOverlayAnimationStrategy.swift" \
+  "${ROOT_DIR}/MCSC/Views/Strategies/NativeSymbolEffectAnimationStrategy.swift" \
   "${ROOT_DIR}/MCSC/Utilities/Logger.swift" \
   "${ROOT_DIR}/MCSC/Utilities/ScreenGeometry.swift" \
   "${ROOT_DIR}/MCSC/Utilities/KeyboardEventPoster.swift" \
@@ -68,6 +78,8 @@ swiftc \
   "${SCRIPT_DIR}/ShortcutConfigurationTests.swift" \
   "${SCRIPT_DIR}/RouterTests.swift" \
   "${SCRIPT_DIR}/DockInteractionSuppressorTests.swift" \
+  "${SCRIPT_DIR}/PerformanceTests.swift" \
+  "${SCRIPT_DIR}/OverlayAnimationStrategyTests.swift" \
   "${SCRIPT_DIR}/TestRunner.swift"
 
 trap 'rm -f "${SCRIPT_DIR}/bin_test_runner"' EXIT

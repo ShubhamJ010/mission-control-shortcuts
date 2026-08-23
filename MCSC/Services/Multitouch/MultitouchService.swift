@@ -73,12 +73,16 @@ final class MultitouchService {
 
     private func beginListening() {
         let bridge = MultitouchBridge.shared
+        bridge.ensureLoaded()
         guard bridge.isLoaded else {
             AppLogger.multitouch.error("Cannot start, MultitouchBridge is not loaded")
             return
         }
 
         MultitouchService.shared = self
+        // Fresh gate per listening session: the framework's timestamp base can
+        // differ after wake, and a stale high-water mark would drop frames.
+        multitouchFrameGate.reset()
 
         guard let listRef = bridge.deviceCreateList?() else {
             AppLogger.multitouch.error("Failed to create device list")
@@ -110,12 +114,13 @@ final class MultitouchService {
             bridge.unregisterContactFrameCallback?(device, multitouchCallback)
         }
 
-        // Delay stop to avoid crash in framework's internal thread
+        // Delay stop to avoid crash in framework's internal thread, then unload framework
         let devicesToStop = devices
         let work = DispatchWorkItem {
             for device in devicesToStop {
                 MultitouchBridge.shared.deviceStop?(device)
             }
+            MultitouchBridge.shared.unloadFramework()
         }
         pendingStop = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05, execute: work)
@@ -132,6 +137,61 @@ final class MultitouchService {
 }
 
 // MARK: - C Callback (free function, bridges back to instance)
+
+/// Shared throttle gate for the framework's C callback. Process-global because
+/// the callback is a free function; reset whenever listening starts so a stale
+/// pre-sleep timestamp cannot drop fresh post-wake frames.
+let multitouchFrameGate = MultitouchFrameGate()
+
+/// Lock-protected timestamp gate used to throttle high-frequency trackpad
+/// frames *before* they cross to the main thread.
+///
+/// The MultitouchSupport framework fires its callback at 60-120 Hz on a
+/// framework thread. Previously every raw frame allocated an array + closure
+/// and hopped to the main queue, where a second 30 Hz throttle dropped most of
+/// them. Gating here removes ~60-90 main-queue wakeups and allocations per
+/// second during any trackpad contact. Frames with no active touches are
+/// always forwarded so gesture state machines see the end of a touch cycle
+/// promptly.
+///
+/// Thread-safety: the framework callback can run on arbitrary threads, so the
+/// last-forwarded timestamp is guarded by a lock. Internal (not private) so
+/// `PerformanceTests` can verify the rate-limit behavior directly.
+final class MultitouchFrameGate {
+    /// Matches the consumer-side throttle in `ShortcutViewModel` (30 Hz).
+    static let minimumInterval: Double = 1.0 / 30.0
+
+    private var lastForwardTime: Double = 0
+    private var hasAcceptedFrame = false
+    private let lock = NSLock()
+
+    /// Returns `true` when a non-empty frame at `timestamp` should be
+    /// forwarded; records the timestamp on acceptance.
+    func shouldForward(timestamp: Double) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        // Always accept the first frame of a session: the timestamp base is
+        // arbitrary (mach uptime), so comparing against the zero-initialized
+        // high-water mark could spuriously drop the opening frames.
+        guard hasAcceptedFrame else {
+            hasAcceptedFrame = true
+            lastForwardTime = timestamp
+            return true
+        }
+        guard timestamp - lastForwardTime >= Self.minimumInterval else {
+            return false
+        }
+        lastForwardTime = timestamp
+        return true
+    }
+
+    func reset() {
+        lock.lock()
+        lastForwardTime = 0
+        hasAcceptedFrame = false
+        lock.unlock()
+    }
+}
 
 private nonisolated func multitouchCallback(
     device _: MTDeviceRef?,
@@ -158,6 +218,13 @@ private nonisolated func multitouchCallback(
                 size: f.size
             ))
         }
+    }
+
+    // Throttle BEFORE the main-queue hop: only ~30 non-empty frames/s cross
+    // threads. Empty frames bypass the gate so recognizers observe finger-lift
+    // immediately (end-of-gesture state must not be delayed by up to 33 ms).
+    if !points.isEmpty, !multitouchFrameGate.shouldForward(timestamp: timestamp) {
+        return 0
     }
 
     DispatchQueue.main.async {

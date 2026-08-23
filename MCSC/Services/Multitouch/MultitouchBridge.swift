@@ -56,8 +56,23 @@ final class MultitouchBridge {
         frameworkHandle != nil
     }
 
-    private init() {
+    private init() {}
+
+    func ensureLoaded() {
+        guard frameworkHandle == nil else { return }
         loadFramework()
+    }
+
+    func unloadFramework() {
+        guard let handle = frameworkHandle else { return }
+        dlclose(handle)
+        frameworkHandle = nil
+        deviceCreateList = nil
+        deviceStart = nil
+        deviceStop = nil
+        registerContactFrameCallback = nil
+        unregisterContactFrameCallback = nil
+        AppLogger.multitouch.info("Unloaded MultitouchSupport.framework")
     }
 
     private func loadFramework() {
@@ -96,8 +111,6 @@ final class MultitouchBridge {
     }
 
     deinit {
-        if let handle = frameworkHandle {
-            dlclose(handle)
-        }
+        unloadFramework()
     }
 }

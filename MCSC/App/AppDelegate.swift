@@ -115,7 +115,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         guard let viewModel else { return }
         if settingsController == nil {
-            settingsController = SettingsWindowController(viewModel: viewModel)
+            let controller = SettingsWindowController(viewModel: viewModel)
+            controller.onWindowWillClose = { [weak self] in
+                self?.settingsController = nil
+            }
+            settingsController = controller
         }
         settingsController?.show()
     }

@@ -11,31 +11,44 @@ import Cocoa
 /// - Retain-cycle safety: every closure handed to a service captures `self`
 ///   weakly (`[weak self]`), and heavy blocking AX actions are deferred one
 ///   run-loop turn so the UI (feedback overlay, haptics) can commit first.
+@MainActor
 final class ShortcutViewModel {
-    private let eventTapService: EventTapServiceProtocol
-    private let accessibilityService: AccessibilityServiceProtocol
-    private let missionControlService: MissionControlServiceProtocol
+    // Services shared with the `+TargetResolution` / `+Lifecycle` extension
+    // files are `internal` rather than `private`; the type stays main-actor
+    // confined either way.
+    let eventTapService: EventTapServiceProtocol
+    let accessibilityService: AccessibilityServiceProtocol
+    let missionControlService: MissionControlServiceProtocol
     private let launchAtLoginService: LaunchAtLoginService
 
-    private lazy var multitouchService = MultitouchService()
-    private lazy var gestureEngine = GestureEngine()
-    private lazy var hoverService: MissionControlHoverServiceProtocol = MissionControlHoverService(
+    lazy var multitouchService = MultitouchService()
+    lazy var gestureEngine = GestureEngine()
+    /// Animation backend shared by every overlay, chosen once at startup from
+    /// UserDefaults so no runtime driver switching or bloat occurs.
+    private lazy var animationStrategy: OverlayAnimationStrategy =
+        config.isOptimizedAnimationModeEnabled
+            ? OptimizedOverlayAnimationStrategy()
+            : NativeSymbolEffectAnimationStrategy()
+
+    lazy var hoverService: MissionControlHoverServiceProtocol = MissionControlHoverService(
         accessibilityService: accessibilityService,
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
+        animationStrategy: animationStrategy,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
         }
     )
 
-    private lazy var cursorFeedback = CursorFeedbackOverlay()
-    private lazy var volumeService: MountedVolumeServiceProtocol = MountedVolumeService()
+    lazy var cursorFeedback: CursorFeedbackOverlay = .init(strategy: animationStrategy)
+
+    lazy var volumeService: MountedVolumeServiceProtocol = MountedVolumeService()
     /// Lazily-created event tap that swallows App Exposé / context-menu
     /// triggers (smartMagnify, synthesized clicks) while gestures or
     /// double-taps are aimed at Dock icons outside Mission Control.
     /// Providers use `[weak self]` so the suppressor never keeps the VM alive.
-    private lazy var dockSuppressor: DockInteractionSuppressorProtocol = {
+    lazy var dockSuppressor: DockInteractionSuppressorProtocol = {
         let suppressor = DockInteractionSuppressor()
         suppressor.isDockHoveredProvider = { [weak self] point in
             guard let self else { return false }
@@ -55,8 +68,8 @@ final class ShortcutViewModel {
         guard let self else { return false }
         return self.missionControlService.isMissionControlActive
     })
-    private lazy var shortcutRouter = ShortcutActionRouter(actions: actionRegistry)
-    private lazy var gestureRouter = GestureActionRouter(actions: actionRegistry)
+    lazy var shortcutRouter = ShortcutActionRouter(actions: actionRegistry)
+    lazy var gestureRouter = GestureActionRouter(actions: actionRegistry)
 
     var config = ShortcutConfiguration()
 
@@ -138,7 +151,11 @@ final class ShortcutViewModel {
     }
 
     var isDockActionsOutsideMCEnabled: Bool {
-        get { config.isDockActionsOutsideMCEnabled } set { config.isDockActionsOutsideMCEnabled = newValue }
+        get { config.isDockActionsOutsideMCEnabled }
+        set {
+            config.isDockActionsOutsideMCEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     var isTitleBarActionsOutsideMCEnabled: Bool {
@@ -146,7 +163,11 @@ final class ShortcutViewModel {
     }
 
     var isGesturesEnabled: Bool {
-        get { config.isGesturesEnabled } set { config.isGesturesEnabled = newValue }
+        get { config.isGesturesEnabled }
+        set {
+            config.isGesturesEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     var isPinchInEnabled: Bool {
@@ -189,6 +210,11 @@ final class ShortcutViewModel {
         get { config.isCursorFeedbackEnabled } set { config.isCursorFeedbackEnabled = newValue }
     }
 
+    var isOptimizedAnimationModeEnabled: Bool {
+        get { config.isOptimizedAnimationModeEnabled }
+        set { config.isOptimizedAnimationModeEnabled = newValue }
+    }
+
     /// Gesture action mappings
     func gestureAction(for kind: GestureKind, isCmd: Bool) -> GestureAction {
         config.action(for: kind, isCmd: isCmd)
@@ -208,7 +234,10 @@ final class ShortcutViewModel {
 
     var isHoverCloseButtonEnabled: Bool {
         get { hoverService.isEnabled }
-        set { hoverService.isEnabled = newValue }
+        set {
+            hoverService.isEnabled = newValue
+            syncServiceLifecycles()
+        }
     }
 
     /// Prevents gestures from firing right after Mission Control opens via 3-finger swipe.
@@ -248,66 +277,20 @@ final class ShortcutViewModel {
     }
 
     private func setupCallbacks() {
+        setupShortcutHandler()
+        registerGestureRecognizers()
+        setupMultitouchFrameHandler()
+        setupGestureResultHandler()
+    }
+
+    // EventTapService → ShortcutActionRouter lives in
+    // `ShortcutViewModel+EventHandlers.swift`.
+
+    /// Registers every trackpad recognizer with the shared gesture engine.
+    private func registerGestureRecognizers() {
         let cmdHeldProvider: () -> Bool = {
             NSEvent.modifierFlags.contains(.command)
         }
-
-        eventTapService.onShortcutDetected = { [weak self] keyCode, flags, location in
-            guard let self else { return false }
-
-            let isCmdPressed = flags.contains(.maskCommand)
-            let isShiftPressed = flags.contains(.maskShift)
-            let isControlPressed = flags.contains(.maskControl)
-            let isOptionPressed = flags.contains(.maskAlternate)
-
-            if isCmdPressed && !isShiftPressed && !isControlPressed && !isOptionPressed {
-                if keyCode == ShortcutActionRouter.kKeySpace, self.config.isCmdSpaceEnabled,
-                   !self.missionControlService.isSimulating {
-                    if self.missionControlService.checkMissionControlActive() {
-                        self.missionControlService.executeFixSequence()
-                        return true
-                    }
-                }
-            }
-
-            let effectiveLocation = (location == .zero) ? self.currentAXMouseLocation() : location
-            let target = self.resolveTarget(at: effectiveLocation)
-            // Pure hover fact only — whether the toggle admits it is the
-            // router's decision (`ShortcutActionRouter.isActive`). The MC
-            // guard just skips needless AX IPC; the router admits everything
-            // while Mission Control is open anyway.
-            var isTitleBarHover = false
-            if case let .window(window) = target, !self.missionControlService.isMissionControlActive {
-                isTitleBarHover = self.isTitleBarHover(window: window, at: effectiveLocation)
-            }
-            let resolution = self.shortcutRouter.routeShortcut(
-                keyCode: keyCode,
-                flags: flags,
-                location: effectiveLocation,
-                config: self.config,
-                isMissionControlActive: self.missionControlService.isMissionControlActive,
-                target: target,
-                service: self.accessibilityService,
-                volumeService: self.volumeService,
-                isTitleBarHover: isTitleBarHover,
-                activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
-            )
-
-            switch resolution {
-            case let .consumeAndExecute(feedbackMode, action):
-                self.executeFeedbackThenAction(
-                    at: effectiveLocation,
-                    feedbackMode: feedbackMode,
-                    haptic: nil,
-                    action: action
-                )
-                return true
-            case .ignore:
-                return false
-            }
-        }
-
-        // Register gesture recognizers
         let twoFingerTapRecognizer = TwoFingerDoubleTapRecognizer()
         twoFingerTapRecognizer.isCmdHeld = cmdHeldProvider
         twoFingerTapRecognizer.isEnabled = { [weak self] in self?.config.isTwoFingerDoubleTapEnabled ?? false }
@@ -342,8 +325,12 @@ final class ShortcutViewModel {
         swipeRecognizer.isSwipeDownEnabled = { [weak self] in self?.config.isSwipeDownEnabled ?? false }
         swipeRecognizer.isSwipeUpEnabled = { [weak self] in self?.config.isSwipeUpEnabled ?? false }
         gestureEngine.register(swipeRecognizer)
+    }
 
-        // MultitouchService -> GestureEngine (throttled to 30 Hz)
+    /// MultitouchService → GestureEngine pump. Frames are throttled to 30 Hz
+    /// (~33 ms) because the hot path hits WindowServer (`isMissionControlActive`)
+    /// and AX IPC (dock / title-bar hover checks).
+    private func setupMultitouchFrameHandler() {
         multitouchService.onFrame = { [weak self] touches, timestamp in
             guard let self,
                   self.config.isGesturesEnabled,
@@ -374,128 +361,34 @@ final class ShortcutViewModel {
             guard mcActive || dockHovered || titleBarHovered else { return }
             self.gestureEngine.processFrame(touches, timestamp: timestamp)
         }
-
-        // GestureEngine -> Actions
-        gestureEngine.onGestureRecognized = { [weak self] result in
-            guard let self else { return }
-            let axPoint = self.currentAXMouseLocation()
-
-            let target = self.resolveTarget(at: axPoint)
-            let resolution = self.gestureRouter.routeGesture(
-                result,
-                at: axPoint,
-                target: target,
-                service: self.accessibilityService,
-                volumeService: self.volumeService,
-                isAutoEjectEnabled: self.config.isAutoEjectEnabled,
-                config: self.config,
-                activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
-            )
-
-            switch resolution {
-            case let .execute(feedbackMode, haptic, action):
-                if !self.missionControlService.isMissionControlActive, self.config.isDockActionsOutsideMCEnabled {
-                    self.dockSuppressor.isSuppressing = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                        self?.dockSuppressor.isSuppressing = false
-                    }
-                }
-                self.executeFeedbackThenAction(at: axPoint, feedbackMode: feedbackMode, haptic: haptic, action: action)
-            case .none:
-                break
-            }
-        }
     }
 
-    /// Shows feedback + fires haptic, then defers the action one run-loop turn
-    /// so the feedback panel composites before the blocking AX call starves
-    /// the run loop.
-    private func executeFeedbackThenAction(
-        at point: CGPoint,
-        feedbackMode: CursorFeedbackOverlay.Mode,
-        haptic: HapticType?,
-        action: @escaping () -> Void
-    ) {
-        if config.isCursorFeedbackEnabled {
-            cursorFeedback.show(at: point, mode: feedbackMode)
-        }
-        if let haptic, config.isHapticFeedbackEnabled {
-            HapticService.perform(haptic)
-        }
-        DispatchQueue.main.async { [weak self] in
-            // Teardown-safety gate: cancels deferred execution if VM is deallocated before the turn fires
-            guard self != nil else { return }
-            action()
-        }
-    }
+    // GestureEngine → GestureActionRouter dispatch lives in
+    // `ShortcutViewModel+EventHandlers.swift`.
 
-    // MARK: - Target Resolution
+    // MARK: - Target Resolution, App Activation, and Service Lifecycle live
 
-    /// Current cursor position in top-left-origin AX coordinates (what
-    /// `AXUIElementCopyElementAtPosition` expects). Prefers the Quartz event
-    /// location; falls back to converting Cocoa's bottom-left `NSEvent`
-    /// coordinates when no event source is available.
-    private func currentAXMouseLocation() -> CGPoint {
-        if let loc = CGEvent(source: nil)?.location {
-            return loc
-        }
-        let mouseLocation = NSEvent.mouseLocation
-        let primaryHeight = ScreenGeometry.primaryScreenHeight
-        return CGPoint(x: mouseLocation.x, y: primaryHeight - mouseLocation.y)
-    }
-
-    /// Standard macOS title-bar height (pt) used for the outside-MC hover strip.
-    private static let titleBarHeight: CGFloat = 28
-
-    /// `true` when the cursor sits on the title-bar strip of the frontmost
-    /// window. Only invoked when the feature is enabled and Mission Control is
-    /// closed; rides the existing 30 Hz frame throttle.
-    private func isTitleBarHovered(at point: CGPoint) -> Bool {
-        guard case let .window(window) = resolveTarget(at: point) else { return false }
-        return isTitleBarHover(window: window, at: point)
-    }
-
-    /// Core geometry + frontmost check for an already-resolved window target.
-    private func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
-        guard accessibilityService.isFrontmostWindow(window),
-              let frame = accessibilityService.getFrame(for: window),
-              frame.contains(point) else { return false }
-        return point.y - frame.minY <= Self.titleBarHeight
-    }
-
-    private func resolveTarget(at point: CGPoint) -> TargetResolution {
-        guard let element = accessibilityService.getElement(at: point) else { return .none }
-        if accessibilityService.isDockItem(element) {
-            if let app = accessibilityService.getAppFromDockItem(element) {
-                return .dock(app)
-            }
-            return .none
-        }
-        if let window = accessibilityService.getWindow(for: element) {
-            return .window(window)
-        }
-        return .none
-    }
-
-    // MARK: - App Activation
-
-    @discardableResult
-    private func activateAppIfNeeded(at point: CGPoint) -> NSRunningApplication? {
-        let element = accessibilityService.getElement(at: point)
-        let isDock = element.map { accessibilityService.isDockItem($0) } ?? false
-        let app = isDock
-            ? element.flatMap { accessibilityService.getAppFromDockItem($0) }
-            : element.flatMap { accessibilityService.getAppFromElement($0) }
-        app?.activate(options: .activateIgnoringOtherApps)
-        return app
-    }
+    // in `ShortcutViewModel+TargetResolution.swift` / `+Lifecycle.swift`.
 
     func start() {
         eventTapService.start()
         missionControlService.start()
-        multitouchService.start()
-        hoverService.start()
-        dockSuppressor.start()
+
+        // Only spin up services whose features are actually enabled.
+        // This avoids dlopen-ing MultitouchSupport.framework (~60-120 Hz
+        // frame stream), creating the hover-close event tap + overlay
+        // NSPanel, and installing the dock suppressor tap when none of
+        // their toggles are on. Each service is started/stopped on
+        // toggle change via syncServiceLifecycles().
+        if needsMultitouch {
+            multitouchService.start()
+        }
+        if needsDockSuppressor {
+            dockSuppressor.start()
+        }
+        if isHoverCloseButtonEnabled {
+            hoverService.start()
+        }
     }
 
     func stop() {

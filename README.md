@@ -14,7 +14,7 @@ A free, open-source menu bar app that turns Mission Control previews into
 windows you can actually act on. Type to find one, swipe or press to close,
 minimize, tile, quit or eject it.
 
-[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation)
+[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Tests](#tests)
 
 <img src="./docs/assets/preview.gif" alt="MCSC in action: type-to-select and window actions inside Mission Control" width="800">
 
@@ -28,8 +28,11 @@ window closes, minimizes, tiles, quits, or ejects its disk image.
 
 It listens only while Mission Control is open. On the desktop, in Launchpad,
 and inside Finder folder stacks it stays completely silent, so your normal
-shortcuts never change. All of this runs event-driven in a single AppKit
-process that idles around 12 MB of RAM with roughly 0% CPU.
+shortcuts never change — and a keystroke pre-filter means typing in other apps
+costs MCSC **zero** Accessibility IPC. All of this runs event-driven in a
+single AppKit process that idles around 12 MB of RAM with 0% CPU; measured on
+macOS 15.7.3 with Mission Control open and closed (see
+[PERFORMANCE.md](./docs/PERFORMANCE.md)).
 
 ## Features
 
@@ -155,8 +158,18 @@ Force Quit (`Command`) without touching the keyboard.
 - [MISSION_CONTROL.md](./docs/MISSION_CONTROL.md) — how MCSC detects and scopes to Mission Control.
 - [MOVE_WINDOW_TO_DESKTOP.md](./docs/MOVE_WINDOW_TO_DESKTOP.md) — moving windows across Spaces.
 - [SYMBOLS.md](./docs/SYMBOLS.md) — the SF Symbol map behind feedback overlays.
-- [PERFORMANCE.md](./docs/PERFORMANCE.md) — the memory and CPU budget.
+- [PERFORMANCE.md](./docs/PERFORMANCE.md) — the memory and CPU budget, profiling recipes, and measured open/close numbers.
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — MVVM design, event taps, low-level choices.
+
+## Tests
+
+127 unit and performance tests, including wall-clock **budget tests** that fail
+on hot-path regressions (frame-throttle rate, keystroke pre-filter cost,
+detection-cache short-circuit, window-list matching):
+
+```bash
+./Tests/run_tests.sh
+```
 
 ## Credits
 

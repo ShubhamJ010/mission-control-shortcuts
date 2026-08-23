@@ -31,9 +31,12 @@ enum MissionControlWindowActions {
                 if axId == windowID {
                     var buttonRef: CFTypeRef?
                     if AXUIElementCopyAttributeValue(axWindow, attribute as CFString, &buttonRef) == .success,
-                       let btn = buttonRef,
-                       CFGetTypeID(btn) == AXUIElementGetTypeID() {
-                        let actionResult = AXUIElementPerformAction((btn as! AXUIElement), kAXPressAction as CFString)
+                       let buttonRef, CFGetTypeID(buttonRef) == AXUIElementGetTypeID() {
+                        // TypeID verified above; `as?` cannot check CF types.
+                        let actionResult = AXUIElementPerformAction(
+                            unsafeDowncast(buttonRef, to: AXUIElement.self),
+                            kAXPressAction as CFString
+                        )
                         if actionResult == .success {
                             return true
                         }

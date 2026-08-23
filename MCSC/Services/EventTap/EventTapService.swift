@@ -92,6 +92,7 @@ final class EventTapService: EventTapServiceProtocol {
         }
         if let eventTap {
             CGEvent.tapEnable(tap: eventTap, enable: false)
+            CFMachPortInvalidate(eventTap)
         }
         eventTap = nil
         runLoopSource = nil

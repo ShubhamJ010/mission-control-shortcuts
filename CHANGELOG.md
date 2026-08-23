@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Performance Audit — Hot-Path IPC & Allocations**: Systematic audit of the running build (`footprint` / `heap` / `vmmap` / `sample`) with five fixes:
+  - **Zero AX IPC while typing**: every `keyDown` previously paid an `AXUIElementCopyElementAtPosition` hit-test (plus title-bar/frontmost reads) before the router discarded it. A cheap allocation-free pre-filter (`ShortcutActionRouter.isShortcutCandidate`) now rejects plain typing and untracked keys before any Accessibility call. Verified: 1 `SLWindowListCopyWindowInfo` per 5 s idle sample (was 7–9; ~38 in 0.5.0-beta).
+  - **Pre-thread-hop frame throttle**: `MultitouchFrameGate` throttles non-empty trackpad frames to 30 Hz inside the framework callback, before the array + closure allocation and main-queue hop (previously 60–120 wakeups/s, throttled only after crossing threads). Empty frames bypass the gate so finger-lift is observed instantly.
+  - **Cached frontmost-app element**: `isFrontmostWindow` no longer re-creates its `AXUIElementCreateApplication` up to 30×/s in the title-bar hover path (pid-keyed cache).
+  - **Zombie-poll fix**: `MissionControlHoverService.deinit` now invalidates `windowFetchTimer` — a dealloc without `stop()` previously kept polling windows every 0.5 s forever.
+  - **Smaller detection scan**: Mission Control window-list copy now uses `.excludeDesktopElements`.
+- **Performance Regression Tests**: New `Tests/PerformanceTests.swift` — 9 wall-clock budget tests guarding the frame gate (30 Hz cap, concurrency safety, throughput), keystroke pre-filter (correctness + 100k-call budget), MC detection cache short-circuit, and window-list fuzzy-match/sort throughput. Registered in `TestRunner.swift` / `run_tests.sh`.
 - **Title Bar Gestures & Shortcuts Outside Mission Control**: New opt-in setting that applies all gestures and Cmd-shortcuts while hovering the title bar of the frontmost window in normal desktop mode. Hover detection is a ~28 pt top-strip geometry check plus an `AccessibilityService.isFrontmostWindow(_:)` focused-window check, so only the frontmost window responds. Toggle via Settings → General (`isTitleBarActionsOutsideMCEnabled`, persisted under `mcsc.titleBarActionsOutsideMC.enabled`). Both this and the Dock outside-MC toggle now default to **off**.
 
 ## 0.5.2-beta (22 Aug 2026)

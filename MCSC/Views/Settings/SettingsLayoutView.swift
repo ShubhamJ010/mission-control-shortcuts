@@ -49,7 +49,7 @@ final class SettingsLayoutView: NSView {
             topAnchor.constraint(equalToSystemSpacingBelow: parentView.topAnchor, multiplier: 1),
             leadingAnchor.constraint(equalToSystemSpacingAfter: parentView.leadingAnchor, multiplier: 1),
             parentView.trailingAnchor.constraint(equalToSystemSpacingAfter: trailingAnchor, multiplier: 1),
-            parentView.bottomAnchor.constraint(equalToSystemSpacingBelow: bottomAnchor, multiplier: 1),
+            parentView.bottomAnchor.constraint(equalToSystemSpacingBelow: bottomAnchor, multiplier: 1)
         ])
     }
 
@@ -61,7 +61,7 @@ final class SettingsLayoutView: NSView {
             NSLayoutConstraint.activate([
                 guide.leadingAnchor.constraint(equalTo: leadingAnchor),
                 guide.topAnchor.constraint(equalTo: topAnchor),
-                guide.heightAnchor.constraint(equalToConstant: 0),
+                guide.heightAnchor.constraint(equalToConstant: 0)
             ])
         }
 
@@ -93,7 +93,7 @@ final class SettingsLayoutView: NSView {
             contentBlockWidthGuide.topAnchor.constraint(equalTo: topAnchor),
             contentBlockWidthGuide.heightAnchor.constraint(equalToConstant: 0),
             contentBlockWidthGuide.leadingAnchor.constraint(equalTo: labelColumnWidthGuide.leadingAnchor),
-            contentBlockWidthGuide.trailingAnchor.constraint(equalTo: itemColumnMeasuringGuide.trailingAnchor),
+            contentBlockWidthGuide.trailingAnchor.constraint(equalTo: itemColumnMeasuringGuide.trailingAnchor)
         ])
 
         // The single force that fills the container; keeping it here stops
@@ -123,7 +123,7 @@ final class SettingsLayoutView: NSView {
             stackView.topAnchor.constraint(equalTo: topAnchor),
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
             stackView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            stackView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor),
+            stackView.bottomAnchor.constraint(lessThanOrEqualTo: bottomAnchor)
         ])
 
         // Held back until a section asks for the surplus.
@@ -211,7 +211,7 @@ final class SettingsLayoutView: NSView {
             view.topAnchor.constraint(equalTo: section.topAnchor),
             view.bottomAnchor.constraint(equalTo: section.bottomAnchor),
             view.leadingAnchor.constraint(equalTo: section.contentGuide.leadingAnchor),
-            view.trailingAnchor.constraint(equalTo: section.contentGuide.trailingAnchor),
+            view.trailingAnchor.constraint(equalTo: section.contentGuide.trailingAnchor)
         ])
         appendSection(section, widthMode: widthMode, heightMode: heightMode)
         return section

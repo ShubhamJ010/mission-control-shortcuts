@@ -122,7 +122,9 @@ struct ShortcutConfiguration {
     /// bar of the frontmost window in normal desktop mode (Mission Control
     /// closed). Persisted to `UserDefaults` on every mutation.
     var isTitleBarActionsOutsideMCEnabled = false {
-        didSet { UserDefaults.standard.set(isTitleBarActionsOutsideMCEnabled, forKey: Self.Keys.titleBarActionsOutsideMC) }
+        didSet {
+            UserDefaults.standard.set(isTitleBarActionsOutsideMCEnabled, forKey: Self.Keys.titleBarActionsOutsideMC)
+        }
     }
 
     var isKeyboardNavigationEnabled = true {
@@ -139,6 +141,13 @@ struct ShortcutConfiguration {
     /// Visual cursor flash overlay on actions. Previously always-on; now configurable.
     var isCursorFeedbackEnabled = true {
         didSet { UserDefaults.standard.set(isCursorFeedbackEnabled, forKey: Self.Keys.cursorFeedbackEnabled) }
+    }
+
+    /// When true, uses zero-overhead CoreAnimation effects. When false, uses native Apple SF Symbol Effects.
+    var isOptimizedAnimationModeEnabled = true {
+        didSet {
+            UserDefaults.standard.set(isOptimizedAnimationModeEnabled, forKey: Self.Keys.optimizedAnimationsEnabled)
+        }
     }
 
     // MARK: - Gesture action mappings
@@ -162,7 +171,11 @@ struct ShortcutConfiguration {
     /// key and default value. Drives loading (`init`), `restoreDefaults()`,
     /// and the defaults-drift unit tests. The stored-property literals above
     /// must match `defaultValue` (enforced by `ShortcutConfigurationTests`).
-    static let toggleDefaults: [(keyPath: WritableKeyPath<ShortcutConfiguration, Bool>, key: String, defaultValue: Bool)] = [
+    static let toggleDefaults: [(
+        keyPath: WritableKeyPath<ShortcutConfiguration, Bool>,
+        key: String,
+        defaultValue: Bool
+    )] = [
         (\.isCmdWEnabled, Keys.cmdWEnabled, true),
         (\.isCmdQEnabled, Keys.cmdQEnabled, true),
         (\.isCmdMEnabled, Keys.cmdMEnabled, true),
@@ -195,6 +208,7 @@ struct ShortcutConfiguration {
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
         (\.isHapticFeedbackEnabled, Keys.hapticFeedbackEnabled, true),
         (\.isCursorFeedbackEnabled, Keys.cursorFeedbackEnabled, true),
+        (\.isOptimizedAnimationModeEnabled, Keys.optimizedAnimationsEnabled, true)
     ]
 
     private mutating func loadStoredToggles() {
@@ -301,6 +315,7 @@ struct ShortcutConfiguration {
         static let autoEjectEnabled = "mcsc.autoEject.enabled"
         static let hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled"
         static let cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled"
+        static let optimizedAnimationsEnabled = "mcsc.feedback.optimizedAnimations.enabled"
         static let gestureActions = "mcsc.gestures.actions"
         static let cmdGestureActions = "mcsc.gestures.cmdActions"
     }

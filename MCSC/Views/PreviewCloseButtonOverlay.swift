@@ -58,8 +58,16 @@ final class PreviewCloseButtonOverlay {
     private(set) var isVisible = false
     private var currentAnchorOrigin: CGPoint = .zero
 
-    init() {
-        setupPanel()
+    /// The injected animation backend (zero-overhead CoreAnimation or native
+    /// Apple Symbol Effects), chosen once at startup and shared with the other
+    /// overlays so the same domain concept has one representation.
+    let strategy: OverlayAnimationStrategy
+
+    init(strategy: OverlayAnimationStrategy? = nil) {
+        self.strategy = strategy ?? OptimizedOverlayAnimationStrategy()
+        // Panel creation is deferred to the first show() call so no
+        // layer-backed NSPanel (and its GPU/IOSurface buffers) exists
+        // until the feature is actually used.
     }
 
     private func setupPanel() {
@@ -76,10 +84,10 @@ final class PreviewCloseButtonOverlay {
         panel.hasShadow = false
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
-        let button = CloseButtonView(frame: contentRect)
+        let button = CloseButtonView(frame: contentRect, strategy: strategy)
 
         panel.contentView = button
         self.buttonView = button
@@ -88,6 +96,11 @@ final class PreviewCloseButtonOverlay {
 
     /// Positions and displays the close button overlay centered directly over the top-left corner (x, y) of the window.
     func show(at windowBounds: CGRect, mode: Mode = .close) {
+        // Lazily create the panel on first use so no GPU-backed layer
+        // tree exists until the feature is actually triggered.
+        if panel == nil {
+            setupPanel()
+        }
         guard let panel else { return }
 
         let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin)
@@ -109,9 +122,11 @@ final class PreviewCloseButtonOverlay {
         if !isVisible {
             panel.orderFrontRegardless()
             isVisible = true
-            buttonView?.triggerAppearEffect()
-        } else if isNewOrigin {
-            buttonView?.triggerAppearEffect()
+            if let buttonView {
+                strategy.applyAppear(on: buttonView, imageView: buttonView.imageView)
+            }
+        } else if isNewOrigin, let buttonView {
+            strategy.applyRelocationAppearance(on: buttonView, imageView: buttonView.imageView)
         }
     }
 
@@ -139,9 +154,20 @@ final class PreviewCloseButtonOverlay {
 
 @MainActor
 final class CloseButtonView: NSView {
-    private let imageView = NSImageView()
+    /// Exposed (read-only) so the owning overlay can pass it to strategy calls
+    /// that animate the symbol rather than the container layer.
+    let imageView = NSImageView()
     private(set) var isHovered = false
     private(set) var currentMode: PreviewCloseButtonOverlay.Mode = .close
+    private let strategy: OverlayAnimationStrategy
+
+    init(frame frameRect: NSRect, strategy: OverlayAnimationStrategy) {
+        self.strategy = strategy
+        super.init(frame: frameRect)
+        wantsLayer = true
+        setupLayer()
+        setupImageView()
+    }
 
     /// Cache of rendered action symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once and reused across hovers.
@@ -168,6 +194,7 @@ final class CloseButtonView: NSView {
     }
 
     override init(frame frameRect: NSRect) {
+        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(frame: frameRect)
         wantsLayer = true
         setupLayer()
@@ -175,6 +202,7 @@ final class CloseButtonView: NSView {
     }
 
     required init?(coder: NSCoder) {
+        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(coder: coder)
         wantsLayer = true
         setupLayer()
@@ -188,6 +216,10 @@ final class CloseButtonView: NSView {
         layer.shadowOpacity = 1.0
         layer.shadowOffset = CGSize(width: 0, height: -1.5)
         layer.shadowRadius = 4.5
+        // Explicit shadow path prevents CoreAnimation from performing an expensive
+        // offscreen pass and allocating separate GPU render targets for dynamic shadow.
+        let circleRect = CGRect(x: 2, y: 2, width: 28, height: 28)
+        layer.shadowPath = CGPath(ellipseIn: circleRect, transform: nil)
     }
 
     private func setupImageView() {
@@ -202,50 +234,39 @@ final class CloseButtonView: NSView {
             imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
             imageView.widthAnchor.constraint(equalToConstant: 28),
-            imageView.heightAnchor.constraint(equalToConstant: 28),
+            imageView.heightAnchor.constraint(equalToConstant: 28)
         ])
     }
 
-    func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool) {
+    func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool = false) {
         guard mode != currentMode else { return }
         currentMode = mode
-
         guard let image = image(for: mode) else { return }
 
-        if animated, #available(macOS 14.0, *) {
-            imageView.setSymbolImage(
-                image,
-                contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
-                options: .nonRepeating
-            )
+        if animated {
+            strategy.applyModeChange(to: image, on: imageView)
         } else {
             imageView.image = image
         }
     }
 
-    /// Plays the `.appear.byLayer` symbol effect on the image.
-    func triggerAppearEffect() {
+    /// Cleans up symbol effects and image cache.
+    func reset() {
         if #available(macOS 14.0, *) {
-            imageView.addSymbolEffect(.appear.byLayer, options: .nonRepeating)
+            imageView.removeAllSymbolEffects(animated: false)
         }
+        imageView.layer?.removeAllAnimations()
+        layer?.removeAllAnimations()
+        imageCache.removeAll()
     }
 
     // MARK: - Hover State (driven by MissionControlHoverService event tap)
 
     /// Scales the button up while the cursor is over it and back to resting
-    /// size when it leaves. Called from the service's global mouse-move tap —
-    /// AppKit tracking areas don't deliver enter/exit while this app is
-    /// inactive behind Mission Control.
+    /// size when it leaves.
     func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
-
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.15
-            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-            context.allowsImplicitAnimation = true
-            self.animator().alphaValue = hovered ? 1.0 : 0.97
-            self.layer?.transform = hovered ? CATransform3DMakeScale(1.08, 1.08, 1.0) : CATransform3DIdentity
-        }
+        strategy.applyHover(on: self, hovered: hovered)
     }
 }

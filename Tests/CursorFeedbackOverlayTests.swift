@@ -95,15 +95,19 @@ final class CursorFeedbackOverlayTests: XCTestCase {
         XCTAssertEqual(palette?[1], .systemRed)
     }
 
-    func testSpaceModesUseArrowSquareSymbolsWithAccentPalette() {
-        XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceRight.symbolName, "arrow.right.square.fill")
+    func testSpaceModesUseArrowCircleSymbolsWithWhiteAccentPalette() {
+        // Space navigation uses a two-layer `circle.fill` glyph: white primary
+        // + system accent (see `CursorFeedbackMode.paletteColors`).
+        XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceRight.symbolName, "arrow.right.circle.fill")
         XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceRight.accessibilityDescription,
                        "Move Window to Next Desktop")
-        XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceLeft.symbolName, "arrow.left.square.fill")
+        XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceLeft.symbolName, "arrow.left.circle.fill")
         XCTAssertEqual(CursorFeedbackOverlay.Mode.spaceLeft.accessibilityDescription,
                        "Move Window to Previous Desktop")
         for mode in [CursorFeedbackOverlay.Mode.spaceRight, .spaceLeft] {
-            XCTAssertEqual(mode.paletteColors, [.controlAccentColor])
+            XCTAssertEqual(mode.paletteColors?.count, 2)
+            XCTAssertEqual(mode.paletteColors?[0], .white)
+            XCTAssertEqual(mode.paletteColors?[1], .controlAccentColor)
         }
     }
 
