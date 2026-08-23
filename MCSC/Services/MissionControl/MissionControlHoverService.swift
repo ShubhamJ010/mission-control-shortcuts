@@ -18,22 +18,22 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
 final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private let accessibilityService: AccessibilityServiceProtocol
     private let isMissionControlActiveProvider: () -> Bool
-    private var _injectedOverlay: PreviewCloseButtonOverlay?
-    private var _createdOverlay: PreviewCloseButtonOverlay?
-    private let isOptimized: Bool
+    private var injectedOverlay: PreviewCloseButtonOverlay?
+    private var createdOverlay: PreviewCloseButtonOverlay?
+    private let animationStrategy: OverlayAnimationStrategy
 
     /// Lazily created on first access so no `NSPanel` (and its GPU/IOSurface
     /// layer tree) exists until the overlay is actually needed. Tests can inject
     /// a pre-built overlay via the `init(overlay:)` parameter.
     private var overlay: PreviewCloseButtonOverlay {
-        if let _injectedOverlay {
-            return _injectedOverlay
+        if let injectedOverlay {
+            return injectedOverlay
         }
-        if let _createdOverlay {
-            return _createdOverlay
+        if let createdOverlay {
+            return createdOverlay
         }
-        let newOverlay = PreviewCloseButtonOverlay(isOptimized: isOptimized)
-        _createdOverlay = newOverlay
+        let newOverlay = PreviewCloseButtonOverlay(strategy: animationStrategy)
+        createdOverlay = newOverlay
         return newOverlay
     }
 
@@ -52,6 +52,18 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     var _testWindowCount: Int {
         windows.count
     }
+    /// Test-only seeding of the tracked window list so `handleSpaceChange`
+    /// regression tests are deterministic — they do not depend on which real
+    /// windows the CGWindowList IPC happens to return in the test host.
+    /// Seeding also *freezes* the list: subsequent `fetchWindows()` calls are
+    /// no-ops until the service stops, mirroring how `_testWindowCount`
+    /// decouples assertions from the live window-list scan. Each entry needs
+    /// `kCGWindowBounds` as `["X","Y","Width","Height"]`.
+    func _testSeedWindows(_ seeded: [[String: Any]]) {
+        isTestSeedingEnabled = true
+        windows = seeded
+    }
+    private var isTestSeedingEnabled = false
 
     private(set) var isTracking = false
     private var isMissionControlActive = false
@@ -142,12 +154,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
          overlay: PreviewCloseButtonOverlay? = nil,
-         isOptimized: Bool = true,
+         animationStrategy: OverlayAnimationStrategy? = nil,
          isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
-        self._injectedOverlay = overlay
-        self.isOptimized = isOptimized
+        self.injectedOverlay = overlay
+        self.animationStrategy = animationStrategy ?? OptimizedOverlayAnimationStrategy()
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider
     }
 
@@ -280,12 +292,32 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             queue: .main
         ) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self else { return }
-                self.fetchWindows()
-                if let mouseLocation = CGEvent(source: nil)?.location {
-                    self.updateOverlay(at: mouseLocation)
-                }
+                self?.handleSpaceChange()
             }
+        }
+    }
+
+    /// Handles `activeSpaceDidChangeNotification`.
+    ///
+    /// Refreshes the tracked window list so it matches the new Space, but
+    /// recomputes the hover overlay **only while Mission Control is open**.
+    /// A plain desktop switch (Ctrl+←/→ or three-finger swipe) must never
+    /// surface the preview close button: showing it here would flash for one
+    /// frame before the next `handleMouseMoved` guard hides it again.
+    ///
+    /// - Parameter mouseLocation: Explicit cursor position override used by
+    ///   tests. When `nil`, the current global cursor position is resolved
+    ///   from the event system.
+    func handleSpaceChange(at mouseLocation: CGPoint? = nil) {
+        fetchWindows()
+
+        guard isMissionControlActive || isMissionControlActiveProvider() else {
+            return
+        }
+
+        let location = mouseLocation ?? CGEvent(source: nil)?.location
+        if let location {
+            updateOverlay(at: location)
         }
     }
 
@@ -297,6 +329,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     private func fetchWindows() {
+        // Frozen by `_testSeedWindows` in unit tests so assertions are
+        // deterministic regardless of the host's real window list.
+        guard !isTestSeedingEnabled else { return }
+
         guard let list = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
             kCGNullWindowID

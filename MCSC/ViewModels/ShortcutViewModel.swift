@@ -20,22 +20,26 @@ final class ShortcutViewModel {
 
     private lazy var multitouchService = MultitouchService()
     private lazy var gestureEngine = GestureEngine()
+    /// Animation backend shared by every overlay, chosen once at startup from
+    /// UserDefaults so no runtime driver switching or bloat occurs.
+    private lazy var animationStrategy: OverlayAnimationStrategy =
+        config.isOptimizedAnimationModeEnabled
+        ? OptimizedOverlayAnimationStrategy()
+        : NativeSymbolEffectAnimationStrategy()
+
     private lazy var hoverService: MissionControlHoverServiceProtocol = MissionControlHoverService(
         accessibilityService: accessibilityService,
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
-        isOptimized: config.isOptimizedAnimationModeEnabled,
+        animationStrategy: animationStrategy,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
         }
     )
 
     private lazy var cursorFeedback: CursorFeedbackOverlay = {
-        let strategy: OverlayAnimationStrategy = config.isOptimizedAnimationModeEnabled
-            ? OptimizedOverlayAnimationStrategy()
-            : NativeSymbolEffectAnimationStrategy()
-        return CursorFeedbackOverlay(strategy: strategy)
+        CursorFeedbackOverlay(strategy: animationStrategy)
     }()
     private lazy var volumeService: MountedVolumeServiceProtocol = MountedVolumeService()
     /// Lazily-created event tap that swallows App Exposé / context-menu

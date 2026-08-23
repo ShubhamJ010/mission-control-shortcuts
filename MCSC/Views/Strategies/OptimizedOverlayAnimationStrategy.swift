@@ -28,6 +28,28 @@ final class OptimizedOverlayAnimationStrategy: OverlayAnimationStrategy {
         }
     }
 
+    func applyAppear(on view: NSView, imageView: NSImageView) {
+        guard let layer = view.layer else { return }
+        OverlayAnimationFactory.applyEntryAnimation(style: .bouncePop, on: layer)
+    }
+
+    func applyRelocationAppearance(on view: NSView, imageView: NSImageView) {
+        // Zero-overhead mode deliberately stays quiet on anchor moves so the
+        // button does not re-bounce while tracking the cursor across previews.
+    }
+
+    func applyModeChange(to image: NSImage, on imageView: NSImageView) {
+        if let layer = imageView.layer {
+            OverlayAnimationFactory.applyMorphTransition(on: layer)
+        }
+        imageView.image = image
+    }
+
+    func applyHover(on view: NSView, hovered: Bool) {
+        guard let layer = view.layer else { return }
+        OverlayAnimationFactory.applyHoverScale(on: layer, hovered: hovered)
+    }
+
     func performRetract(
         panel: NSPanel,
         imageView: NSImageView,

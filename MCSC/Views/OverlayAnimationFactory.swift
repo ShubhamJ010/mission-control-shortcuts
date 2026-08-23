@@ -56,59 +56,69 @@ enum OverlayAnimationFactory {
             layer.add(animation, forKey: "overlayEntryAnimation")
 
         case .shrinkDown:
-            let transAnimation = CAKeyframeAnimation(keyPath: "transform.translation.y")
-            transAnimation.values = [0.0, -3.5, 0.0]
-            transAnimation.keyTimes = [0.0, 0.5, 1.0]
-            transAnimation.duration = 0.22
-            transAnimation.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-
-            let scaleAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
-            scaleAnimation.values = [1.08, 0.92, 1.0]
-            scaleAnimation.keyTimes = [0.0, 0.5, 1.0]
-            scaleAnimation.duration = 0.22
-            scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            let group = CAAnimationGroup()
-            group.animations = [transAnimation, scaleAnimation]
-            group.duration = 0.22
-            layer.add(group, forKey: "overlayEntryAnimation")
+            addTranslationScaleGroup(
+                on: layer,
+                translationKeyPath: "transform.translation.y",
+                translationValues: [0.0, -3.5, 0.0],
+                translationTimingFunction: .easeInEaseOut,
+                scaleValues: [1.08, 0.92, 1.0],
+                keyTimes: [0.0, 0.5, 1.0],
+                duration: 0.22
+            )
 
         case .slideRight:
-            let transAnimation = CAKeyframeAnimation(keyPath: "transform.translation.x")
-            transAnimation.values = [-9.0, 3.0, 0.0]
-            transAnimation.keyTimes = [0.0, 0.55, 1.0]
-            transAnimation.duration = 0.24
-            transAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            let scaleAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
-            scaleAnimation.values = [0.88, 1.06, 1.0]
-            scaleAnimation.keyTimes = [0.0, 0.55, 1.0]
-            scaleAnimation.duration = 0.24
-            scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            let group = CAAnimationGroup()
-            group.animations = [transAnimation, scaleAnimation]
-            group.duration = 0.24
-            layer.add(group, forKey: "overlayEntryAnimation")
+            addTranslationScaleGroup(
+                on: layer,
+                translationKeyPath: "transform.translation.x",
+                translationValues: [-9.0, 3.0, 0.0],
+                translationTimingFunction: .easeOut,
+                scaleValues: [0.88, 1.06, 1.0],
+                keyTimes: [0.0, 0.55, 1.0],
+                duration: 0.24
+            )
 
         case .slideLeft:
-            let transAnimation = CAKeyframeAnimation(keyPath: "transform.translation.x")
-            transAnimation.values = [9.0, -3.0, 0.0]
-            transAnimation.keyTimes = [0.0, 0.55, 1.0]
-            transAnimation.duration = 0.24
-            transAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            let scaleAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
-            scaleAnimation.values = [0.88, 1.06, 1.0]
-            scaleAnimation.keyTimes = [0.0, 0.55, 1.0]
-            scaleAnimation.duration = 0.24
-            scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
-
-            let group = CAAnimationGroup()
-            group.animations = [transAnimation, scaleAnimation]
-            group.duration = 0.24
-            layer.add(group, forKey: "overlayEntryAnimation")
+            addTranslationScaleGroup(
+                on: layer,
+                translationKeyPath: "transform.translation.x",
+                translationValues: [9.0, -3.0, 0.0],
+                translationTimingFunction: .easeOut,
+                scaleValues: [0.88, 1.06, 1.0],
+                keyTimes: [0.0, 0.55, 1.0],
+                duration: 0.24
+            )
         }
+    }
+
+    /// Shared shape for entry curves that combine a translation keyframe with a
+    /// scale keyframe in one animation group (shrinkDown / slideRight / slideLeft).
+    /// Both sub-animations share `keyTimes` and `duration`; only the translation
+    /// axis, its values, and its easing differ per style.
+    private static func addTranslationScaleGroup(
+        on layer: CALayer,
+        translationKeyPath: String,
+        translationValues: [CGFloat],
+        translationTimingFunction: CAMediaTimingFunctionName,
+        scaleValues: [CGFloat],
+        keyTimes: [NSNumber],
+        duration: TimeInterval
+    ) {
+        let transAnimation = CAKeyframeAnimation(keyPath: translationKeyPath)
+        transAnimation.values = translationValues
+        transAnimation.keyTimes = keyTimes
+        transAnimation.duration = duration
+        transAnimation.timingFunction = CAMediaTimingFunction(name: translationTimingFunction)
+
+        let scaleAnimation = CAKeyframeAnimation(keyPath: "transform.scale")
+        scaleAnimation.values = scaleValues
+        scaleAnimation.keyTimes = keyTimes
+        scaleAnimation.duration = duration
+        scaleAnimation.timingFunction = CAMediaTimingFunction(name: .easeOut)
+
+        let group = CAAnimationGroup()
+        group.animations = [transAnimation, scaleAnimation]
+        group.duration = duration
+        layer.add(group, forKey: "overlayEntryAnimation")
     }
 
     /// Smooth cross-fade transition from a base outline silhouette to a filled colored symbol.

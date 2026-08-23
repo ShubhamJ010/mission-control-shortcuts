@@ -57,12 +57,36 @@ final class OverlayAnimationStrategyTests: XCTestCase {
         overlay.hide()
     }
 
-    func testPreviewCloseButtonOverlayOptimizedModeInitialization() {
-        let optimizedOverlay = PreviewCloseButtonOverlay(isOptimized: true)
-        XCTAssertTrue(optimizedOverlay.isOptimized)
+    func testPreviewCloseButtonOverlayStrategyInitialization() {
+        let optimizedOverlay = PreviewCloseButtonOverlay(strategy: OptimizedOverlayAnimationStrategy())
+        XCTAssertTrue(optimizedOverlay.strategy is OptimizedOverlayAnimationStrategy)
 
-        let nativeOverlay = PreviewCloseButtonOverlay(isOptimized: false)
-        XCTAssertFalse(nativeOverlay.isOptimized)
+        let nativeOverlay = PreviewCloseButtonOverlay(strategy: NativeSymbolEffectAnimationStrategy())
+        XCTAssertFalse(nativeOverlay.strategy is OptimizedOverlayAnimationStrategy)
+    }
+
+    func testStrategiesConformToAnchorOverlayInterface() {
+        // Both backends must implement the anchored-overlay behaviours that
+        // PreviewCloseButtonOverlay delegates to the strategy.
+        let view = NSView(frame: NSRect(x: 0, y: 0, width: 32, height: 32))
+        view.wantsLayer = true
+        let imageView = NSImageView(frame: view.bounds)
+
+        let strategies: [OverlayAnimationStrategy] = [
+            OptimizedOverlayAnimationStrategy(),
+            NativeSymbolEffectAnimationStrategy()
+        ]
+        for strategy in strategies {
+            // Must not crash and must leave the view in a consistent state.
+            strategy.applyAppear(on: view, imageView: imageView)
+            strategy.applyRelocationAppearance(on: view, imageView: imageView)
+
+            if let image = NSImage(systemSymbolName: "xmark.circle.fill", accessibilityDescription: "test") {
+                strategy.applyModeChange(to: image, on: imageView)
+            }
+            strategy.applyHover(on: view, hovered: true)
+            strategy.applyHover(on: view, hovered: false)
+        }
     }
 
     func testShortcutConfigurationOptimizedAnimationModePersistence() {

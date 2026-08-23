@@ -29,53 +29,45 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
         if let replace = mode.replaceTransition {
             switch replace {
             case .magicReveal:
-                if #available(macOS 26.0, *) {
+                setSymbolImageReplacing(feedbackImage, on: imageView, onMacOS26: {
                     imageView.setSymbolImage(
                         feedbackImage,
                         contentTransition: .replace.magic(fallback: .upUp.byLayer),
                         options: .nonRepeating
                     )
-                } else if #available(macOS 14.0, *) {
+                }, onMacOS14: {
                     imageView.setSymbolImage(
                         feedbackImage,
                         contentTransition: .replace.upUp.byLayer,
                         options: .nonRepeating
                     )
-                } else {
-                    imageView.image = feedbackImage
-                }
+                })
             case .magicDownUpReveal:
-                if #available(macOS 26.0, *) {
+                setSymbolImageReplacing(feedbackImage, on: imageView, onMacOS26: {
                     imageView.setSymbolImage(
                         feedbackImage,
                         contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
                         options: .nonRepeating
                     )
-                } else if #available(macOS 14.0, *) {
+                }, onMacOS14: {
                     imageView.setSymbolImage(
                         feedbackImage,
                         contentTransition: .replace.downUp.wholeSymbol,
                         options: .nonRepeating
                     )
-                } else {
-                    imageView.image = feedbackImage
-                }
+                })
             case .downUpReveal:
-                if #available(macOS 14.0, *) {
+                setSymbolImageReplacing(feedbackImage, on: imageView, onMacOS14: {
                     imageView.setSymbolImage(
                         feedbackImage,
                         contentTransition: .replace.downUp.byLayer,
                         options: .nonRepeating
                     )
-                } else {
-                    imageView.image = feedbackImage
-                }
+                })
             case .replace:
-                if #available(macOS 14.0, *) {
+                setSymbolImageReplacing(feedbackImage, on: imageView, onMacOS14: {
                     imageView.setSymbolImage(feedbackImage, contentTransition: .replace, options: .nonRepeating)
-                } else {
-                    imageView.image = feedbackImage
-                }
+                })
             }
         } else {
             imageView.image = feedbackImage
@@ -105,6 +97,26 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
         }
     }
 
+    /// Collapses the repeated `#available(macOS 26.0)` → `#available(macOS 14.0)`
+    /// → plain-swap cascade into one call site. Each closure runs only when its
+    /// OS gate passes, so the availability annotations inside stay valid; when a
+    /// transition has no dedicated macOS 26 variant, pass only `onMacOS14` and it
+    /// also serves macOS 26 (the macOS 14 API is available there).
+    private func setSymbolImageReplacing(
+        _ image: NSImage,
+        on imageView: NSImageView,
+        onMacOS26: (() -> Void)? = nil,
+        onMacOS14: () -> Void
+    ) {
+        if #available(macOS 26.0, *), let onMacOS26 {
+            onMacOS26()
+        } else if #available(macOS 14.0, *) {
+            onMacOS14()
+        } else {
+            imageView.image = image
+        }
+    }
+
     func performRetract(
         panel: NSPanel,
         imageView: NSImageView,
@@ -127,6 +139,41 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
                 imageView.layer?.transform = CATransform3DIdentity
                 completion()
             }
+        }
+    }
+
+    func applyAppear(on view: NSView, imageView: NSImageView) {
+        triggerAppearEffect(on: imageView)
+    }
+
+    func applyRelocationAppearance(on view: NSView, imageView: NSImageView) {
+        triggerAppearEffect(on: imageView)
+    }
+
+    func applyModeChange(to image: NSImage, on imageView: NSImageView) {
+        setSymbolImageReplacing(image, on: imageView, onMacOS14: {
+            imageView.setSymbolImage(
+                image,
+                contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
+                options: .nonRepeating
+            )
+        })
+    }
+
+    func applyHover(on view: NSView, hovered: Bool) {
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+            context.allowsImplicitAnimation = true
+            view.animator().alphaValue = hovered ? 1.0 : 0.97
+            view.layer?.transform = hovered ? CATransform3DMakeScale(1.08, 1.08, 1.0) : CATransform3DIdentity
+        }
+    }
+
+    /// Plays `.appear.byLayer` when symbol effects are available.
+    private func triggerAppearEffect(on imageView: NSImageView) {
+        if #available(macOS 14.0, *) {
+            imageView.addSymbolEffect(.appear.byLayer, options: .nonRepeating)
         }
     }
 }

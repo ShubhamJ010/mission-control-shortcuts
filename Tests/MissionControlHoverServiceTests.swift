@@ -102,4 +102,72 @@ final class MissionControlHoverServiceTests: XCTestCase {
     func testInitialWindowCountIsZero() {
         XCTAssertEqual(hoverService._testWindowCount, 0)
     }
+
+    // MARK: - Space change must not flash the preview overlay
+
+    /// Builds a minimal tracked-window entry covering `rect`, shaped exactly
+    /// like the CGWindowList dictionaries `fetchWindows()` produces.
+    private func makeWindowInfo(at rect: CGRect) -> [String: Any] {
+        [
+            "kCGWindowBounds": [
+                "X": rect.origin.x,
+                "Y": rect.origin.y,
+                "Width": rect.width,
+                "Height": rect.height,
+            ]
+        ]
+    }
+
+    /// Regression: a plain desktop switch (Ctrl+←/→ or three-finger swipe)
+    /// fires `activeSpaceDidChangeNotification`. The handler used to recompute
+    /// the hover overlay unconditionally, flashing the close button over
+    /// whatever window sat under the cursor until the next mouse move hid it.
+    /// Outside Mission Control the overlay must stay hidden.
+    func testSpaceChangeOutsideMissionControlDoesNotShowOverlay() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in
+                self?.isMissionControlActive ?? false
+            },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        // A large window sits directly under the cursor, so a naive
+        // `updateOverlay` call would show the close button.
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 0, y: 0, width: 800, height: 600))])
+        isMissionControlActive = false
+
+        service.handleSpaceChange(at: CGPoint(x: 400, y: 300))
+
+        XCTAssertFalse(overlay.isVisible)
+    }
+
+    /// While Mission Control *is* open, a Space change must keep refreshing
+    /// the overlay for the new Space's windows under the cursor.
+    func testSpaceChangeInsideMissionControlShowsOverlayUnderCursor() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in
+                self?.isMissionControlActive ?? false
+            },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        isMissionControlActive = true
+
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+
+        XCTAssertTrue(overlay.isVisible)
+
+        // Moving off every tracked window hides it again.
+        service.handleSpaceChange(at: CGPoint(x: 900, y: 900))
+        XCTAssertFalse(overlay.isVisible)
+    }
 }

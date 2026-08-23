@@ -58,11 +58,13 @@ final class PreviewCloseButtonOverlay {
     private(set) var isVisible = false
     private var currentAnchorOrigin: CGPoint = .zero
 
-    /// When `true`, uses zero-overhead CoreAnimation effects. When `false`, uses native Apple Symbol Effects.
-    let isOptimized: Bool
+    /// The injected animation backend (zero-overhead CoreAnimation or native
+    /// Apple Symbol Effects), chosen once at startup and shared with the other
+    /// overlays so the same domain concept has one representation.
+    let strategy: OverlayAnimationStrategy
 
-    init(isOptimized: Bool = true) {
-        self.isOptimized = isOptimized
+    init(strategy: OverlayAnimationStrategy? = nil) {
+        self.strategy = strategy ?? OptimizedOverlayAnimationStrategy()
         // Panel creation is deferred to the first show() call so no
         // layer-backed NSPanel (and its GPU/IOSurface buffers) exists
         // until the feature is actually used.
@@ -85,8 +87,7 @@ final class PreviewCloseButtonOverlay {
         panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
-        let button = CloseButtonView(frame: contentRect)
-        button.isOptimized = isOptimized
+        let button = CloseButtonView(frame: contentRect, strategy: strategy)
 
         panel.contentView = button
         self.buttonView = button
@@ -121,15 +122,11 @@ final class PreviewCloseButtonOverlay {
         if !isVisible {
             panel.orderFrontRegardless()
             isVisible = true
-            if isOptimized {
-                if let layer = buttonView?.layer {
-                    OverlayAnimationFactory.applyEntryAnimation(style: .bouncePop, on: layer)
-                }
-            } else {
-                buttonView?.triggerAppearEffect()
+            if let buttonView {
+                strategy.applyAppear(on: buttonView, imageView: buttonView.imageView)
             }
-        } else if isNewOrigin && !isOptimized {
-            buttonView?.triggerAppearEffect()
+        } else if isNewOrigin, let buttonView {
+            strategy.applyRelocationAppearance(on: buttonView, imageView: buttonView.imageView)
         }
     }
 
@@ -157,10 +154,20 @@ final class PreviewCloseButtonOverlay {
 
 @MainActor
 final class CloseButtonView: NSView {
-    private let imageView = NSImageView()
+    /// Exposed (read-only) so the owning overlay can pass it to strategy calls
+    /// that animate the symbol rather than the container layer.
+    let imageView = NSImageView()
     private(set) var isHovered = false
     private(set) var currentMode: PreviewCloseButtonOverlay.Mode = .close
-    var isOptimized: Bool = true
+    private let strategy: OverlayAnimationStrategy
+
+    init(frame frameRect: NSRect, strategy: OverlayAnimationStrategy) {
+        self.strategy = strategy
+        super.init(frame: frameRect)
+        wantsLayer = true
+        setupLayer()
+        setupImageView()
+    }
 
     /// Cache of rendered action symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once and reused across hovers.
@@ -187,6 +194,7 @@ final class CloseButtonView: NSView {
     }
 
     override init(frame frameRect: NSRect) {
+        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(frame: frameRect)
         wantsLayer = true
         setupLayer()
@@ -194,6 +202,7 @@ final class CloseButtonView: NSView {
     }
 
     required init?(coder: NSCoder) {
+        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(coder: coder)
         wantsLayer = true
         setupLayer()
@@ -235,29 +244,9 @@ final class CloseButtonView: NSView {
         guard let image = image(for: mode) else { return }
 
         if animated {
-            if isOptimized {
-                if let layer = imageView.layer {
-                    OverlayAnimationFactory.applyMorphTransition(on: layer)
-                }
-                imageView.image = image
-            } else if #available(macOS 14.0, *) {
-                imageView.setSymbolImage(
-                    image,
-                    contentTransition: .replace.magic(fallback: .downUp.wholeSymbol),
-                    options: .nonRepeating
-                )
-            } else {
-                imageView.image = image
-            }
+            strategy.applyModeChange(to: image, on: imageView)
         } else {
             imageView.image = image
-        }
-    }
-
-    /// Plays the `.appear.byLayer` symbol effect on the image when native symbol effects are active.
-    func triggerAppearEffect() {
-        if #available(macOS 14.0, *) {
-            imageView.addSymbolEffect(.appear.byLayer, options: .nonRepeating)
         }
     }
 
@@ -278,19 +267,6 @@ final class CloseButtonView: NSView {
     func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
-
-        if isOptimized {
-            if let layer = self.layer {
-                OverlayAnimationFactory.applyHoverScale(on: layer, hovered: hovered)
-            }
-        } else {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.15
-                context.timingFunction = CAMediaTimingFunction(name: .easeOut)
-                context.allowsImplicitAnimation = true
-                self.animator().alphaValue = hovered ? 1.0 : 0.97
-                self.layer?.transform = hovered ? CATransform3DMakeScale(1.08, 1.08, 1.0) : CATransform3DIdentity
-            }
-        }
+        strategy.applyHover(on: self, hovered: hovered)
     }
 }
