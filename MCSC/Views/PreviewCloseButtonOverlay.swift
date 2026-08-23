@@ -234,7 +234,7 @@ final class CloseButtonView: NSView {
             imageView.centerXAnchor.constraint(equalTo: centerXAnchor),
             imageView.centerYAnchor.constraint(equalTo: centerYAnchor),
             imageView.widthAnchor.constraint(equalToConstant: 28),
-            imageView.heightAnchor.constraint(equalToConstant: 28),
+            imageView.heightAnchor.constraint(equalToConstant: 28)
         ])
     }
 

@@ -139,7 +139,7 @@ private enum SystemEffects {
         process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         process.arguments = [
             "-e",
-            "tell application \"System Events\" to key code \(direction.arrowKeyCode) using control down",
+            "tell application \"System Events\" to key code \(direction.arrowKeyCode) using control down"
         ]
         process.standardOutput = FileHandle.nullDevice
         process.standardError = FileHandle.nullDevice

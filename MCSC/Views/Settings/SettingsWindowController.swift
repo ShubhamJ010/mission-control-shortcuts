@@ -102,7 +102,7 @@ final class SettingsWindow: NSWindow {
             #selector(toggleTabBar(_:)),
             #selector(toggleTabOverview(_:)),
             #selector(toggleToolbarShown(_:)),
-            #selector(runToolbarCustomizationPalette(_:)),
+            #selector(runToolbarCustomizationPalette(_:))
         ]
         guard let action = menuItem.action else { return super.validateMenuItem(menuItem) }
         if disabled.contains(action) {
@@ -131,7 +131,11 @@ final class SettingsWindowController: NSWindowController {
 
     override var shouldCascadeWindows: Bool {
         get { false }
-        set { super.shouldCascadeWindows = false }
+        set {
+            // newValue is intentionally ignored — settings windows never cascade.
+            _ = newValue
+            super.shouldCascadeWindows = false
+        }
     }
 
     private var settingsWindow: SettingsWindow? {
@@ -211,7 +215,7 @@ final class SettingsWindowController: NSWindowController {
             GestureSettingsPane(viewModel: viewModel,
                                 tabName: "Gestures",
                                 tabImage: NSImage(systemSymbolName: "hand.draw", accessibilityDescription: nil),
-                                tabIdentifier: "gestures"),
+                                tabIdentifier: "gestures")
         ])
         window?.title = "MCSC Settings"
         settingsWindow?.defaultWindowTitle = "MCSC Settings"

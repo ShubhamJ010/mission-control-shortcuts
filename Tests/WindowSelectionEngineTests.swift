@@ -14,7 +14,7 @@ final class WindowSelectionEngineTests: XCTestCase {
         [
             kCGWindowOwnerName as String: owner,
             kCGWindowBounds as String: ["X": x, "Y": y, "Width": width, "Height": height],
-            kCGWindowNumber as String: number,
+            kCGWindowNumber as String: number
         ]
     }
 
@@ -27,7 +27,7 @@ final class WindowSelectionEngineTests: XCTestCase {
     func testPrefixBeatsSubstring() {
         let windows = [
             window(owner: "Xcode", number: 1),
-            window(owner: "Code", number: 2),
+            window(owner: "Code", number: 2)
         ]
         let matches = WindowSelectionEngine.fuzzyMatch(query: "co", in: windows)
         XCTAssertEqual(matches.map(\.ownerName), ["Code", "Xcode"])
@@ -53,7 +53,7 @@ final class WindowSelectionEngineTests: XCTestCase {
     func testMissingOwnerIsSkipped() {
         let nameless: [String: Any] = [
             kCGWindowBounds as String: ["X": 0.0, "Y": 0.0, "Width": 400.0, "Height": 300.0],
-            kCGWindowNumber as String: 9,
+            kCGWindowNumber as String: 9
         ]
         let windows = [nameless, window(owner: "Mail")]
         let matches = WindowSelectionEngine.fuzzyMatch(query: "m", in: windows)
@@ -75,7 +75,7 @@ final class WindowSelectionEngineTests: XCTestCase {
     func testSameOwnerWindowsOrderedByWindowNumber() {
         let windows = [
             window(owner: "Code", x: 500, number: 20),
-            window(owner: "Code", x: 0, number: 10),
+            window(owner: "Code", x: 0, number: 10)
         ]
         let matches = WindowSelectionEngine.fuzzyMatch(query: "code", in: windows)
         XCTAssertEqual(matches.count, 2)
@@ -93,7 +93,7 @@ final class WindowSelectionEngineTests: XCTestCase {
         let windows = [
             window(owner: "C", x: 500, y: 0, number: 3),
             window(owner: "A", x: 0, y: 0, number: 1),
-            window(owner: "B", x: 0, y: 400, number: 2),
+            window(owner: "B", x: 0, y: 400, number: 2)
         ]
         let sorted = WindowSelectionEngine.rowMajorSorted(in: windows)
         XCTAssertEqual(sorted.map(\.ownerName), ["A", "C", "B"])

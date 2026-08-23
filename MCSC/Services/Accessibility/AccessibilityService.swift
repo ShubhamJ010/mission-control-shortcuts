@@ -158,7 +158,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let result = AXUIElementCopyAttributeValue(element, kAXWindowAttribute as CFString, &window)
 
         if result == .success, let window, CFGetTypeID(window) == AXUIElementGetTypeID() {
-            return (window as! AXUIElement)
+            // TypeID verified above; `as?` cannot check CF types.
+            return unsafeDowncast(window, to: AXUIElement.self)
         }
 
         // If the element itself is a window
@@ -208,7 +209,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                   let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {
                 return nil
             }
-            current = (parent as! AXUIElement)
+            // TypeID verified above; `as?` cannot check CF types.
+            current = unsafeDowncast(parent, to: AXUIElement.self)
             depth += 1
         }
         return nil
@@ -246,13 +248,12 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         // whose Dock AXTitle differed from localizedName.
         guard let title: String = getAttributeValue(kAXTitleAttribute, for: dockItem) else {
             if dockDiagnosticsEnabled {
-                let role: String? = getAttributeValue(kAXRoleAttribute, for: dockItem)
-                let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: dockItem)
-                let url: NSURL? = getAttributeValue(kAXURLAttribute, for: dockItem)
+                let role = getAttributeValue(kAXRoleAttribute, for: dockItem) ?? "?"
+                let subrole = getAttributeValue(kAXSubroleAttribute, for: dockItem) ?? "?"
+                let url = (getAttributeValue(kAXURLAttribute, for: dockItem) as NSURL?)?.absoluteString ?? "nil"
+                let message = "\(role), \(subrole), \(url)"
                 AppLogger.dock
-                    .debug(
-                        "AXURL match failed; AXTitle missing — role='\(role ?? "?", privacy: .public)' subrole='\(subrole ?? "?", privacy: .public)' AXURL=\(url?.absoluteString ?? "nil", privacy: .public)"
-                    )
+                    .debug("AXURL match failed; AXTitle missing — \(message, privacy: .public)")
             }
             return nil
         }
@@ -374,8 +375,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         }
         var point = CGPoint.zero
         var size = CGSize.zero
-        guard AXValueGetValue(posVal as! AXValue, .cgPoint, &point),
-              AXValueGetValue(sizeVal as! AXValue, .cgSize, &size) else {
+        // TypeIDs verified above; `as?` cannot check CF types.
+        guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+              AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
             return nil
         }
         return CGRect(origin: point, size: size)

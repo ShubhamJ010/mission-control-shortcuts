@@ -28,12 +28,12 @@ final class OptimizedOverlayAnimationStrategy: OverlayAnimationStrategy {
         }
     }
 
-    func applyAppear(on view: NSView, imageView: NSImageView) {
+    func applyAppear(on view: NSView, imageView _: NSImageView) {
         guard let layer = view.layer else { return }
         OverlayAnimationFactory.applyEntryAnimation(style: .bouncePop, on: layer)
     }
 
-    func applyRelocationAppearance(on view: NSView, imageView: NSImageView) {
+    func applyRelocationAppearance(on _: NSView, imageView _: NSImageView) {
         // Zero-overhead mode deliberately stays quiet on anchor moves so the
         // button does not re-bounce while tracking the cursor across previews.
     }

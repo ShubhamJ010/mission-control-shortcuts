@@ -24,6 +24,10 @@ swiftc \
   "${ROOT_DIR}/MCSC/Services/Volume/MountedVolumeService.swift" \
   "${ROOT_DIR}/MCSC/Services/Haptics/HapticService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+Observers.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+InputTap.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+KeyboardSearch.swift" \
+  "${ROOT_DIR}/MCSC/Utilities/Timer+ScheduledCommon.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MCKeyboardTapService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlService.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSelectionEngine.swift" \

@@ -4,7 +4,6 @@ import XCTest
 
 @MainActor
 final class OverlayAnimationStrategyTests: XCTestCase {
-
     override func setUp() {
         super.setUp()
         clearStoredToggles()

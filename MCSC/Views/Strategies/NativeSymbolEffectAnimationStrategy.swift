@@ -142,11 +142,11 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
         }
     }
 
-    func applyAppear(on view: NSView, imageView: NSImageView) {
+    func applyAppear(on _: NSView, imageView: NSImageView) {
         triggerAppearEffect(on: imageView)
     }
 
-    func applyRelocationAppearance(on view: NSView, imageView: NSImageView) {
+    func applyRelocationAppearance(on _: NSView, imageView: NSImageView) {
         triggerAppearEffect(on: imageView)
     }
 

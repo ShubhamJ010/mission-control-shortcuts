@@ -7,7 +7,7 @@ final class WindowSearchSessionTests: XCTestCase {
         [
             kCGWindowOwnerName as String: owner,
             kCGWindowBounds as String: ["X": 0.0, "Y": 0.0, "Width": 400.0, "Height": 300.0],
-            kCGWindowNumber as String: number,
+            kCGWindowNumber as String: number
         ]
     }
 
@@ -15,7 +15,7 @@ final class WindowSearchSessionTests: XCTestCase {
         [
             window(owner: "Code", number: 1),
             window(owner: "Xcode", number: 2),
-            window(owner: "Safari", number: 3),
+            window(owner: "Safari", number: 3)
         ]
     }
 

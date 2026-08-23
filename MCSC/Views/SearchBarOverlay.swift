@@ -131,7 +131,7 @@ final class SearchBarOverlay {
             field.centerXAnchor.constraint(equalTo: effectView.centerXAnchor),
             field.centerYAnchor.constraint(equalTo: effectView.centerYAnchor),
             field.leadingAnchor.constraint(greaterThanOrEqualTo: effectView.leadingAnchor, constant: 16),
-            field.trailingAnchor.constraint(lessThanOrEqualTo: effectView.trailingAnchor, constant: -16),
+            field.trailingAnchor.constraint(lessThanOrEqualTo: effectView.trailingAnchor, constant: -16)
         ])
 
         panel.contentView = effectView

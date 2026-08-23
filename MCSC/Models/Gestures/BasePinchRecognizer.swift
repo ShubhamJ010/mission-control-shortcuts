@@ -112,9 +112,17 @@ class BasePinchRecognizer: GestureRecognizer {
     private func result(atNormalized center: (Float, Float), cmdHeld: Bool) -> GestureResult {
         switch direction {
         case .inward:
-            cmdHeld ? .cmdPinchIn(atNormalized: center) : .pinchIn(atNormalized: center)
+            if cmdHeld {
+                .cmdPinchIn(atNormalized: center)
+            } else {
+                .pinchIn(atNormalized: center)
+            }
         case .outward:
-            cmdHeld ? .cmdPinchOut(atNormalized: center) : .pinchOut(atNormalized: center)
+            if cmdHeld {
+                .cmdPinchOut(atNormalized: center)
+            } else {
+                .pinchOut(atNormalized: center)
+            }
         }
     }
 }

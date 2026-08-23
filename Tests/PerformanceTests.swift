@@ -146,7 +146,7 @@ final class PerformanceTests: XCTestCase {
             ShortcutActionRouter.kKeyE, ShortcutActionRouter.kKeyD,
             ShortcutActionRouter.kKeyA, ShortcutActionRouter.kKeyR,
             ShortcutActionRouter.kKeyL, ShortcutActionRouter.kKeyS,
-            ShortcutActionRouter.kKeyRight, ShortcutActionRouter.kKeyLeft,
+            ShortcutActionRouter.kKeyRight, ShortcutActionRouter.kKeyLeft
         ]
         for key in constants {
             XCTAssertTrue(

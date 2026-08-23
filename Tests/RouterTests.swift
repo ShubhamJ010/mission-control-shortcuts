@@ -639,7 +639,7 @@ final class RouterTests: XCTestCase {
             (.swipeUp(atNormalized: (0.5, 0.5)), .minimize),
             (.cmdSwipeUp(atNormalized: (0.5, 0.5)), .hide),
             (.twoFingerDoubleTap, .reasonable),
-            (.cmdTwoFingerDoubleTap, .almost),
+            (.cmdTwoFingerDoubleTap, .almost)
         ]
 
         for (gesture, expectedMode) in gesturesToExpectedModes {

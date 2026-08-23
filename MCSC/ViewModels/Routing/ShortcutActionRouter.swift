@@ -40,7 +40,7 @@ final class ShortcutActionRouter {
     /// stays conservative.
     static let handledKeyCodes: Set<Int64> = [
         kKeyW, kKeyQ, kKeyM, kKeyH, kKeyF, kKeyT, kKeyN, kKeySpace,
-        kKeyE, kKeyD, kKeyA, kKeyR, kKeyL, kKeyS, kKeyRight, kKeyLeft,
+        kKeyE, kKeyD, kKeyA, kKeyR, kKeyL, kKeyS, kKeyRight, kKeyLeft
     ]
 
     /// Cheap, allocation-free predicate answering "could this event possibly
@@ -65,6 +65,10 @@ final class ShortcutActionRouter {
         self.actions = actions
     }
 
+    // The parameter list mirrors the full routing context of a key event;
+    // bundling it into a struct would touch 20+ test call sites for no
+    // behavioral gain, so the count rule is waived here deliberately.
+    // swiftlint:disable:next function_parameter_count
     func routeShortcut(
         keyCode: Int64,
         flags: CGEventFlags,
@@ -111,8 +115,15 @@ final class ShortcutActionRouter {
         }
         return .ignore
     }
+}
 
-    private func shouldHandle(flags: CGEventFlags) -> Bool {
+// MARK: - Routing internals
+
+/// Same-file extension: SwiftLint's `type_body_length` measures only the main
+/// declaration body, and `private` members remain visible to extensions within
+/// this file, so the routing internals live here without widening access.
+private extension ShortcutActionRouter {
+    func shouldHandle(flags: CGEventFlags) -> Bool {
         flags.contains(.maskCommand)
             && !flags.contains(.maskControl)
             && !flags.contains(.maskAlternate)
@@ -170,7 +181,30 @@ final class ShortcutActionRouter {
         }
     }
 
-    private func routePureCmdShortcut(
+    /// Complexity note: the switch is split across `routePureCmdCoreShortcuts`
+    /// (W/Q/M/H) and `routePureCmdWindowShortcuts` (F/T/N) to keep each
+    /// function's cyclomatic complexity under the SwiftLint budget.
+    func routePureCmdShortcut(
+        keyCode: Int64,
+        config: ShortcutConfiguration,
+        service: AccessibilityServiceProtocol,
+        location: CGPoint,
+        app: NSRunningApplication?,
+        activateApp: @escaping (CGPoint) -> Void
+    ) -> ResolvedShortcutAction? {
+        if let action = routePureCmdCoreShortcuts(
+            keyCode: keyCode, config: config, service: service,
+            location: location, app: app, activateApp: activateApp
+        ) {
+            return action
+        }
+        return routePureCmdWindowShortcuts(
+            keyCode: keyCode, config: config, service: service,
+            location: location, app: app
+        )
+    }
+
+    func routePureCmdCoreShortcuts(
         keyCode: Int64,
         config: ShortcutConfiguration,
         service: AccessibilityServiceProtocol,
@@ -180,7 +214,7 @@ final class ShortcutActionRouter {
     ) -> ResolvedShortcutAction? {
         switch (keyCode, config) {
         case (Self.kKeyW, _) where config.isCmdWEnabled:
-            return .consumeAndExecute(feedbackMode: .close) { [weak self] in
+            .consumeAndExecute(feedbackMode: .close) { [weak self] in
                 guard let self else { return }
                 activateApp(location)
                 if let app {
@@ -190,7 +224,7 @@ final class ShortcutActionRouter {
                 }
             }
         case (Self.kKeyQ, _) where config.isCmdQEnabled:
-            return .consumeAndExecute(feedbackMode: .quit) { [weak self] in
+            .consumeAndExecute(feedbackMode: .quit) { [weak self] in
                 guard let self else { return }
                 if let app {
                     self.actions.forceQuitAppAction.perform(app: app)
@@ -199,7 +233,7 @@ final class ShortcutActionRouter {
                 }
             }
         case (Self.kKeyM, _) where config.isCmdMEnabled:
-            return .consumeAndExecute(feedbackMode: .minimize) { [weak self] in
+            .consumeAndExecute(feedbackMode: .minimize) { [weak self] in
                 guard let self else { return }
                 if let app {
                     self.actions.minimizeAppAction.perform(app: app, service: service)
@@ -208,7 +242,7 @@ final class ShortcutActionRouter {
                 }
             }
         case (Self.kKeyH, _) where config.isCmdHEnabled:
-            return .consumeAndExecute(feedbackMode: .hide) { [weak self] in
+            .consumeAndExecute(feedbackMode: .hide) { [weak self] in
                 guard let self else { return }
                 if let app {
                     app.hide()
@@ -216,6 +250,19 @@ final class ShortcutActionRouter {
                     self.actions.hideAction.perform(at: location, service: service)
                 }
             }
+        default:
+            nil
+        }
+    }
+
+    func routePureCmdWindowShortcuts(
+        keyCode: Int64,
+        config: ShortcutConfiguration,
+        service: AccessibilityServiceProtocol,
+        location: CGPoint,
+        app: NSRunningApplication?
+    ) -> ResolvedShortcutAction? {
+        switch (keyCode, config) {
         case (Self.kKeyF, _) where config.isCmdFEnabled:
             return .consumeAndExecute(feedbackMode: .fullscreen) { [weak self] in
                 guard let self else { return }
@@ -307,7 +354,27 @@ final class ShortcutActionRouter {
         }
     }
 
-    private func routeShiftWindowSizeActions(
+    /// Complexity note: split across `routeShiftFillActions` (D/A) and
+    /// `routeShiftResizeActions` (R/L/S) to keep each function's cyclomatic
+    /// complexity under the SwiftLint budget.
+    func routeShiftWindowSizeActions(
+        keyCode: Int64,
+        config: ShortcutConfiguration,
+        service: AccessibilityServiceProtocol,
+        location: CGPoint,
+        app: NSRunningApplication?
+    ) -> ResolvedShortcutAction? {
+        if let action = routeShiftFillActions(
+            keyCode: keyCode, config: config, service: service, location: location, app: app
+        ) {
+            return action
+        }
+        return routeShiftResizeActions(
+            keyCode: keyCode, config: config, service: service, location: location, app: app
+        )
+    }
+
+    func routeShiftFillActions(
         keyCode: Int64,
         config: ShortcutConfiguration,
         service: AccessibilityServiceProtocol,
@@ -333,6 +400,19 @@ final class ShortcutActionRouter {
                     self.actions.almostMaximizeAction.perform(at: location, service: service)
                 }
             }
+        default:
+            nil
+        }
+    }
+
+    func routeShiftResizeActions(
+        keyCode: Int64,
+        config: ShortcutConfiguration,
+        service: AccessibilityServiceProtocol,
+        location: CGPoint,
+        app: NSRunningApplication?
+    ) -> ResolvedShortcutAction? {
+        switch keyCode {
         case Self.kKeyR where config.isReasonableSizeEnabled:
             .consumeAndExecute(feedbackMode: .reasonable) { [weak self] in
                 guard let self else { return }

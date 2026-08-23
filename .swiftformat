@@ -3,9 +3,16 @@
 
 --swiftversion 5.10
 
+--exclude build
+
 --enable blankLinesAtStartOfScope,blankLinesBetweenScopes,consecutiveBlankLines,duplicateImports,emptyBraces,indent,trailingSpace,void
 
 --disable wrapMultilineStatementBraces,redundantSelf
 
 --maxwidth 120
 --indent 4
+
+# SwiftLint's `trailing_comma` strips trailing commas from multiline literals;
+# SwiftFormat's default `commas` rule adds them back. Keep only inline commas
+# so both tools agree.
+--commas inline

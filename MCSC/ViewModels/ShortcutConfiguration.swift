@@ -145,7 +145,9 @@ struct ShortcutConfiguration {
 
     /// When true, uses zero-overhead CoreAnimation effects. When false, uses native Apple SF Symbol Effects.
     var isOptimizedAnimationModeEnabled = true {
-        didSet { UserDefaults.standard.set(isOptimizedAnimationModeEnabled, forKey: Self.Keys.optimizedAnimationsEnabled) }
+        didSet {
+            UserDefaults.standard.set(isOptimizedAnimationModeEnabled, forKey: Self.Keys.optimizedAnimationsEnabled)
+        }
     }
 
     // MARK: - Gesture action mappings
@@ -206,7 +208,7 @@ struct ShortcutConfiguration {
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
         (\.isHapticFeedbackEnabled, Keys.hapticFeedbackEnabled, true),
         (\.isCursorFeedbackEnabled, Keys.cursorFeedbackEnabled, true),
-        (\.isOptimizedAnimationModeEnabled, Keys.optimizedAnimationsEnabled, true),
+        (\.isOptimizedAnimationModeEnabled, Keys.optimizedAnimationsEnabled, true)
     ]
 
     private mutating func loadStoredToggles() {

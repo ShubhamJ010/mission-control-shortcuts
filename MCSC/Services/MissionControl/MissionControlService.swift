@@ -68,7 +68,7 @@ final class MissionControlService: MissionControlServiceProtocol {
             "com.apple.showdesktop.start", "com.apple.showdesktop.stop",
             "com.apple.expose.front.start", "com.apple.expose.front.stop",
             "com.apple.MissionControl.start", "com.apple.MissionControl.stop",
-            "com.apple.dashboard.start", "com.apple.dashboard.stop",
+            "com.apple.dashboard.start", "com.apple.dashboard.stop"
         ]
 
         for event in events {

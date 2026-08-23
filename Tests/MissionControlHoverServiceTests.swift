@@ -113,7 +113,7 @@ final class MissionControlHoverServiceTests: XCTestCase {
                 "X": rect.origin.x,
                 "Y": rect.origin.y,
                 "Width": rect.width,
-                "Height": rect.height,
+                "Height": rect.height
             ]
         ]
     }

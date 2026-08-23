@@ -119,17 +119,17 @@ extension CursorFeedbackOverlay {
         var animationStyle: OverlayAnimationStyle {
             switch self {
             case .close, .quit, .newWindow, .eject:
-                return .bouncePop
+                .bouncePop
             case .closeTab, .reopenTab, .closeAllTabs, .newTab:
-                return .wiggle
+                .wiggle
             case .maximize, .almost, .reasonable, .fullscreen:
-                return .pulseExpand
+                .pulseExpand
             case .minimize, .hide, .makeSmaller:
-                return .shrinkDown
+                .shrinkDown
             case .spaceRight:
-                return .slideRight
+                .slideRight
             case .spaceLeft:
-                return .slideLeft
+                .slideLeft
             }
         }
 
