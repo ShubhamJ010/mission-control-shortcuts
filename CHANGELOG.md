@@ -1,15 +1,18 @@
 # Changelog
 
-## Unreleased
+## 0.6.0-beta (24 Aug 2026)
 
+- **Desktop-Switch Overlay Flash Fix**: Switching desktops (Ctrl+←/→ or three-finger swipe) no longer flashes the Mission Control hover close button or flips the app into a false "Mission Control active" state. The `activeSpaceDidChangeNotification` handler in `MissionControlHoverService` now recomputes the overlay only while Mission Control is actually open (`handleSpaceChange(at:)`), instead of unconditionally showing it over whatever window sat under the cursor for one frame.
+- **Overlay Animation Strategy Cleanup**: One shared `OverlayAnimationStrategy` (zero-overhead CoreAnimation or native SF Symbol Effects) is built once at startup from UserDefaults and injected into every overlay, replacing per-overlay `isOptimized` flags. `OverlayAnimationFactory` deduplicates translation+scale keyframe groups; `NativeSymbolEffectAnimationStrategy` collapses the macOS 26 / 14 availability cascades into a single gated helper.
 - **Performance Audit — Hot-Path IPC & Allocations**: Systematic audit of the running build (`footprint` / `heap` / `vmmap` / `sample`) with five fixes:
   - **Zero AX IPC while typing**: every `keyDown` previously paid an `AXUIElementCopyElementAtPosition` hit-test (plus title-bar/frontmost reads) before the router discarded it. A cheap allocation-free pre-filter (`ShortcutActionRouter.isShortcutCandidate`) now rejects plain typing and untracked keys before any Accessibility call. Verified: 1 `SLWindowListCopyWindowInfo` per 5 s idle sample (was 7–9; ~38 in 0.5.0-beta).
   - **Pre-thread-hop frame throttle**: `MultitouchFrameGate` throttles non-empty trackpad frames to 30 Hz inside the framework callback, before the array + closure allocation and main-queue hop (previously 60–120 wakeups/s, throttled only after crossing threads). Empty frames bypass the gate so finger-lift is observed instantly.
   - **Cached frontmost-app element**: `isFrontmostWindow` no longer re-creates its `AXUIElementCreateApplication` up to 30×/s in the title-bar hover path (pid-keyed cache).
   - **Zombie-poll fix**: `MissionControlHoverService.deinit` now invalidates `windowFetchTimer` — a dealloc without `stop()` previously kept polling windows every 0.5 s forever.
   - **Smaller detection scan**: Mission Control window-list copy now uses `.excludeDesktopElements`.
-- **Performance Regression Tests**: New `Tests/PerformanceTests.swift` — 9 wall-clock budget tests guarding the frame gate (30 Hz cap, concurrency safety, throughput), keystroke pre-filter (correctness + 100k-call budget), MC detection cache short-circuit, and window-list fuzzy-match/sort throughput. Registered in `TestRunner.swift` / `run_tests.sh`.
+- **Performance Regression Tests**: New `Tests/PerformanceTests.swift` — 9 wall-clock budget tests guarding the frame gate (30 Hz cap, concurrency safety, throughput), keystroke pre-filter (correctness + 100k-call budget), MC detection cache short-circuit, and window-list fuzzy-match/sort throughput. Registered in `TestRunner.swift`.
 - **Title Bar Gestures & Shortcuts Outside Mission Control**: New opt-in setting that applies all gestures and Cmd-shortcuts while hovering the title bar of the frontmost window in normal desktop mode. Hover detection is a ~28 pt top-strip geometry check plus an `AccessibilityService.isFrontmostWindow(_:)` focused-window check, so only the frontmost window responds. Toggle via Settings → General (`isTitleBarActionsOutsideMCEnabled`, persisted under `mcsc.titleBarActionsOutsideMC.enabled`). Both this and the Dock outside-MC toggle now default to **off**.
+- **Lint & Architecture Hardening**: Full SwiftLint + SwiftFormat cleanup (0 warnings) with trailing-comma policies aligned across both tools, CF `unsafeDowncast` after typeid checks, inclusive-language renames, and structural splits to meet size/complexity budgets: `ShortcutViewModel` (+TargetResolution / +Lifecycle / +EventHandlers), `MissionControlHoverService` (+Observers / +InputTap / +KeyboardSearch), one file per settings pane, and decomposed router dispatch switches.
 
 ## 0.5.2-beta (22 Aug 2026)
 
