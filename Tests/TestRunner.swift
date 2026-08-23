@@ -18,7 +18,8 @@ struct TestRunner {
             ShortcutConfigurationTests.defaultTestSuite,
             DockInteractionSuppressorTests.defaultTestSuite,
             PerformanceTests.defaultTestSuite,
-            OverlayAnimationStrategyTests.defaultTestSuite
+            OverlayAnimationStrategyTests.defaultTestSuite,
+            SettingsPaneTests.defaultTestSuite
         ]
 
         var totalFailed = 0
