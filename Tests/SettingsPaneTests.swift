@@ -9,8 +9,13 @@ final class MockSettingsEventTapService: EventTapServiceProtocol {
     var onShortcutDetected: ShortcutDetectedCallback?
     private(set) var startCount = 0
     private(set) var stopCount = 0
-    func start() { startCount += 1 }
-    func stop() { stopCount += 1 }
+    func start() {
+        startCount += 1
+    }
+
+    func stop() {
+        stopCount += 1
+    }
 }
 
 /// Inert Mission Control double.
@@ -18,13 +23,17 @@ final class MockSettingsMissionControlService: MissionControlServiceProtocol {
     var isMissionControlActive = false
     var isSimulating = false
     var onActivated: (() -> Void)?
-    func checkMissionControlActive() -> Bool { isMissionControlActive }
+    func checkMissionControlActive() -> Bool {
+        isMissionControlActive
+    }
+
     func executeFixSequence() {}
     func start() {}
     func stop() {}
 }
 
 // MARK: - Regression tests for the settings panes
+
 //
 // Guard against the class of bug introduced in commit e5375d2, where the
 // lint-refactor file split left `GestureSettingsPane.makeGestureRow` as an
@@ -125,7 +134,7 @@ final class SettingsPaneTests: XCTestCase {
         let rows = gestureRows(of: pane)
         XCTAssertEqual(rows.count, GestureKind.allCases.count,
                        "Gestures pane must build exactly one row per gesture kind; "
-                       + "count 0 means a row builder was gutted or never called")
+                           + "count 0 means a row builder was gutted or never called")
     }
 
     func testRowsCoverEveryGestureKindExactlyOnceInOrder() {
