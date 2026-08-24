@@ -68,7 +68,7 @@ enum MissionControlWindowActions {
                 x: (boundsDict["X"] ?? 0) + (boundsDict["Width"] ?? 0) / 2,
                 y: (boundsDict["Y"] ?? 0) + (boundsDict["Height"] ?? 0) / 2
             )
-            CloseWindowAction().perform(at: centerPoint, service: accessibilityService)
+            WindowCloser().perform(.window, at: centerPoint, fromApp: nil, service: accessibilityService)
         }
     }
 

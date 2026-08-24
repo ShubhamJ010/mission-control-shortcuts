@@ -2,6 +2,12 @@ import Foundation
 
 /// Value type representing user-configurable shortcut and gesture toggles.
 struct ShortcutConfiguration {
+    /// Master switch for the unified ⌘+W close flow. Gates the Close Tab
+    /// toggle — turning it off cascades Close Tab off.
+    var isClosingEnabled = true {
+        didSet { UserDefaults.standard.set(isClosingEnabled, forKey: Self.Keys.closingEnabled) }
+    }
+
     var isCmdWEnabled = true {
         didSet { UserDefaults.standard.set(isCmdWEnabled, forKey: Self.Keys.cmdWEnabled) }
     }
@@ -40,11 +46,6 @@ struct ShortcutConfiguration {
 
     var isCmdShiftTEnabled = false {
         didSet { UserDefaults.standard.set(isCmdShiftTEnabled, forKey: Self.Keys.cmdShiftTEnabled) }
-    }
-
-    /// Window & Tab — additional window/size/desktop shortcuts (off by default, gesture-only previously)
-    var isCloseWindowEnabled = false {
-        didSet { UserDefaults.standard.set(isCloseWindowEnabled, forKey: Self.Keys.closeWindowEnabled) }
     }
 
     var isFillScreenEnabled = false {
@@ -175,7 +176,8 @@ struct ShortcutConfiguration {
         keyPath: WritableKeyPath<ShortcutConfiguration, Bool>,
         key: String,
         defaultValue: Bool
-    )] = [
+    )    ] = [
+        (\.isClosingEnabled, Keys.closingEnabled, true),
         (\.isCmdWEnabled, Keys.cmdWEnabled, true),
         (\.isCmdQEnabled, Keys.cmdQEnabled, true),
         (\.isCmdMEnabled, Keys.cmdMEnabled, true),
@@ -186,7 +188,6 @@ struct ShortcutConfiguration {
         (\.isCmdNEnabled, Keys.cmdNEnabled, false),
         (\.isCmdShiftWEnabled, Keys.cmdShiftWEnabled, false),
         (\.isCmdShiftTEnabled, Keys.cmdShiftTEnabled, false),
-        (\.isCloseWindowEnabled, Keys.closeWindowEnabled, false),
         (\.isFillScreenEnabled, Keys.fillScreenEnabled, false),
         (\.isAlmostMaximizeEnabled, Keys.almostMaximizeEnabled, false),
         (\.isReasonableSizeEnabled, Keys.reasonableSizeEnabled, false),
@@ -283,6 +284,7 @@ struct ShortcutConfiguration {
     }
 
     private enum Keys {
+        static let closingEnabled = "mcsc.shortcuts.closing.enabled"
         static let cmdWEnabled = "mcsc.shortcuts.cmdW.enabled"
         static let cmdQEnabled = "mcsc.shortcuts.cmdQ.enabled"
         static let cmdMEnabled = "mcsc.shortcuts.cmdM.enabled"
@@ -293,7 +295,6 @@ struct ShortcutConfiguration {
         static let cmdNEnabled = "mcsc.shortcuts.cmdN.enabled"
         static let cmdShiftWEnabled = "mcsc.shortcuts.cmdShiftW.enabled"
         static let cmdShiftTEnabled = "mcsc.shortcuts.cmdShiftT.enabled"
-        static let closeWindowEnabled = "mcsc.shortcuts.closeWindow.enabled"
         static let fillScreenEnabled = "mcsc.shortcuts.fillScreen.enabled"
         static let almostMaximizeEnabled = "mcsc.shortcuts.almostMaximize.enabled"
         static let reasonableSizeEnabled = "mcsc.shortcuts.reasonableSize.enabled"

@@ -4,12 +4,9 @@ import Cocoa
 final class ActionRegistry {
     let moveNextDesktopAction: MoveWindowToDesktopAction
     let movePreviousDesktopAction: MoveWindowToDesktopAction
-    let closeAction = CloseWindowAction()
-    let closeTabAction = CloseTabAction()
-    let closeTabAppAction = CloseTabAppAction()
+    let close = WindowCloser()
     let reopenTabAction = ReopenTabAction()
     let reopenTabAppAction = ReopenTabAppAction()
-    let closeAppAction = CloseAppAction()
     let minimizeAction = MinimizeWindowAction()
     let hideAction = HideApplicationAction()
     let forceQuitAction = ForceQuitAction()
@@ -20,7 +17,6 @@ final class ActionRegistry {
     let fillScreenAction = FillScreenAction()
     let reasonableSizeAction = ReasonableSizeAction()
     let almostMaximizeAction = AlmostMaximizeAction()
-    let closeAllTabsAction = CloseAllTabsAction()
     let newWindowAction = NewWindowAction()
     let newTabAction = NewTabAction()
     let toggleFullscreenAction = ToggleFullscreenAction()

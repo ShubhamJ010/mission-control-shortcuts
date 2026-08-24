@@ -143,7 +143,7 @@ final class PerformanceTests: XCTestCase {
             ShortcutActionRouter.kKeyM, ShortcutActionRouter.kKeyH,
             ShortcutActionRouter.kKeyF, ShortcutActionRouter.kKeyT,
             ShortcutActionRouter.kKeyN, ShortcutActionRouter.kKeySpace,
-            ShortcutActionRouter.kKeyE, ShortcutActionRouter.kKeyD,
+            ShortcutActionRouter.kKeyD,
             ShortcutActionRouter.kKeyA, ShortcutActionRouter.kKeyR,
             ShortcutActionRouter.kKeyL, ShortcutActionRouter.kKeyS,
             ShortcutActionRouter.kKeyRight, ShortcutActionRouter.kKeyLeft

@@ -62,6 +62,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Models/Actions/VolumeActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/AppActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/TabActions.swift" \
+  "${ROOT_DIR}/MCSC/Models/Actions/WindowCloser.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActions/SizeActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/MissionControlWindowActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Gestures/GestureAction.swift" \

@@ -368,4 +368,34 @@ final class SettingsPaneTests: XCTestCase {
                                     "Shortcuts pane lost its toggles — a section builder was likely gutted")
         XCTAssertTrue(descendants.compactMap { $0 as? NSButton }.contains { $0.title == "Restore Defaults" })
     }
+
+    func testShortcutPaneMasterGatesCloseTabWithCascadeOff() throws {
+        let pane = ShortcutSettingsPane(viewModel: makeViewModel(),
+                                        tabName: "Shortcuts",
+                                        tabImage: nil,
+                                        tabIdentifier: "shortcuts")
+        pane.loadView()
+
+        let mirror = Mirror(reflecting: pane)
+        let master = try XCTUnwrap(mirror.descendant("closingMasterCheckbox") as? NSButton,
+                                   "⌘+W master checkbox outlet missing")
+        let closeTab = try XCTUnwrap(mirror.descendant("cmdWCheckbox") as? NSButton,
+                                     "Close Tab checkbox outlet missing")
+
+        // Defaults: master on, Close Tab available.
+        XCTAssertTrue(pane.viewModel.isClosingEnabled)
+        XCTAssertTrue(pane.viewModel.isCmdWEnabled)
+        XCTAssertEqual(master.state, .on)
+        XCTAssertEqual(closeTab.state, .on)
+        XCTAssertTrue(closeTab.isEnabled)
+
+        // Master off cascades: Close Tab can't stay on without it.
+        sendAction(of: master)
+
+        XCTAssertFalse(pane.viewModel.isClosingEnabled)
+        XCTAssertFalse(pane.viewModel.isCmdWEnabled)
+        XCTAssertEqual(master.state, .off)
+        XCTAssertEqual(closeTab.state, .off)
+        XCTAssertFalse(closeTab.isEnabled)
+    }
 }

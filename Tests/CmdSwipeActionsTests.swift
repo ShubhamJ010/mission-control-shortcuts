@@ -15,11 +15,10 @@ final class CmdSwipeActionsTests: XCTestCase {
         super.tearDown()
     }
 
-    func testCloseAllTabsActionWithNilElementDoesNotCrash() {
+    func testCloseAllTabsWithNilElementDoesNotCrash() {
         mockService.mockElement = nil
-        let action = CloseAllTabsAction()
         let point = CGPoint(x: 120, y: 200)
-        action.perform(at: point, service: mockService)
+        WindowCloser().perform(.allTabs, at: point, fromApp: nil, service: mockService)
         XCTAssertEqual(mockService.getElementCalledWith, point)
     }
 
@@ -58,9 +57,9 @@ final class CmdSwipeActionsTests: XCTestCase {
         XCTAssertNil(mockService.setFrameCalledWith)
     }
 
-    // MARK: - CloseTabAction multi-window targeting
+    // MARK: - CloseScope.activeTab (cursor trigger)
 
-    func testCloseTabActionFocusesResolvedWindowBeforeCmdWFallback() {
+    func testCloseActiveTabFocusesResolvedWindowBeforeCmdWFallback() {
         // Simulate a window that lacks an accessible tab group, forcing the
         // Cmd+W fallback path. The resolved window (not the app's key window)
         // must be focused first.
@@ -70,12 +69,12 @@ final class CmdSwipeActionsTests: XCTestCase {
         mockService.mockWindow = hoveredWindow
         mockService.mockTabCloseButton = nil
 
-        CloseTabAction().perform(at: CGPoint(x: 10, y: 10), service: mockService)
+        WindowCloser().perform(.activeTab, at: CGPoint(x: 10, y: 10), fromApp: nil, service: mockService)
 
         XCTAssertEqual(mockService.focusWindowCalledWith, hoveredWindow)
     }
 
-    func testCloseTabActionPrefersAccessibleTabCloseButton() {
+    func testCloseActiveTabPrefersAccessibleTabCloseButton() {
         // When the window exposes a tab close button, no focus change or
         // Cmd+W fallback should occur.
         let appElement = AXUIElementCreateApplication(NSRunningApplication.current.processIdentifier)
@@ -84,28 +83,28 @@ final class CmdSwipeActionsTests: XCTestCase {
         let closeBtn = AXUIElementCreateApplication(NSRunningApplication.current.processIdentifier)
         mockService.mockTabCloseButton = closeBtn
 
-        CloseTabAction().perform(at: CGPoint(x: 10, y: 10), service: mockService)
+        WindowCloser().perform(.activeTab, at: CGPoint(x: 10, y: 10), fromApp: nil, service: mockService)
 
         XCTAssertNil(mockService.focusWindowCalledWith)
         XCTAssertEqual(mockService.performActionCalledWith?.element, closeBtn)
     }
 
-    // MARK: - CloseTabAppAction key-window targeting
+    // MARK: - CloseScope.activeTab (Dock trigger)
 
-    func testCloseTabAppActionTargetsKeyWindowTabCloseButton() {
+    func testCloseActiveTabFromDockTargetsKeyWindowTabCloseButton() {
         let app = NSRunningApplication.current
         let keyWindow = AXUIElementCreateApplication(app.processIdentifier)
         let closeBtn = AXUIElementCreateApplication(app.processIdentifier)
         mockService.mockFocusedWindow = keyWindow
         mockService.mockTabCloseButton = closeBtn
 
-        CloseTabAppAction().perform(app: app, service: mockService)
+        WindowCloser().perform(.activeTab, at: .zero, fromApp: app, service: mockService)
 
         XCTAssertEqual(mockService.performActionCalledWith?.element, closeBtn)
         XCTAssertNil(mockService.focusWindowCalledWith)
     }
 
-    func testCloseTabAppActionFallsBackToKeyWindowCmdWWhenNoTabButton() {
+    func testCloseActiveTabFromDockFallsBackToKeyWindowCmdWWhenNoTabButton() {
         let app = NSRunningApplication.current
         let keyWindow = AXUIElementCreateApplication(app.processIdentifier)
         mockService.mockFocusedWindow = keyWindow
@@ -114,7 +113,44 @@ final class CmdSwipeActionsTests: XCTestCase {
         // No tab close button available: the Cmd+W fallback (targeting the key
         // window) runs. We assert it resolved the key window via the focused
         // window attribute rather than iterating all windows.
-        CloseTabAppAction().perform(app: app, service: mockService)
+        WindowCloser().perform(.activeTab, at: .zero, fromApp: app, service: mockService)
+
+        XCTAssertNil(mockService.performActionCalledWith)
+    }
+
+    // MARK: - CloseScope.wholeApp
+
+    /// A real running app that is not this process, so the never-close-self
+    /// guard passes while the mock service fully controls AX responses.
+    private func makeForeignApp() throws -> NSRunningApplication {
+        let current = NSRunningApplication.current.processIdentifier
+        return try XCTUnwrap(
+            NSWorkspace.shared.runningApplications.first { $0.processIdentifier != current }
+        )
+    }
+
+    func testCloseWholeAppPressesRedCloseButtonOnEveryWindow() throws {
+        let app = try makeForeignApp()
+        let windows = [
+            AXUIElementCreateApplication(app.processIdentifier),
+            AXUIElementCreateApplication(app.processIdentifier)
+        ]
+        let closeBtn = AXUIElementCreateApplication(app.processIdentifier)
+        mockService.mockAppWindows = windows
+        mockService.mockCloseButton = closeBtn
+
+        WindowCloser().perform(.wholeApp, at: .zero, fromApp: app, service: mockService)
+
+        XCTAssertEqual(mockService.performActionCalledWith?.element, closeBtn)
+    }
+
+    func testCloseWholeAppDoesNothingWhenAppHasNoWindows() throws {
+        // Regression guard: a Dock-triggered close of an app with zero windows
+        // must be a no-op — it used to terminate the whole application.
+        let app = try makeForeignApp()
+        mockService.mockAppWindows = []
+
+        WindowCloser().perform(.wholeApp, at: .zero, fromApp: app, service: mockService)
 
         XCTAssertNil(mockService.performActionCalledWith)
     }

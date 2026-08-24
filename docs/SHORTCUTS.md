@@ -84,20 +84,26 @@ icon) to act on the whole app.
 
 Source of truth: `GestureAction` (`MCSC/Models/Gestures/GestureAction.swift:87`, `CaseIterable` 17) — every action is executable via **gesture** (re-mappable), only a subset has a **dedicated keyboard shortcut**. Routers: `ShortcutActionRouter.swift:32` (keyboard) vs `GestureActionRouter.swift:24` (trackpad).
 
-### Tab — `MCSC/Models/Actions/TabActions.swift:13`
+### Tab — `MCSC/Models/Actions/TabActions.swift`
 
 | Action | Keyboard | Gesture default | Window (`at:point`) | Dock (`app:`) |
 | --- | --- | --- | --- | --- |
-| `Close Tab` | `Cmd+W` (fallback when no tab strip) | `Swipe Left` plain | `CloseTabAction` — `findActiveTabCloseButton` else `Cmd+W` (`0x0D`) | `CloseTabAppAction` — keyWindow tab btn else `Cmd+W` |
-| `Close All Tabs` | `Cmd+Shift+W` | `Cmd+Swipe Left` | `CloseAllTabsAction` `Cmd+Shift+W` (`0x0D`) | same `at:point` |
+| `Close Tab` | `Cmd+W` (fallback when no tab strip) | `Swipe Left` plain | `WindowCloser(.activeTab)` — `findActiveTabCloseButton` else focus + `Cmd+W` (`0x0D`) | `WindowCloser(.activeTab)` — keyWindow tab btn else `Cmd+W` |
+| `Close All Tabs` | `Cmd+Shift+W` | `Cmd+Swipe Left` | `WindowCloser(.allTabs)` `Cmd+Shift+W` (`0x0D`) | `WindowCloser(.allTabs)` to docked app `pid` |
 | `Reopen Tab` | `Cmd+Shift+T` | `Swipe Right` plain | `ReopenTabAction` `Cmd+Shift+T` (`0x11`) | `ReopenTabAppAction` `Cmd+Shift+T` to `pid` |
 | `New Tab` | `Cmd+T` (window only) | `Cmd+Swipe Right` | `NewTabAction` `Cmd+T` (`0x11`) | fallback → `NewWindowAction` `Cmd+N` (`GestureActionRouter.swift:108`) |
 
-### Window — `MCSC/Models/Actions/WindowActions/WindowControlActions.swift:3`
+### Close family — `MCSC/Models/Actions/WindowCloser.swift`
+
+All close variants flow through one `WindowCloser.perform(scope:at:fromApp:service:)`;
+a non-nil `app` means a Dock trigger (key window / full window list), otherwise
+the hovered window under `point` is resolved.
+
+### Window — `MCSC/Models/Actions/WindowActions/WindowControlActions.swift`
 
 | Action | Keyboard | Gesture default | Impl |
 | --- | --- | --- | --- |
-| `Close Window` | — (gesture-only) | `Pinch In` plain | `CloseWindowAction` `kAXCloseButtonAttribute` + `kAXPressAction` |
+| `Close Window` | — (gesture-only) | `Pinch In` plain | `WindowCloser(.window/.wholeApp)` `kAXCloseButtonAttribute` + `kAXPressAction`; zero windows from Dock = no-op (no terminate) |
 | `Minimize` | `Cmd+M` | `Swipe Up` plain | `MinimizeWindowAction` `kAXMinimizeButtonAttribute` / `MinimizeAppAction` (dock: loops `kAXWindowsAttribute`) |
 | `Toggle Fullscreen` | `Cmd+F` (OFF) | `Pinch Out` plain | `ToggleFullscreenAction` `kAXZoomButtonAttribute` + `CoreDockSendNotification("com.apple.expose.awake")` |
 

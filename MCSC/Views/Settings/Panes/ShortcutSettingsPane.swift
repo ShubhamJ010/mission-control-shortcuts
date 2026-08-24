@@ -2,6 +2,8 @@ import Cocoa
 
 /// Shortcuts settings pane: per-shortcut enable toggles grouped by category.
 final class ShortcutSettingsPane: MCSCSettingsPane {
+    // Master switch for the unified ⌘+W close flow
+    private var closingMasterCheckbox: NSButton!
     // Existing core
     private var cmdWCheckbox: NSButton!
     private var cmdQCheckbox: NSButton!
@@ -13,7 +15,6 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
     private var cmdShiftWCheckbox: NSButton!
     private var cmdShiftTCheckbox: NSButton!
     // New — window/size/desktop (off by default, gesture-only previously)
-    private var closeWindowCheckbox: NSButton!
     private var fillScreenCheckbox: NSButton!
     private var almostMaximizeCheckbox: NSButton!
     private var reasonableSizeCheckbox: NSButton!
@@ -30,11 +31,11 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
 
         // Group 2: Window — window chrome + size + desktop (Applies to window under cursor / Dock icon)
         let windowSection = layoutView.addColumnSection(label: "Window", itemColumnMaximumWidth: 340)
-        closeWindowCheckbox = addShortcutCheckbox(
+        closingMasterCheckbox = addShortcutCheckbox(
             section: windowSection,
             mode: .close,
-            title: "⌘ + ⇧ + E  — Close Window",
-            action: #selector(toggleCloseWindow(_:))
+            title: "⌘ + W  — Close",
+            action: #selector(toggleClosing(_:))
         )
         cmdMCheckbox = addShortcutCheckbox(
             section: windowSection,
@@ -210,7 +211,12 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
     }
 
     override func refresh() {
-        cmdWCheckbox?.state = viewModel.isCmdWEnabled ? .on : .off
+        closingMasterCheckbox?.state = viewModel.isClosingEnabled ? .on : .off
+
+        let closingEnabled = viewModel.isClosingEnabled
+        cmdWCheckbox?.isEnabled = closingEnabled
+        cmdWCheckbox?.state = (closingEnabled && viewModel.isCmdWEnabled) ? .on : .off
+
         cmdQCheckbox?.state = viewModel.isCmdQEnabled ? .on : .off
         cmdMCheckbox?.state = viewModel.isCmdMEnabled ? .on : .off
         cmdHCheckbox?.state = viewModel.isCmdHEnabled ? .on : .off
@@ -219,7 +225,6 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
         cmdNCheckbox?.state = viewModel.isCmdNEnabled ? .on : .off
         cmdShiftWCheckbox?.state = viewModel.isCmdShiftWEnabled ? .on : .off
         cmdShiftTCheckbox?.state = viewModel.isCmdShiftTEnabled ? .on : .off
-        closeWindowCheckbox?.state = viewModel.isCloseWindowEnabled ? .on : .off
         fillScreenCheckbox?.state = viewModel.isFillScreenEnabled ? .on : .off
         almostMaximizeCheckbox?.state = viewModel.isAlmostMaximizeEnabled ? .on : .off
         reasonableSizeCheckbox?.state = viewModel.isReasonableSizeEnabled ? .on : .off
@@ -227,6 +232,16 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
         makeSmallerCheckbox?.state = viewModel.isMakeSmallerEnabled ? .on : .off
         moveNextDesktopCheckbox?.state = viewModel.isMoveNextDesktopEnabled ? .on : .off
         movePreviousDesktopCheckbox?.state = viewModel.isMovePreviousDesktopEnabled ? .on : .off
+    }
+
+    @objc private func toggleClosing(_ sender: NSButton) {
+        viewModel.isClosingEnabled.toggle()
+        if !viewModel.isClosingEnabled {
+            // Cascade: Close Tab can't stay on without its master.
+            viewModel.isCmdWEnabled = false
+        }
+        sender.state = viewModel.isClosingEnabled ? .on : .off
+        refresh()
     }
 
     @objc private func toggleCmdW(_ sender: NSButton) {
@@ -274,11 +289,6 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
         sender.state = viewModel.isCmdShiftTEnabled ? .on : .off
     }
 
-    @objc private func toggleCloseWindow(_ sender: NSButton) {
-        viewModel.isCloseWindowEnabled.toggle()
-        sender.state = viewModel.isCloseWindowEnabled ? .on : .off
-    }
-
     @objc private func toggleFillScreen(_ sender: NSButton) {
         viewModel.isFillScreenEnabled.toggle()
         sender.state = viewModel.isFillScreenEnabled ? .on : .off
@@ -315,6 +325,7 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
     }
 
     @objc private func restoreDefaults(_: NSButton) {
+        viewModel.isClosingEnabled = true
         viewModel.isCmdWEnabled = true
         viewModel.isCmdQEnabled = true
         viewModel.isCmdMEnabled = true
@@ -324,7 +335,6 @@ final class ShortcutSettingsPane: MCSCSettingsPane {
         viewModel.isCmdNEnabled = false
         viewModel.isCmdShiftWEnabled = false
         viewModel.isCmdShiftTEnabled = false
-        viewModel.isCloseWindowEnabled = false
         viewModel.isFillScreenEnabled = false
         viewModel.isAlmostMaximizeEnabled = false
         viewModel.isReasonableSizeEnabled = false

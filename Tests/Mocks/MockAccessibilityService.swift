@@ -12,6 +12,8 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     var focusWindowCalledWith: AXUIElement?
     var focusWindowReturnValue: Bool = true
     var mockFocusedWindow: AXUIElement?
+    var mockAppWindows: [AXUIElement]?
+    var mockCloseButton: AXUIElement?
     var mockTabCloseButton: AXUIElement?
     var mockDocumentPath: String?
     var mockWindowTitle: String?
@@ -33,6 +35,12 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     func getAttributeValue<T>(_ attribute: String, for _: AXUIElement) -> T? {
         if attribute == kAXFocusedWindowAttribute, let window = mockFocusedWindow {
             return window as? T
+        }
+        if attribute == kAXWindowsAttribute, let windows = mockAppWindows {
+            return windows as? T
+        }
+        if attribute == kAXCloseButtonAttribute {
+            return mockCloseButton as? T
         }
         return nil
     }

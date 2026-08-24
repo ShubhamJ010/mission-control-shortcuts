@@ -101,7 +101,7 @@ final class GestureActionRouter {
         switch action {
         case .closeWindow:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.closeAppAction.perform(app: app, service: service)
+                self?.actions.close.perform(.wholeApp, at: point, fromApp: app, service: service)
             }
         case .quitApp:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -112,11 +112,11 @@ final class GestureActionRouter {
                 if needsActivate {
                     activateApp(point)
                 }
-                self?.actions.closeTabAppAction.perform(app: app, service: service)
+                self?.actions.close.perform(.activeTab, at: point, fromApp: app, service: service)
             }
         case .closeAllTabs:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.closeAllTabsAction.perform(at: point, service: service)
+                self?.actions.close.perform(.allTabs, at: point, fromApp: app, service: service)
             }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -189,7 +189,7 @@ final class GestureActionRouter {
         switch action {
         case .closeWindow:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.closeAction.perform(at: point, service: service)
+                self?.actions.close.perform(.window, at: point, fromApp: nil, service: service)
             }
         case .quitApp:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -200,11 +200,11 @@ final class GestureActionRouter {
                 if needsActivate {
                     activateApp(point)
                 }
-                self?.actions.closeTabAction.perform(at: point, service: service)
+                self?.actions.close.perform(.activeTab, at: point, fromApp: nil, service: service)
             }
         case .closeAllTabs:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.closeAllTabsAction.perform(at: point, service: service)
+                self?.actions.close.perform(.allTabs, at: point, fromApp: nil, service: service)
             }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in

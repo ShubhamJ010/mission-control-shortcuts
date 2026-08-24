@@ -23,7 +23,6 @@ final class ShortcutActionRouter {
     static let kKeyN: Int64 = 45
     static let kKeySpace: Int64 = 49
     // Window & Tab — additional shortcuts (off by default, gesture-only previously)
-    static let kKeyE: Int64 = 14 // Close Window — ⌘+Shift+E
     static let kKeyD: Int64 = 2 // Fill Screen — ⌘+Shift+D
     static let kKeyA: Int64 = 0 // Almost Maximize — ⌘+Shift+A
     static let kKeyR: Int64 = 15 // Reasonable Size — ⌘+Shift+R
@@ -40,7 +39,7 @@ final class ShortcutActionRouter {
     /// stays conservative.
     static let handledKeyCodes: Set<Int64> = [
         kKeyW, kKeyQ, kKeyM, kKeyH, kKeyF, kKeyT, kKeyN, kKeySpace,
-        kKeyE, kKeyD, kKeyA, kKeyR, kKeyL, kKeyS, kKeyRight, kKeyLeft
+        kKeyD, kKeyA, kKeyR, kKeyL, kKeyS, kKeyRight, kKeyLeft
     ]
 
     /// Cheap, allocation-free predicate answering "could this event possibly
@@ -164,7 +163,7 @@ private extension ShortcutActionRouter {
         guard config.isAutoEjectEnabled,
               case let .window(window) = target,
               let volumeService,
-              (keyCode == Self.kKeyW && config.isCmdWEnabled)
+              (keyCode == Self.kKeyW && config.isClosingEnabled && config.isCmdWEnabled)
               || (keyCode == Self.kKeyQ && config.isCmdQEnabled),
               let targetApp = service.getAppFromElement(window),
               targetApp.bundleIdentifier == "com.apple.finder",
@@ -213,15 +212,11 @@ private extension ShortcutActionRouter {
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedShortcutAction? {
         switch (keyCode, config) {
-        case (Self.kKeyW, _) where config.isCmdWEnabled:
+        case (Self.kKeyW, _) where config.isClosingEnabled && config.isCmdWEnabled:
             .consumeAndExecute(feedbackMode: .close) { [weak self] in
                 guard let self else { return }
                 activateApp(location)
-                if let app {
-                    self.actions.closeTabAppAction.perform(app: app, service: service)
-                } else {
-                    self.actions.closeTabAction.perform(at: location, service: service)
-                }
+                self.actions.close.perform(.activeTab, at: location, fromApp: app, service: service)
             }
         case (Self.kKeyQ, _) where config.isCmdQEnabled:
             .consumeAndExecute(feedbackMode: .quit) { [weak self] in
@@ -329,7 +324,7 @@ private extension ShortcutActionRouter {
         case Self.kKeyW where config.isCmdShiftWEnabled:
             .consumeAndExecute(feedbackMode: .closeAllTabs) { [weak self] in
                 guard let self else { return }
-                self.actions.closeAllTabsAction.perform(at: location, service: service)
+                self.actions.close.perform(.allTabs, at: location, fromApp: app, service: service)
             }
         case Self.kKeyT where config.isCmdShiftTEnabled:
             .consumeAndExecute(feedbackMode: .reopenTab) { [weak self] in
@@ -338,15 +333,6 @@ private extension ShortcutActionRouter {
                     self.actions.reopenTabAppAction.perform(app: app)
                 } else {
                     self.actions.reopenTabAction.perform(at: location, service: service)
-                }
-            }
-        case Self.kKeyE where config.isCloseWindowEnabled:
-            .consumeAndExecute(feedbackMode: .close) { [weak self] in
-                guard let self else { return }
-                if let app {
-                    self.actions.closeAppAction.perform(app: app, service: service)
-                } else {
-                    self.actions.closeAction.perform(at: location, service: service)
                 }
             }
         default:

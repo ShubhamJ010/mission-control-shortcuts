@@ -74,6 +74,10 @@ final class ShortcutViewModel {
     var config = ShortcutConfiguration()
 
     /// Forwarding properties for configuration (keeps AppDelegate API unchanged)
+    var isClosingEnabled: Bool {
+        get { config.isClosingEnabled } set { config.isClosingEnabled = newValue }
+    }
+
     var isCmdWEnabled: Bool {
         get { config.isCmdWEnabled } set { config.isCmdWEnabled = newValue }
     }
@@ -112,10 +116,6 @@ final class ShortcutViewModel {
 
     var isCmdShiftTEnabled: Bool {
         get { config.isCmdShiftTEnabled } set { config.isCmdShiftTEnabled = newValue }
-    }
-
-    var isCloseWindowEnabled: Bool {
-        get { config.isCloseWindowEnabled } set { config.isCloseWindowEnabled = newValue }
     }
 
     var isFillScreenEnabled: Bool {
