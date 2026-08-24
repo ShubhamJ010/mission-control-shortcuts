@@ -35,6 +35,7 @@ final class ShortcutViewModel {
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
+        missionControlService: missionControlService,
         animationStrategy: animationStrategy,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true

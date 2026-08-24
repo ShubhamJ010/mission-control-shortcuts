@@ -184,6 +184,7 @@ final class PerformanceTests: XCTestCase {
     /// cache window must short-circuit without another window-list scan.
     /// Measured as wall time: the cached path is a media-time read + branch,
     /// while a re-scan costs milliseconds per call.
+    @MainActor
     func testDetectionCacheShortCircuitsRepeatedChecks() {
         let service = MissionControlService()
         _ = service.checkMissionControlActive() // warm the cache (real IPC)

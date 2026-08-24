@@ -9,6 +9,7 @@ struct TestRunner {
             CmdSwipeActionsTests.defaultTestSuite,
             GestureEngineRoutingTests.defaultTestSuite,
             MissionControlHoverServiceTests.defaultTestSuite,
+            MissionControlServiceTests.defaultTestSuite,
             WindowSelectionEngineTests.defaultTestSuite,
             WindowSearchSessionTests.defaultTestSuite,
             SearchBarOverlayTests.defaultTestSuite,

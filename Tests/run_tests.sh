@@ -85,10 +85,12 @@ swiftc \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/ShortcutSettingsPane.swift" \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/GestureSettingsPane.swift" \
   "${SCRIPT_DIR}/Mocks/MockAccessibilityService.swift" \
+  "${SCRIPT_DIR}/Mocks/MockMissionControlService.swift" \
   "${SCRIPT_DIR}/PinchInRecognizerTests.swift" \
   "${SCRIPT_DIR}/CmdSwipeActionsTests.swift" \
   "${SCRIPT_DIR}/GestureEngineRoutingTests.swift" \
   "${SCRIPT_DIR}/MissionControlHoverServiceTests.swift" \
+  "${SCRIPT_DIR}/MissionControlServiceTests.swift" \
   "${SCRIPT_DIR}/WindowSelectionEngineTests.swift" \
   "${SCRIPT_DIR}/WindowSearchSessionTests.swift" \
   "${SCRIPT_DIR}/SearchBarOverlayTests.swift" \

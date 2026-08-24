@@ -62,11 +62,20 @@ extension MissionControlHoverService {
     func handleDockNotification(_ notification: String) {
         if notification == "AXExposeExit" {
             isMissionControlActive = false
+            missionControlService?.markActive(false)
             stopWindowFetchTimer()
             hideOverlay()
             stopKeyboardSession()
+            // Drop the previous session's window list immediately so no stale
+            // entries persist before the next open's `fetchWindows()` refresh.
+            windows = []
         } else {
             isMissionControlActive = true
+            // Push the authoritative open transition into the shared detector so
+            // every consumer of `MissionControlService.isMissionControlActive`
+            // (gesture/shortcut handlers, dock suppressor) sees the instant
+            // signal instead of the lagging 350 ms window-list scan.
+            missionControlService?.markActive(true)
 
             // When the feature is disabled, track Mission Control state
             // (other services depend on it) but do NOT create the overlay,

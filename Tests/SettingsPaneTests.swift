@@ -23,6 +23,7 @@ final class MockSettingsMissionControlService: MissionControlServiceProtocol {
     var isMissionControlActive = false
     var isSimulating = false
     var onActivated: (() -> Void)?
+    var onDeactivated: (() -> Void)?
     func checkMissionControlActive() -> Bool {
         isMissionControlActive
     }
@@ -30,6 +31,7 @@ final class MockSettingsMissionControlService: MissionControlServiceProtocol {
     func executeFixSequence() {}
     func start() {}
     func stop() {}
+    func markActive(_ active: Bool) {}
 }
 
 // MARK: - Regression tests for the settings panes

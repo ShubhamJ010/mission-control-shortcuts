@@ -170,4 +170,93 @@ final class MissionControlHoverServiceTests: XCTestCase {
         service.handleSpaceChange(at: CGPoint(x: 900, y: 900))
         XCTAssertFalse(overlay.isVisible)
     }
+
+    // MARK: - Open / close / reopen state machine + AXObserver unification
+
+    /// A helper that builds a hover service wired to a recording Mission
+    /// Control service and an injected overlay, mirroring production wiring.
+    private func makeUnifiedService(overlay: PreviewCloseButtonOverlay,
+                                    mcService: MockMissionControlService) -> MissionControlHoverService {
+        MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak mcService] in
+                mcService?.isMissionControlActive ?? false
+            },
+            missionControlService: mcService,
+            overlay: overlay
+        )
+    }
+
+    /// The Dock AXObserver open transition must be forwarded to the shared
+    /// detector via `markActive(true)` so every consumer sees the instant
+    /// signal instead of the lagging window-list scan.
+    func testDockNotificationOpenForwardsMarkActiveTrue() {
+        let mcService = MockMissionControlService()
+        let overlay = PreviewCloseButtonOverlay()
+        let service = makeUnifiedService(overlay: overlay, mcService: mcService)
+        service.start()
+        defer { service.stop() }
+
+        service.handleDockNotification("AXExposeShowAllWindows")
+
+        XCTAssertEqual(mcService.markActiveCalls, [true])
+        XCTAssertTrue(mcService.isMissionControlActive)
+    }
+
+    /// `AXExposeExit` must forward `markActive(false)` and clear the tracked
+    /// window list so no stale entries persist before the next open.
+    func testAxExposeExitForwardsMarkActiveFalseAndClearsWindowList() {
+        let mcService = MockMissionControlService()
+        let overlay = PreviewCloseButtonOverlay()
+        let service = makeUnifiedService(overlay: overlay, mcService: mcService)
+        service.start()
+        defer { service.stop() }
+
+        // Open: seed windows and mark active.
+        service.handleDockNotification("AXExposeShowAllWindows")
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 0, y: 0, width: 100, height: 100))])
+        XCTAssertEqual(service._testWindowCount, 1)
+
+        // Close: must clear the window list and forward false.
+        service.handleDockNotification("AXExposeExit")
+
+        XCTAssertEqual(mcService.markActiveCalls, [true, false])
+        XCTAssertFalse(mcService.isMissionControlActive)
+        XCTAssertEqual(service._testWindowCount, 0)
+    }
+
+    /// Open → close → reopen must restore a working session: the overlay
+    /// reappears on reopen and the window poll timer / keyboard tap are
+    /// recreated. Verifies fix #4 (timer not restarted after reopen) and the
+    /// unification path round-trips cleanly.
+    func testOpenCloseReopenRestoresOverlaySession() {
+        let mcService = MockMissionControlService()
+        let overlay = PreviewCloseButtonOverlay()
+        let service = makeUnifiedService(overlay: overlay, mcService: mcService)
+        service.start()
+        defer { service.stop() }
+
+        // Open
+        service.handleDockNotification("AXExposeShowAllWindows")
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        isMissionControlActive = true
+
+        // Close
+        service.handleDockNotification("AXExposeExit")
+        isMissionControlActive = false
+        XCTAssertFalse(overlay.isVisible)
+
+        // Reopen
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        service.handleDockNotification("AXExposeShowAllWindows")
+        isMissionControlActive = true
+
+        // The unified detector saw true → false → true.
+        XCTAssertEqual(mcService.markActiveCalls, [true, false, true])
+
+        // A space-change refresh under the cursor must show the overlay again,
+        // proving the window poll / overlay session was restored on reopen.
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+        XCTAssertTrue(overlay.isVisible)
+    }
 }

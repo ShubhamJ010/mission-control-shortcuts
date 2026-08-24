@@ -18,6 +18,10 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
 final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private let accessibilityService: AccessibilityServiceProtocol
     private let isMissionControlActiveProvider: () -> Bool
+    /// Weak ref to the shared detector so the Dock AXObserver transition can
+    /// be pushed in via `markActive` instead of waiting for the lagging 350 ms
+    /// window-list scan. Weak because the ViewModel owns both services.
+    weak var missionControlService: MissionControlServiceProtocol?
     private var injectedOverlay: PreviewCloseButtonOverlay?
     private var createdOverlay: PreviewCloseButtonOverlay?
     private let animationStrategy: OverlayAnimationStrategy
@@ -155,11 +159,13 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
+         missionControlService: MissionControlServiceProtocol? = nil,
          overlay: PreviewCloseButtonOverlay? = nil,
          animationStrategy: OverlayAnimationStrategy? = nil,
          isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
+        self.missionControlService = missionControlService
         self.injectedOverlay = overlay
         self.animationStrategy = animationStrategy ?? OptimizedOverlayAnimationStrategy()
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider
