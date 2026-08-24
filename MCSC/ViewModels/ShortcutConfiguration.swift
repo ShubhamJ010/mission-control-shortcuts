@@ -176,7 +176,7 @@ struct ShortcutConfiguration {
         keyPath: WritableKeyPath<ShortcutConfiguration, Bool>,
         key: String,
         defaultValue: Bool
-    )    ] = [
+    )] = [
         (\.isClosingEnabled, Keys.closingEnabled, true),
         (\.isCmdWEnabled, Keys.cmdWEnabled, true),
         (\.isCmdQEnabled, Keys.cmdQEnabled, true),

@@ -31,7 +31,7 @@ final class MockSettingsMissionControlService: MissionControlServiceProtocol {
     func executeFixSequence() {}
     func start() {}
     func stop() {}
-    func markActive(_ active: Bool) {}
+    func markActive(_: Bool) {}
 }
 
 // MARK: - Regression tests for the settings panes

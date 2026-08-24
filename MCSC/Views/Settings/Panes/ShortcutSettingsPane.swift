@@ -2,7 +2,7 @@ import Cocoa
 
 /// Shortcuts settings pane: per-shortcut enable toggles grouped by category.
 final class ShortcutSettingsPane: MCSCSettingsPane {
-    // Master switch for the unified ⌘+W close flow
+    /// Master switch for the unified ⌘+W close flow
     private var closingMasterCheckbox: NSButton!
     // Existing core
     private var cmdWCheckbox: NSButton!
