@@ -1,9 +1,10 @@
 # Changelog
 
-## 0.0.1 (25 Aug 2026)
+## 0.6.2-beta (25 Aug 2026)
 
-- **Initial Release**: First public release of MCSC (Mac Shortcut Control) — Mission Control window management via keyboard shortcuts and multitouch gestures.
-- Includes Mission Control hover close/minimize buttons, cursor-anchored feedback + haptics, window tiling & tab control, auto-eject, Dock-aware targeting, type-to-select fuzzy finder, and fully configurable gesture/shortcut routing (see 0.6.1-beta notes for full feature set rolled up in this baseline).
+- **Close Family Unified under WindowCloser**: All window-close paths (`Cmd+W` / swipe-left / pinch-in / force-quit variants) now route through a single `WindowCloser` helper; `Cmd+Shift+E` fallback path deprecated and removed.
+- **Mission Control Detector Unification**: Detector now uses a single `markActive` entry point with self-correction for the stuck-true state; fixes false-positive active state after rapid space switches.
+- **Lint Fixes**: `swiftformat` cleanup for `unusedArguments`, `consecutiveSpaces`, and `docComments` (0 violations).
 
 ## 0.6.1-beta (24 Aug 2026)
 
