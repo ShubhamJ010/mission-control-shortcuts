@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.0.1 (25 Aug 2026)
+
+- **Initial Release**: First public release of MCSC (Mac Shortcut Control) — Mission Control window management via keyboard shortcuts and multitouch gestures.
+- Includes Mission Control hover close/minimize buttons, cursor-anchored feedback + haptics, window tiling & tab control, auto-eject, Dock-aware targeting, type-to-select fuzzy finder, and fully configurable gesture/shortcut routing (see 0.6.1-beta notes for full feature set rolled up in this baseline).
+
 ## 0.6.1-beta (24 Aug 2026)
 
 - **Gesture Settings Pane Rows Implemented**: The Gestures settings pane now renders a real row for every `GestureKind` instead of an empty stub — each row contains the primary-action popup (populated with that gesture's natural actions only), an enable `NSSwitch` accessory, and a stacked ⌘-variant action popup underneath, all wired to the existing `actionChanged` / `cmdActionChanged` / `toggleGestureEnabled` handlers and persisted via `mcsc.gestures.actions`.
