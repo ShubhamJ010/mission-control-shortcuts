@@ -11,9 +11,13 @@ extension ShortcutViewModel {
             guard let self else { return false }
 
             // Cheap pre-filter BEFORE any AX IPC: plain typing (no Cmd) and
-            // untracked keys can never route, so skip the hit-test entirely.
+            // unbound keys can never route, so skip the hit-test entirely.
             // This keeps keystroke latency in other apps free of MCSC cost.
-            guard ShortcutActionRouter.isShortcutCandidate(keyCode: keyCode, flags: flags) else {
+            guard ShortcutActionRouter.isShortcutCandidate(
+                keyCode: keyCode,
+                flags: flags,
+                boundKeyCodes: self.config.boundKeyCodes
+            ) else {
                 return false
             }
 

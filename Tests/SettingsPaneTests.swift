@@ -63,6 +63,7 @@ final class SettingsPaneTests: XCTestCase {
             UserDefaults.standard.removeObject(forKey: entry.key)
         }
         UserDefaults.standard.removeObject(forKey: "mcsc.gestures.actions")
+        UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.bindingsStorageKey)
     }
 
     // MARK: Fixtures
@@ -356,48 +357,95 @@ final class SettingsPaneTests: XCTestCase {
                                     "General pane lost its toggles — a section builder was likely gutted")
     }
 
-    func testShortcutPaneBuildsARealControlHierarchy() {
-        let pane = ShortcutSettingsPane(viewModel: makeViewModel(),
-                                        tabName: "Shortcuts",
-                                        tabImage: nil,
-                                        tabIdentifier: "shortcuts")
+    func testWindowsPaneBuildsARealControlHierarchy() {
+        let pane = WindowShortcutsPane(viewModel: makeViewModel(),
+                                       tabName: "Windows",
+                                       tabImage: nil,
+                                       tabIdentifier: "windows")
         pane.loadView()
 
         let descendants = allDescendants(of: pane.view)
         let controls = descendants
             .filter { $0 is NSButton || $0 is NSPopUpButton || $0 is NSSwitch }
-        XCTAssertGreaterThanOrEqual(controls.count, 10,
-                                    "Shortcuts pane lost its toggles — a section builder was likely gutted")
+        XCTAssertGreaterThanOrEqual(controls.count, 13,
+                                    "Windows pane lost its toggles — a section builder was likely gutted")
         XCTAssertTrue(descendants.compactMap { $0 as? NSButton }.contains { $0.title == "Restore Defaults" })
     }
 
-    func testShortcutPaneMasterGatesCloseTabWithCascadeOff() throws {
-        let pane = ShortcutSettingsPane(viewModel: makeViewModel(),
-                                        tabName: "Shortcuts",
-                                        tabImage: nil,
-                                        tabIdentifier: "shortcuts")
+    func testAppPaneBuildsARealControlHierarchy() {
+        let pane = AppShortcutsPane(viewModel: makeViewModel(),
+                                    tabName: "App",
+                                    tabImage: nil,
+                                    tabIdentifier: "app")
         pane.loadView()
 
-        let mirror = Mirror(reflecting: pane)
-        let master = try XCTUnwrap(mirror.descendant("closingMasterCheckbox") as? NSButton,
-                                   "⌘+W master checkbox outlet missing")
-        let closeTab = try XCTUnwrap(mirror.descendant("cmdWCheckbox") as? NSButton,
-                                     "Close Tab checkbox outlet missing")
+        let descendants = allDescendants(of: pane.view)
+        let controls = descendants
+            .filter { $0 is NSButton || $0 is NSPopUpButton || $0 is NSSwitch }
+        XCTAssertGreaterThanOrEqual(controls.count, 4,
+                                    "App pane lost its toggles — a section builder was likely gutted")
+        XCTAssertTrue(descendants.compactMap { $0 as? NSButton }.contains { $0.title == "Restore Defaults" })
+    }
 
-        // Defaults: master on, Close Tab available.
+    func testShortcutPaneRecordersReflectBindingStore() throws {
+        let pane = WindowShortcutsPane(viewModel: makeViewModel(),
+                                       tabName: "Windows",
+                                       tabImage: nil,
+                                       tabIdentifier: "windows")
+        pane.loadView()
+
+        // Defaults pre-assign the actions that shipped enabled.
         XCTAssertTrue(pane.viewModel.isClosingEnabled)
         XCTAssertTrue(pane.viewModel.isCmdWEnabled)
-        XCTAssertEqual(master.state, .on)
-        XCTAssertEqual(closeTab.state, .on)
-        XCTAssertTrue(closeTab.isEnabled)
 
-        // Master off cascades: Close Tab can't stay on without it.
-        sendAction(of: master)
+        let recorders = try XCTUnwrap(
+            Mirror(reflecting: pane).descendant("recorders") as? [RoutedAction: ShortcutRecorderField],
+            "Recorder outlet dictionary missing"
+        )
+        let closeField = try XCTUnwrap(recorders[.close], "Close recorder row missing")
+        XCTAssertEqual(closeField.binding?.displayString, "⌘ W",
+                       "Close must come pre-assigned with ⌘ W")
 
+        // Assigning a combination through a field writes straight into the
+        // configuration; clearing it deactivates the action — no checkbox.
+        closeField.binding = ShortcutBinding(keyCode: 7, includesShift: true) // ⌘⇧X
+        XCTAssertTrue(pane.viewModel.isClosingEnabled)
+        XCTAssertEqual(pane.viewModel.config.shortcutBindings[.close]?.keyCode, 7)
+
+        closeField.binding = nil
         XCTAssertFalse(pane.viewModel.isClosingEnabled)
-        XCTAssertFalse(pane.viewModel.isCmdWEnabled)
-        XCTAssertEqual(master.state, .off)
-        XCTAssertEqual(closeTab.state, .off)
-        XCTAssertFalse(closeTab.isEnabled)
+    }
+
+    func testClearButtonRemovesAssignedShortcutAndHidesWhenUnassigned() throws {
+        let pane = WindowShortcutsPane(viewModel: makeViewModel(),
+                                       tabName: "Windows",
+                                       tabImage: nil,
+                                       tabIdentifier: "windows")
+        pane.loadView()
+
+        let recorders = try XCTUnwrap(
+            Mirror(reflecting: pane).descendant("recorders") as? [RoutedAction: ShortcutRecorderField],
+            "Recorder outlet dictionary missing"
+        )
+        let closeField = try XCTUnwrap(recorders[.close], "Close recorder row missing")
+        let fillScreenField = try XCTUnwrap(recorders[.fillScreen], "Fill Screen recorder row missing")
+        let clearButton = try XCTUnwrap(Mirror(reflecting: closeField).descendant("clearButton") as? NSButton,
+                                        "Clear (✕) button missing from the recorder field")
+
+        // ⌘W ships pre-assigned → ✕ visible; clicking it disables the action.
+        XCTAssertTrue(pane.viewModel.isClosingEnabled)
+        XCTAssertFalse(clearButton.isHidden, "✕ must show while a shortcut is assigned")
+        sendAction(of: clearButton)
+        XCTAssertNil(pane.viewModel.config.binding(for: .close),
+                     "✕ must remove the assignment")
+        XCTAssertFalse(pane.viewModel.isClosingEnabled,
+                       "Removing the assignment must deactivate the action")
+        XCTAssertTrue(clearButton.isHidden, "✕ must hide once no shortcut is assigned")
+
+        // An action with no default binding starts with the ✕ hidden.
+        let fillScreenClear = try XCTUnwrap(Mirror(reflecting: fillScreenField).descendant("clearButton") as? NSButton,
+                                            "Clear (✕) button missing from the Fill Screen field")
+        XCTAssertTrue(fillScreenClear.isHidden,
+                      "✕ must stay hidden while the field shows the placeholder")
     }
 }

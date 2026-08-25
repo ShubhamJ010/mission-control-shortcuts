@@ -103,6 +103,10 @@ final class ShortcutViewModel {
         get { config.isCmdSpaceEnabled } set { config.isCmdSpaceEnabled = newValue }
     }
 
+    var isTabShortcutsEnabled: Bool {
+        get { config.isTabShortcutsEnabled } set { config.isTabShortcutsEnabled = newValue }
+    }
+
     var isCmdTEnabled: Bool {
         get { config.isCmdTEnabled } set { config.isCmdTEnabled = newValue }
     }

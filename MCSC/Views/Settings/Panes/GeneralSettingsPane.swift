@@ -221,7 +221,8 @@ final class GeneralSettingsPane: MCSCSettingsPane {
 
     @objc private func restoreDefaults(_: NSButton) {
         viewModel.isAutoEjectEnabled = true
-        viewModel.isDockActionsOutsideMCEnabled = true
+        viewModel.isDockActionsOutsideMCEnabled = false
+        viewModel.isTitleBarActionsOutsideMCEnabled = false
         viewModel.isHoverCloseButtonEnabled = true
         viewModel.isKeyboardNavigationEnabled = true
         viewModel.isCmdSpaceEnabled = true

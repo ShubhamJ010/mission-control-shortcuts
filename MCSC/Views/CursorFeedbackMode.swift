@@ -27,6 +27,8 @@ extension CursorFeedbackOverlay {
         case fullscreen
         case spaceRight
         case spaceLeft
+        case minimizeAll
+        case unminimizeAll
 
         /// SF Symbol name rendered by `NSImage(systemSymbolName:)`.
         var symbolName: String {
@@ -38,7 +40,7 @@ extension CursorFeedbackOverlay {
             case .eject: "eject.circle.fill"
             case .almost: "inset.filled.rectangle"
             case .reasonable: "inset.filled.center.rectangle"
-            case .makeSmaller: "arrow.down.right.and.arrow.up.left"
+            case .makeSmaller: "arrow.up.right.and.arrow.down.left.rectangle"
             case .maximize: "rectangle.fill"
             case .closeTab: "xmark.rectangle.fill"
             case .reopenTab: "plus.rectangle.fill"
@@ -48,6 +50,8 @@ extension CursorFeedbackOverlay {
             case .fullscreen: "arrow.down.left.and.arrow.up.right.circle.fill"
             case .spaceRight: "arrow.right.circle.fill"
             case .spaceLeft: "arrow.left.circle.fill"
+            case .minimizeAll: "minus.square.fill"
+            case .unminimizeAll: "arrow.up.square.fill"
             }
         }
 
@@ -71,6 +75,8 @@ extension CursorFeedbackOverlay {
             case .fullscreen: "Toggle Fullscreen"
             case .spaceRight: "Move Window to Next Desktop"
             case .spaceLeft: "Move Window to Previous Desktop"
+            case .minimizeAll: "Minimize All"
+            case .unminimizeAll: "Unminimize All"
             }
         }
 
@@ -98,6 +104,9 @@ extension CursorFeedbackOverlay {
             case .spaceRight, .spaceLeft:
                 // Primary 100% + Accent 100% (two-layer palette for circle.fill).
                 [.white, .controlAccentColor]
+            case .minimizeAll, .unminimizeAll:
+                // Black glyph on yellow square, matching Minimize's palette.
+                [.black, .systemYellow]
             case .closeTab:
                 // System multicolor (red X, matching Close).
                 nil
@@ -122,10 +131,10 @@ extension CursorFeedbackOverlay {
                 .bouncePop
             case .closeTab, .reopenTab, .closeAllTabs, .newTab:
                 .wiggle
-            case .maximize, .almost, .reasonable, .fullscreen:
-                .pulseExpand
-            case .minimize, .hide, .makeSmaller:
+            case .minimize, .hide, .makeSmaller, .minimizeAll:
                 .shrinkDown
+            case .maximize, .almost, .reasonable, .fullscreen, .unminimizeAll:
+                .pulseExpand
             case .spaceRight:
                 .slideRight
             case .spaceLeft:
@@ -140,6 +149,8 @@ extension CursorFeedbackOverlay {
             case .eject: "eject.circle"
             case .minimize: "minus.circle"
             case .hide: "eye.slash.circle"
+            case .minimizeAll: "minus.square"
+            case .unminimizeAll: "arrow.up.square"
             case .spaceRight: "arrow.right.circle"
             case .spaceLeft: "arrow.left.circle"
             case .newTab: "plus.rectangle.on.rectangle"
@@ -166,7 +177,7 @@ extension CursorFeedbackOverlay {
             case .close, .quit, .newWindow: .bounceUpByLayer
             case .closeTab, .reopenTab, .closeAllTabs, .newTab: .wiggleByLayer
             case .minimize, .hide, .eject, .almost, .reasonable, .makeSmaller, .maximize, .fullscreen, .spaceRight,
-                 .spaceLeft: nil
+                 .spaceLeft, .minimizeAll, .unminimizeAll: nil
             }
         }
 
@@ -179,7 +190,7 @@ extension CursorFeedbackOverlay {
 
         var replaceTransition: ReplaceTransition? {
             switch self {
-            case .almost, .reasonable, .maximize, .minimize, .hide: .downUpReveal
+            case .almost, .reasonable, .maximize, .minimize, .hide, .minimizeAll, .unminimizeAll: .downUpReveal
             case .eject: .magicDownUpReveal
             case .spaceRight, .spaceLeft, .newTab, .closeAllTabs: .replace
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil

@@ -174,6 +174,14 @@ final class GestureActionRouter {
                 guard let self else { return }
                 self.actions.movePreviousDesktopAction.perform(app: app, service: service)
             }
+        case .minimizeAll:
+            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
+                self?.actions.minimizeAllWindowsAction.perform(app: app, service: service)
+            }
+        case .unminimizeAll:
+            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
+                self?.actions.unminimizeAllWindowsAction.perform(app: app, service: service)
+            }
         }
     }
 
@@ -258,6 +266,18 @@ final class GestureActionRouter {
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
                 self?.actions.movePreviousDesktopAction.perform(at: point, service: service)
             }
+        case .minimizeAll:
+            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
+                guard let self, let element = service.getElement(at: point),
+                      let owner = service.getAppFromElement(element) else { return }
+                self.actions.minimizeAllWindowsAction.perform(app: owner, service: service)
+            }
+        case .unminimizeAll:
+            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
+                guard let self, let element = service.getElement(at: point),
+                      let owner = service.getAppFromElement(element) else { return }
+                self.actions.unminimizeAllWindowsAction.perform(app: owner, service: service)
+            }
         }
     }
 
@@ -280,6 +300,8 @@ final class GestureActionRouter {
         case .hideApp: .hide
         case .moveNextDesktop: .spaceRight
         case .movePreviousDesktop: .spaceLeft
+        case .minimizeAll: .minimizeAll
+        case .unminimizeAll: .unminimizeAll
         }
     }
 }

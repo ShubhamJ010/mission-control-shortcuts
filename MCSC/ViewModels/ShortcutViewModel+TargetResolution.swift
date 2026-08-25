@@ -60,7 +60,11 @@ extension ShortcutViewModel {
         let app = isDock
             ? element.flatMap { accessibilityService.getAppFromDockItem($0) }
             : element.flatMap { accessibilityService.getAppFromElement($0) }
-        app?.activate(options: .activateIgnoringOtherApps)
+        if #available(macOS 14.0, *) {
+            app?.activate()
+        } else {
+            app?.activate(options: .activateIgnoringOtherApps)
+        }
         return app
     }
 }

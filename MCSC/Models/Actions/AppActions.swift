@@ -4,16 +4,53 @@ struct MinimizeAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
 
-        var windows: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windows)
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
 
-        if let windowList = windows as? [AXUIElement] {
-            for window in windowList {
-                if let minimizeButton: AXUIElement = service
-                    .getAttributeValue(kAXMinimizeButtonAttribute, for: window) {
-                    _ = service.performAction(kAXPressAction, on: minimizeButton)
-                }
+        for window in windows {
+            if let minimizeButton: AXUIElement = service
+                .getAttributeValue(kAXMinimizeButtonAttribute, for: window) {
+                _ = service.performAction(kAXPressAction, on: minimizeButton)
             }
+        }
+    }
+}
+
+/// Minimizes every on-screen window of `app`. Already-minimized windows are
+/// skipped so repeated invocations stay idempotent.
+struct MinimizeAllWindowsAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
+
+        for window in windows {
+            if let minimized: Bool = service.getAttributeValue(kAXMinimizedAttribute, for: window), minimized {
+                continue
+            }
+            if let minimizeButton: AXUIElement = service
+                .getAttributeValue(kAXMinimizeButtonAttribute, for: window) {
+                _ = service.performAction(kAXPressAction, on: minimizeButton)
+            }
+        }
+    }
+}
+
+/// Restores (unminimizes) every minimized window of `app`. Minimized windows
+/// remain listed under the app's AX windows with `kAXMinimizedAttribute` set,
+/// so restoring is an attribute write rather than a button press.
+struct UnminimizeAllWindowsAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
+
+        for window in windows {
+            guard let minimized: Bool = service.getAttributeValue(kAXMinimizedAttribute, for: window),
+                  minimized else { continue }
+            _ = service.setMinimized(false, for: window)
         }
     }
 }
@@ -37,9 +74,8 @@ struct ReopenTabAppAction {
 struct FillScreenAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
@@ -55,9 +91,8 @@ struct MakeLargerAppAction {
 
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
@@ -95,9 +130,8 @@ struct MakeSmallerAppAction {
 
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
@@ -131,9 +165,8 @@ struct MakeSmallerAppAction {
 struct ReasonableSizeAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
@@ -151,9 +184,8 @@ struct ReasonableSizeAppAction {
 struct AlmostMaximizeAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
@@ -172,9 +204,8 @@ struct ToggleFullscreenAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
         _ = coreDockSendNotification("com.apple.expose.awake" as CFString, 0)
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
-        var windowsRef: CFTypeRef?
-        AXUIElementCopyAttributeValue(appElement, kAXWindowsAttribute as CFString, &windowsRef)
-        guard let windows = windowsRef as? [AXUIElement], !windows.isEmpty else { return }
+        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+              !windows.isEmpty else { return }
         for window in windows {
             if let zoomButton: AXUIElement = service.getAttributeValue(kAXZoomButtonAttribute, for: window) {
                 _ = service.performAction(kAXPressAction, on: zoomButton)

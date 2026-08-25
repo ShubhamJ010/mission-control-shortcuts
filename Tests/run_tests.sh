@@ -66,6 +66,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActions/SizeActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/MissionControlWindowActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Gestures/GestureAction.swift" \
+  "${ROOT_DIR}/MCSC/Models/Shortcuts/ShortcutBinding.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/ShortcutConfiguration.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/ActionRegistry.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/ShortcutActionRouter.swift" \
@@ -81,8 +82,11 @@ swiftc \
   "${ROOT_DIR}/MCSC/Views/Settings/SettingsTabViewController.swift" \
   "${ROOT_DIR}/MCSC/Views/Settings/SettingsWindowController.swift" \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/MCSCSettingsPanes.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Controls/ShortcutRecorderField.swift" \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/GeneralSettingsPane.swift" \
-  "${ROOT_DIR}/MCSC/Views/Settings/Panes/ShortcutSettingsPane.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/ShortcutPaneHelpers.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/WindowShortcutsPane.swift" \
+  "${ROOT_DIR}/MCSC/Views/Settings/Panes/AppShortcutsPane.swift" \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/GestureSettingsPane.swift" \
   "${SCRIPT_DIR}/Mocks/MockAccessibilityService.swift" \
   "${SCRIPT_DIR}/Mocks/MockMissionControlService.swift" \

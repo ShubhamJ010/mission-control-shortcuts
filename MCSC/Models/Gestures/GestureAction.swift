@@ -73,9 +73,9 @@ enum GestureKind: String, CaseIterable {
         case .swipeRight:
             [.reopenTab, .newTab, .newWindow, .moveNextDesktop]
         case .swipeUp:
-            [.minimize, .hideApp]
+            [.unminimizeAll, .minimize, .hideApp, .makeSmaller]
         case .swipeDown:
-            [.fillScreen, .almostMaximize, .makeLarger, .makeSmaller, .reasonableSize]
+            [.minimizeAll, .fillScreen, .almostMaximize, .makeLarger, .makeSmaller, .reasonableSize]
         case .twoFingerDoubleTap:
             [.reasonableSize, .almostMaximize, .toggleFullscreen, .makeSmaller, .makeLarger]
         }
@@ -104,6 +104,8 @@ enum GestureAction: String, CaseIterable {
     case hideApp
     case moveNextDesktop
     case movePreviousDesktop
+    case minimizeAll
+    case unminimizeAll
 
     /// Label shown in the popup menu.
     var menuTitle: String {
@@ -125,6 +127,8 @@ enum GestureAction: String, CaseIterable {
         case .hideApp: "Hide App"
         case .moveNextDesktop: "Move to Next Desktop"
         case .movePreviousDesktop: "Move to Previous Desktop"
+        case .minimizeAll: "Minimize All"
+        case .unminimizeAll: "Unminimize All"
         }
     }
 

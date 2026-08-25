@@ -11,6 +11,8 @@ final class ActionRegistry {
     let hideAction = HideApplicationAction()
     let forceQuitAction = ForceQuitAction()
     let minimizeAppAction = MinimizeAppAction()
+    let minimizeAllWindowsAction = MinimizeAllWindowsAction()
+    let unminimizeAllWindowsAction = UnminimizeAllWindowsAction()
     let forceQuitAppAction = ForceQuitAppAction()
     let makeLargerAction = MakeLargerAction()
     let makeSmallerAction = MakeSmallerAction()

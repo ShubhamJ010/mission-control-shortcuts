@@ -18,6 +18,7 @@ final class OverlayAnimationStrategyTests: XCTestCase {
         for entry in ShortcutConfiguration.toggleDefaults {
             UserDefaults.standard.removeObject(forKey: entry.key)
         }
+        UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.bindingsStorageKey)
     }
 
     func testOptimizedAnimationFactoryEntryAnimations() {

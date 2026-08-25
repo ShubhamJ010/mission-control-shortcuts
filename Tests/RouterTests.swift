@@ -20,6 +20,7 @@ final class RouterTests: XCTestCase {
         for entry in ShortcutConfiguration.toggleDefaults {
             UserDefaults.standard.removeObject(forKey: entry.key)
         }
+        UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.bindingsStorageKey)
     }
 
     func testShortcutRouterCmdWProducesCloseActionWhenEnabled() {
@@ -66,6 +67,10 @@ final class RouterTests: XCTestCase {
 
     func testShortcutRouterIgnoresWhenDisabled() {
         var config = ShortcutConfiguration()
+        // Unassigning a combination disables its actions — the binding store
+        // is the single source of truth for active/inactive. ⌘W ships bound
+        // to both Close and Close Tab, so both fields must be cleared.
+        config.isClosingEnabled = false
         config.isCmdWEnabled = false
 
         let result = shortcutRouter.routeShortcut(
@@ -547,6 +552,110 @@ final class RouterTests: XCTestCase {
         }
     }
 
+    // MARK: - Minimize All / Unminimize All Windows
+
+    func testShortcutRouterRoutesShiftCmdMOnDockToMinimizeAllWindows() {
+        let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
+            .first ?? NSRunningApplication.current
+        var config = ShortcutConfiguration()
+        config.setBinding(ShortcutBinding(keyCode: ShortcutActionRouter.kKeyM, includesShift: true),
+                          for: .minimizeAll)
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyM,
+            flags: [.maskCommand, .maskShift],
+            location: CGPoint(x: 100, y: 100),
+            config: config,
+            isMissionControlActive: true,
+            target: .dock(dockApp),
+            service: mockService,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(mode, _) = result else {
+            return XCTFail("Expected ⇧⌘M on a Dock icon to execute Minimize All Windows")
+        }
+        XCTAssertEqual(mode, .minimizeAll)
+    }
+
+    func testShortcutRouterRoutesShiftCmdUOnWindowToOwnerAppUnminimizeAllWindows() throws {
+        var config = ShortcutConfiguration()
+        config.isTitleBarActionsOutsideMCEnabled = true
+        config.setBinding(ShortcutBinding(keyCode: 32, includesShift: true), for: .unminimizeAll) // ⇧⌘U
+
+        let result = try shortcutRouter.routeShortcut(
+            keyCode: 32,
+            flags: [.maskCommand, .maskShift],
+            location: CGPoint(x: 100, y: 100),
+            config: config,
+            isMissionControlActive: false,
+            target: .window(XCTUnwrap(mockService.mockElement)),
+            service: mockService,
+            isTitleBarHover: true,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(mode, _) = result else {
+            return XCTFail("Expected ⇧⌘U over a window to execute Unminimize All Windows via the owner app")
+        }
+        XCTAssertEqual(mode, .unminimizeAll)
+    }
+
+    func testShortcutRouterIgnoresMinimizeAllWhenUnassigned() {
+        let config = ShortcutConfiguration() // starts unassigned → disabled
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyM,
+            flags: [.maskCommand, .maskShift],
+            location: CGPoint(x: 100, y: 100),
+            config: config,
+            isMissionControlActive: true,
+            target: .none,
+            service: mockService,
+            activateApp: { _ in }
+        )
+
+        guard case .ignore = result else {
+            return XCTFail("⇧⌘M must stay inert while no binding is assigned")
+        }
+    }
+
+    func testMinimizeAllWindowsPressesOnlyVisibleWindowsButtons() {
+        // Distinct pids: separately-created system-wide elements all compare
+        // CFEqual, which would collapse the mock's per-element bookkeeping.
+        let visible = AXUIElementCreateApplication(101)
+        let minimized = AXUIElementCreateApplication(202)
+        let button = AXUIElementCreateApplication(303)
+        mockService.mockAppWindows = [visible, minimized]
+        mockService.mockMinimizedElements = [minimized]
+        mockService.mockMinimizeButton = button
+
+        ActionRegistry().minimizeAllWindowsAction.perform(
+            app: NSRunningApplication.current, service: mockService
+        )
+
+        XCTAssertEqual(mockService.performActionCalledWith?.action, kAXPressAction,
+                       "The visible window's minimize button must be pressed")
+        XCTAssertTrue(mockService.performActionCalledWith?.element == button,
+                      "The press must target the minimize button of the non-minimized window only")
+    }
+
+    func testUnminimizeAllWindowsRestoresOnlyMinimizedWindows() {
+        let restored = AXUIElementCreateApplication(404)
+        let stillMinimized = AXUIElementCreateApplication(505)
+        mockService.mockAppWindows = [restored, stillMinimized]
+        mockService.mockMinimizedElements = [stillMinimized]
+
+        ActionRegistry().unminimizeAllWindowsAction.perform(
+            app: NSRunningApplication.current, service: mockService
+        )
+
+        XCTAssertNotNil(mockService.setMinimizedCalledWith,
+                        "A minimized window must receive the restore write")
+        XCTAssertEqual(mockService.setMinimizedCalledWith?.minimized, false)
+        XCTAssertTrue(mockService.setMinimizedCalledWith?.element == stillMinimized,
+                      "Already-visible windows must be left untouched")
+    }
+
     // MARK: - Title bar actions outside Mission Control
 
     func testShortcutRouterExecutesTitleBarShortcutOutsideMCWhenEnabled() throws {
@@ -675,9 +784,10 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    /// Binds `action` to pinch-in on a scratch config, restoring any persisted
-    /// mapping afterwards so the UserDefaults-backed defaults stay untouched.
-    private func routePinchInBound(to action: GestureAction,
+    /// Binds `action` to a gesture kind on a scratch config, restoring any
+    /// persisted mapping afterwards so UserDefaults-backed defaults stay untouched.
+    private func routeGestureBound(_ result: GestureResult, kind: GestureKind,
+                                   to action: GestureAction,
                                    target: TargetResolution) -> ResolvedGestureAction {
         let key = "mcsc.gestures.actions"
         let original = UserDefaults.standard.dictionary(forKey: key)
@@ -690,14 +800,22 @@ final class RouterTests: XCTestCase {
         }
 
         var config = ShortcutConfiguration()
-        config.gestureActions[.pinchIn] = action
+        config.gestureActions[kind] = action
         return gestureRouter.routeGesture(
-            .pinchIn(atNormalized: (0.5, 0.5)),
+            result,
             at: CGPoint(x: 200, y: 200),
             target: target,
             service: mockService,
             activateApp: { _ in }
         )
+    }
+
+    /// Binds `action` to pinch-in on a scratch config — convenience for the
+    /// legacy desktop-move tests that share this binding style.
+    private func routePinchInBound(to action: GestureAction,
+                                   target: TargetResolution) -> ResolvedGestureAction {
+        routeGestureBound(.pinchIn(atNormalized: (0.5, 0.5)), kind: .pinchIn,
+                          to: action, target: target)
     }
 
     func testMoveNextDesktopRoutesOnWindowTargetWithSpaceRightFeedback() throws {
@@ -717,6 +835,53 @@ final class RouterTests: XCTestCase {
             return XCTFail("Expected movePreviousDesktop on window to execute")
         }
         XCTAssertEqual(mode, .spaceLeft)
+    }
+
+    // MARK: - Minimize All / Unminimize All via swipe gestures
+
+    func testSwipeDownRoutesMinimizeAllOnDockTarget() {
+        let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
+            .first ?? NSRunningApplication.current
+        let result = routeGestureBound(.swipeDown(atNormalized: (0.5, 0.5)), kind: .swipeDown,
+                                       to: .minimizeAll, target: .dock(dockApp))
+        guard case let .execute(mode, _, _) = result else {
+            return XCTFail("Expected swipeDown→minimizeAll on dock to execute")
+        }
+        XCTAssertEqual(mode, .minimizeAll)
+    }
+
+    func testSwipeUpRoutesUnminimizeAllOnWindowTarget() throws {
+        let result = try routeGestureBound(.swipeUp(atNormalized: (0.5, 0.5)), kind: .swipeUp,
+                                           to: .unminimizeAll,
+                                           target: .window(XCTUnwrap(mockService.mockElement)))
+        guard case let .execute(mode, _, _) = result else {
+            return XCTFail("Expected swipeUp→unminimizeAll on window to execute")
+        }
+        XCTAssertEqual(mode, .unminimizeAll)
+    }
+
+    func testMinimizeAllDefaultsNeverAssignedByGestureDefaults() {
+        for kind in GestureKind.allCases {
+            for isCmd in [false, true] {
+                XCTAssertNotEqual(
+                    GestureDefaults.action(for: kind, isCmd: isCmd), .minimizeAll,
+                    "\(kind) (cmd=\(isCmd)) must not be assigned by default — share vs exclusive"
+                )
+                XCTAssertNotEqual(
+                    GestureDefaults.action(for: kind, isCmd: isCmd), .unminimizeAll,
+                    "\(kind) (cmd=\(isCmd)) must not be assigned by default"
+                )
+            }
+        }
+    }
+
+    func testMinimizeAllAppearsOnlyInExpectedNaturalLists() {
+        XCTAssertTrue(GestureKind.swipeDown.naturalActions.contains(.minimizeAll),
+                      "Swipe Down must offer Minimize All (down → Dock)")
+        XCTAssertFalse(GestureKind.swipeUp.naturalActions.contains(.minimizeAll))
+        XCTAssertTrue(GestureKind.swipeUp.naturalActions.contains(.unminimizeAll),
+                      "Swipe Up must offer Unminimize All (up from Dock)")
+        XCTAssertFalse(GestureKind.swipeDown.naturalActions.contains(.unminimizeAll))
     }
 
     func testDesktopMoveOverDockTargetsFocusedAppWindow() {

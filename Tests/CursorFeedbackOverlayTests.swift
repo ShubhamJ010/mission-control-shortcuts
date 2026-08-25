@@ -72,7 +72,7 @@ final class CursorFeedbackOverlayTests: XCTestCase {
     func testCursorFeedbackModesAllRenderSymbols() {
         // Every shortcut/gesture feedback type must resolve to a real SF
         // Symbol, otherwise its feedback silently disappears.
-        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 17,
+        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 19,
                        "Adding a feedback mode must also extend this coverage")
         for mode in CursorFeedbackOverlay.Mode.allCases {
             let image = renderedSymbol(symbolName: mode.symbolName,

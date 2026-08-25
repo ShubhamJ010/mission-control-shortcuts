@@ -119,12 +119,14 @@ final class MissionControlService: MissionControlServiceProtocol {
         for event in events {
             let observer = center
                 .addObserver(forName: NSNotification.Name(event), object: nil,
-                             queue: .main) { @MainActor [weak self] _ in
-                    if event.contains("start") {
-                        self?.markActive(true)
-                    }
-                    if event.contains("stop") {
-                        self?.markActive(false)
+                             queue: .main) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        if event.contains("start") {
+                            self?.markActive(true)
+                        }
+                        if event.contains("stop") {
+                            self?.markActive(false)
+                        }
                     }
                 }
             observers.append(observer)

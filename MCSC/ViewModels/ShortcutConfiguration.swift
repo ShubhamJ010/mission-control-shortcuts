@@ -2,78 +2,115 @@ import Foundation
 
 /// Value type representing user-configurable shortcut and gesture toggles.
 struct ShortcutConfiguration {
-    /// Master switch for the unified ⌘+W close flow. Gates the Close Tab
-    /// toggle — turning it off cascades Close Tab off.
-    var isClosingEnabled = true {
-        didSet { UserDefaults.standard.set(isClosingEnabled, forKey: Self.Keys.closingEnabled) }
+    // MARK: - Rebindable shortcut bindings
+
+    /// Action → key combination. An action is *active* exactly when it has a
+    /// binding; removing the binding disables it. Persisted on every mutation.
+    var shortcutBindings: [RoutedAction: ShortcutBinding] = RoutedAction.defaultBindings {
+        didSet { persistShortcutBindings() }
     }
 
-    var isCmdWEnabled = true {
-        didSet { UserDefaults.standard.set(isCmdWEnabled, forKey: Self.Keys.cmdWEnabled) }
+    /// `UserDefaults` key holding the JSON-encoded binding map. Exposed so
+    /// test suites can reset persisted state between runs.
+    static let bindingsStorageKey = "mcsc.shortcuts.bindings"
+
+    // MARK: Legacy boolean toggle API
+
+    //
+    // The settings UI now assigns shortcuts through recorder fields, so these
+    // used-to-be-stored booleans became views over the binding store: true ⇔
+    // the action's canonical default combination is currently assigned.
+
+    /// Close window / tab strip (⌘W flow).
+    var isClosingEnabled: Bool {
+        get { shortcutBindings[.close] != nil }
+        set { setBinding(newValue ? RoutedAction.close.canonicalBinding : nil, for: .close) }
     }
 
-    var isCmdQEnabled = true {
-        didSet { UserDefaults.standard.set(isCmdQEnabled, forKey: Self.Keys.cmdQEnabled) }
+    var isCmdWEnabled: Bool {
+        get { shortcutBindings[.closeTab] != nil }
+        set { setBinding(newValue ? RoutedAction.closeTab.canonicalBinding : nil, for: .closeTab) }
     }
 
-    var isCmdMEnabled = true {
-        didSet { UserDefaults.standard.set(isCmdMEnabled, forKey: Self.Keys.cmdMEnabled) }
+    var isCmdQEnabled: Bool {
+        get { shortcutBindings[.quit] != nil }
+        set { shortcutBindings[.quit] = newValue ? RoutedAction.quit.canonicalBinding : nil }
     }
 
-    var isCmdHEnabled = true {
-        didSet { UserDefaults.standard.set(isCmdHEnabled, forKey: Self.Keys.cmdHEnabled) }
+    var isCmdMEnabled: Bool {
+        get { shortcutBindings[.minimize] != nil }
+        set { shortcutBindings[.minimize] = newValue ? RoutedAction.minimize.canonicalBinding : nil }
     }
 
-    var isCmdFEnabled = false {
-        didSet { UserDefaults.standard.set(isCmdFEnabled, forKey: Self.Keys.cmdFEnabled) }
+    var isCmdHEnabled: Bool {
+        get { shortcutBindings[.hide] != nil }
+        set { shortcutBindings[.hide] = newValue ? RoutedAction.hide.canonicalBinding : nil }
+    }
+
+    var isCmdFEnabled: Bool {
+        get { shortcutBindings[.fullscreen] != nil }
+        set { shortcutBindings[.fullscreen] = newValue ? RoutedAction.fullscreen.canonicalBinding : nil }
     }
 
     var isCmdSpaceEnabled = true {
         didSet { UserDefaults.standard.set(isCmdSpaceEnabled, forKey: Self.Keys.cmdSpaceEnabled) }
     }
 
-    var isCmdTEnabled = false {
-        didSet { UserDefaults.standard.set(isCmdTEnabled, forKey: Self.Keys.cmdTEnabled) }
+    var isCmdTEnabled: Bool {
+        get { shortcutBindings[.newTab] != nil }
+        set { shortcutBindings[.newTab] = newValue ? RoutedAction.newTab.canonicalBinding : nil }
     }
 
-    var isCmdNEnabled = false {
-        didSet { UserDefaults.standard.set(isCmdNEnabled, forKey: Self.Keys.cmdNEnabled) }
+    var isCmdNEnabled: Bool {
+        get { shortcutBindings[.newWindow] != nil }
+        set { shortcutBindings[.newWindow] = newValue ? RoutedAction.newWindow.canonicalBinding : nil }
     }
 
-    var isCmdShiftWEnabled = false {
-        didSet { UserDefaults.standard.set(isCmdShiftWEnabled, forKey: Self.Keys.cmdShiftWEnabled) }
+    var isCmdShiftWEnabled: Bool {
+        get { shortcutBindings[.closeAllTabs] != nil }
+        set { shortcutBindings[.closeAllTabs] = newValue ? RoutedAction.closeAllTabs.canonicalBinding : nil }
     }
 
-    var isCmdShiftTEnabled = false {
-        didSet { UserDefaults.standard.set(isCmdShiftTEnabled, forKey: Self.Keys.cmdShiftTEnabled) }
+    var isCmdShiftTEnabled: Bool {
+        get { shortcutBindings[.reopenTab] != nil }
+        set { shortcutBindings[.reopenTab] = newValue ? RoutedAction.reopenTab.canonicalBinding : nil }
     }
 
-    var isFillScreenEnabled = false {
-        didSet { UserDefaults.standard.set(isFillScreenEnabled, forKey: Self.Keys.fillScreenEnabled) }
+    var isFillScreenEnabled: Bool {
+        get { shortcutBindings[.fillScreen] != nil }
+        set { shortcutBindings[.fillScreen] = newValue ? RoutedAction.fillScreen.canonicalBinding : nil }
     }
 
-    var isAlmostMaximizeEnabled = false {
-        didSet { UserDefaults.standard.set(isAlmostMaximizeEnabled, forKey: Self.Keys.almostMaximizeEnabled) }
+    var isAlmostMaximizeEnabled: Bool {
+        get { shortcutBindings[.almostMaximize] != nil }
+        set { shortcutBindings[.almostMaximize] = newValue ? RoutedAction.almostMaximize.canonicalBinding : nil }
     }
 
-    var isReasonableSizeEnabled = false {
-        didSet { UserDefaults.standard.set(isReasonableSizeEnabled, forKey: Self.Keys.reasonableSizeEnabled) }
+    var isReasonableSizeEnabled: Bool {
+        get { shortcutBindings[.reasonableSize] != nil }
+        set { shortcutBindings[.reasonableSize] = newValue ? RoutedAction.reasonableSize.canonicalBinding : nil }
     }
 
-    var isMakeLargerEnabled = false {
-        didSet { UserDefaults.standard.set(isMakeLargerEnabled, forKey: Self.Keys.makeLargerEnabled) }
+    var isMakeLargerEnabled: Bool {
+        get { shortcutBindings[.makeLarger] != nil }
+        set { shortcutBindings[.makeLarger] = newValue ? RoutedAction.makeLarger.canonicalBinding : nil }
     }
 
-    var isMakeSmallerEnabled = false {
-        didSet { UserDefaults.standard.set(isMakeSmallerEnabled, forKey: Self.Keys.makeSmallerEnabled) }
+    var isMakeSmallerEnabled: Bool {
+        get { shortcutBindings[.makeSmaller] != nil }
+        set { shortcutBindings[.makeSmaller] = newValue ? RoutedAction.makeSmaller.canonicalBinding : nil }
     }
 
-    var isMoveNextDesktopEnabled = false {
-        didSet { UserDefaults.standard.set(isMoveNextDesktopEnabled, forKey: Self.Keys.moveNextDesktopEnabled) }
+    var isMoveNextDesktopEnabled: Bool {
+        get { shortcutBindings[.moveNextDesktop] != nil }
+        set { shortcutBindings[.moveNextDesktop] = newValue ? RoutedAction.moveNextDesktop.canonicalBinding : nil }
     }
 
-    var isMovePreviousDesktopEnabled = false {
-        didSet { UserDefaults.standard.set(isMovePreviousDesktopEnabled, forKey: Self.Keys.movePreviousDesktopEnabled) }
+    var isMovePreviousDesktopEnabled: Bool {
+        get { shortcutBindings[.movePreviousDesktop] != nil }
+        set {
+            shortcutBindings[.movePreviousDesktop] = newValue ? RoutedAction.movePreviousDesktop.canonicalBinding : nil
+        }
     }
 
     var isGesturesEnabled = true {
@@ -165,6 +202,7 @@ struct ShortcutConfiguration {
 
     init() {
         loadStoredToggles()
+        loadStoredBindings()
         loadStoredGestureMappings()
     }
 
@@ -172,30 +210,19 @@ struct ShortcutConfiguration {
     /// key and default value. Drives loading (`init`), `restoreDefaults()`,
     /// and the defaults-drift unit tests. The stored-property literals above
     /// must match `defaultValue` (enforced by `ShortcutConfigurationTests`).
+    ///
+    /// Shortcut on/off toggles are no longer here — they became the persisted
+    /// binding map (`Keys.shortcutBindings`). Only fixed-behavior toggles
+    /// (⌘Space, gestures, feedback, …) remain plain booleans.
     static let toggleDefaults: [(
         keyPath: WritableKeyPath<ShortcutConfiguration, Bool>,
         key: String,
         defaultValue: Bool
     )] = [
-        (\.isClosingEnabled, Keys.closingEnabled, true),
-        (\.isCmdWEnabled, Keys.cmdWEnabled, true),
-        (\.isCmdQEnabled, Keys.cmdQEnabled, true),
-        (\.isCmdMEnabled, Keys.cmdMEnabled, true),
-        (\.isCmdHEnabled, Keys.cmdHEnabled, true),
-        (\.isCmdFEnabled, Keys.cmdFEnabled, false),
         (\.isCmdSpaceEnabled, Keys.cmdSpaceEnabled, true),
-        (\.isCmdTEnabled, Keys.cmdTEnabled, false),
-        (\.isCmdNEnabled, Keys.cmdNEnabled, false),
-        (\.isCmdShiftWEnabled, Keys.cmdShiftWEnabled, false),
-        (\.isCmdShiftTEnabled, Keys.cmdShiftTEnabled, false),
-        (\.isFillScreenEnabled, Keys.fillScreenEnabled, false),
-        (\.isAlmostMaximizeEnabled, Keys.almostMaximizeEnabled, false),
-        (\.isReasonableSizeEnabled, Keys.reasonableSizeEnabled, false),
-        (\.isMakeLargerEnabled, Keys.makeLargerEnabled, false),
-        (\.isMakeSmallerEnabled, Keys.makeSmallerEnabled, false),
-        (\.isMoveNextDesktopEnabled, Keys.moveNextDesktopEnabled, false),
-        (\.isMovePreviousDesktopEnabled, Keys.movePreviousDesktopEnabled, false),
+
         (\.isKeyboardNavigationEnabled, Keys.keyboardNavigation, true),
+        (\.isTabShortcutsEnabled, Keys.tabShortcutsEnabled, true),
         (\.isDockActionsOutsideMCEnabled, Keys.dockActionsOutsideMC, false),
         (\.isTitleBarActionsOutsideMCEnabled, Keys.titleBarActionsOutsideMC, false),
         (\.isGesturesEnabled, Keys.gesturesEnabled, true),
@@ -263,27 +290,166 @@ struct ShortcutConfiguration {
         for entry in Self.toggleDefaults {
             self[keyPath: entry.keyPath] = entry.defaultValue
         }
+        shortcutBindings = RoutedAction.defaultBindings
         resetGestureMappings()
     }
 
-    // MARK: - Helpers
+    // MARK: - Binding store
 
-    private static func loadBool(forKey key: String) -> Bool? {
+    /// The binding assigned to `action`, if any. Presence ⇔ active.
+    func binding(for action: RoutedAction) -> ShortcutBinding? {
+        shortcutBindings[action]
+    }
+
+    /// When `true`, shortcuts and gestures on the window tab strip close/reopen tabs.
+    /// When `false`, tab strip checks are bypassed and fallback window actions execute.
+    var isTabShortcutsEnabled = true {
+        didSet { UserDefaults.standard.set(isTabShortcutsEnabled, forKey: Self.Keys.tabShortcutsEnabled) }
+    }
+
+    /// Assigns (or clears) an action's combination and persists the change.
+    ///
+    /// Rules:
+    /// 1. `.close` and `.closeTab` are linked twins: changing or clearing one
+    ///    automatically changes or clears the other.
+    /// 2. Except for `.close` and `.closeTab`, every shortcut combination must be
+    ///    unique across all actions. Assigning an existing combination to another
+    ///    action unassigns it from its previous owner.
+    mutating func setBinding(_ binding: ShortcutBinding?, for action: RoutedAction) {
+        if action == .close || action == .closeTab {
+            if let binding {
+                // Clear this combination from any other non-close action
+                for (otherAction, otherBinding) in shortcutBindings
+                    where otherAction != .close && otherAction != .closeTab {
+                    if otherBinding == binding {
+                        shortcutBindings.removeValue(forKey: otherAction)
+                    }
+                }
+                shortcutBindings[.close] = binding
+                shortcutBindings[.closeTab] = binding
+            } else {
+                shortcutBindings.removeValue(forKey: .close)
+                shortcutBindings.removeValue(forKey: .closeTab)
+            }
+            return
+        }
+
+        if let binding {
+            // Displace any existing action claiming this binding (including close/closeTab)
+            for (otherAction, otherBinding) in shortcutBindings where otherBinding == binding {
+                if otherAction == .close || otherAction == .closeTab {
+                    shortcutBindings.removeValue(forKey: .close)
+                    shortcutBindings.removeValue(forKey: .closeTab)
+                } else {
+                    shortcutBindings.removeValue(forKey: otherAction)
+                }
+            }
+            shortcutBindings[action] = binding
+        } else {
+            shortcutBindings.removeValue(forKey: action)
+        }
+    }
+
+    /// Every key code currently bound to any action — the keystroke pre-filter's admission set.
+    var boundKeyCodes: Set<Int64> {
+        Set(shortcutBindings.values.map(\.keyCode))
+    }
+
+    /// Actions whose stored binding matches this event, in routing-precedence order (`RoutedAction.routeOrder`).
+    func matchedActions(keyCode: Int64, includesShift: Bool) -> [RoutedAction] {
+        RoutedAction.routeOrder.filter { action in
+            guard let candidate = shortcutBindings[action] else { return false }
+            return candidate.keyCode == keyCode && candidate.includesShift == includesShift
+        }
+    }
+}
+
+// MARK: - Persistence & Migration
+
+private extension ShortcutConfiguration {
+    struct StoredBinding: Codable {
+        let action: String
+        let keyCode: Int64
+        let includesShift: Bool
+    }
+
+    func persistShortcutBindings() {
+        let rows = shortcutBindings.map { action, binding in
+            StoredBinding(action: action.rawValue, keyCode: binding.keyCode, includesShift: binding.includesShift)
+        }
+        if let data = try? JSONEncoder().encode(rows) {
+            UserDefaults.standard.set(data, forKey: Self.bindingsStorageKey)
+        }
+    }
+
+    mutating func loadStoredBindings() {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: Self.bindingsStorageKey),
+           let rows = try? JSONDecoder().decode([StoredBinding].self, from: data) {
+            var restored = [RoutedAction: ShortcutBinding]()
+            for row in rows {
+                guard let action = RoutedAction(rawValue: row.action) else { continue }
+                restored[action] = ShortcutBinding(keyCode: row.keyCode, includesShift: row.includesShift)
+            }
+            shortcutBindings = restored
+            return
+        }
+        migrateLegacyShortcutToggles()
+    }
+
+    mutating func migrateLegacyShortcutToggles() {
+        let defaults = UserDefaults.standard
+        let hasLegacyState = Self.legacyShortcutToggles.contains { defaults.object(forKey: $0.key) != nil }
+        guard hasLegacyState else { return }
+
+        var migrated = RoutedAction.defaultBindings
+        for entry in Self.legacyShortcutToggles {
+            guard defaults.object(forKey: entry.key) != nil else { continue }
+            migrated[entry.action] = defaults.bool(forKey: entry.key) ? entry.action.canonicalBinding : nil
+        }
+        shortcutBindings = migrated
+        for entry in Self.legacyShortcutToggles {
+            defaults.removeObject(forKey: entry.key)
+        }
+    }
+
+    static let legacyShortcutToggles: [(key: String, action: RoutedAction)] = [
+        (Keys.closingEnabled, .close),
+        (Keys.cmdWEnabled, .closeTab),
+        (Keys.cmdQEnabled, .quit),
+        (Keys.cmdMEnabled, .minimize),
+        (Keys.cmdHEnabled, .hide),
+        (Keys.cmdFEnabled, .fullscreen),
+        (Keys.cmdTEnabled, .newTab),
+        (Keys.cmdNEnabled, .newWindow),
+        (Keys.cmdShiftWEnabled, .closeAllTabs),
+        (Keys.cmdShiftTEnabled, .reopenTab),
+        (Keys.fillScreenEnabled, .fillScreen),
+        (Keys.almostMaximizeEnabled, .almostMaximize),
+        (Keys.reasonableSizeEnabled, .reasonableSize),
+        (Keys.makeLargerEnabled, .makeLarger),
+        (Keys.makeSmallerEnabled, .makeSmaller),
+        (Keys.moveNextDesktopEnabled, .moveNextDesktop),
+        (Keys.movePreviousDesktopEnabled, .movePreviousDesktop)
+    ]
+
+    static func loadBool(forKey key: String) -> Bool? {
         guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
         return UserDefaults.standard.bool(forKey: key)
     }
 
-    private func persistGestureActions() {
+    func persistGestureActions() {
         let dict = Dictionary(uniqueKeysWithValues: gestureActions.map { ($0.key.rawValue, $0.value.rawValue) })
         UserDefaults.standard.set(dict, forKey: Self.Keys.gestureActions)
     }
 
-    private func persistCmdGestureActions() {
+    func persistCmdGestureActions() {
         let dict = Dictionary(uniqueKeysWithValues: cmdGestureActions.map { ($0.key.rawValue, $0.value.rawValue) })
         UserDefaults.standard.set(dict, forKey: Self.Keys.cmdGestureActions)
     }
 
-    private enum Keys {
+    enum Keys {
+        static let shortcutBindings = "mcsc.shortcuts.bindings"
         static let closingEnabled = "mcsc.shortcuts.closing.enabled"
         static let cmdWEnabled = "mcsc.shortcuts.cmdW.enabled"
         static let cmdQEnabled = "mcsc.shortcuts.cmdQ.enabled"
@@ -303,6 +469,7 @@ struct ShortcutConfiguration {
         static let moveNextDesktopEnabled = "mcsc.shortcuts.moveNextDesktop.enabled"
         static let movePreviousDesktopEnabled = "mcsc.shortcuts.movePreviousDesktop.enabled"
         static let keyboardNavigation = "mcsc.keyboardNavigation.enabled"
+        static let tabShortcutsEnabled = "mcsc.tabShortcuts.enabled"
         static let dockActionsOutsideMC = "mcsc.dockActionsOutsideMC.enabled"
         static let titleBarActionsOutsideMC = "mcsc.titleBarActionsOutsideMC.enabled"
         static let gesturesEnabled = "mcsc.gestures.enabled"

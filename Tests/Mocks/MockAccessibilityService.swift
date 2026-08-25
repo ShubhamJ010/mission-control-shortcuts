@@ -11,12 +11,16 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     var isDockItemValue: Bool = false
     var focusWindowCalledWith: AXUIElement?
     var focusWindowReturnValue: Bool = true
+    var setMinimizedCalledWith: (minimized: Bool, element: AXUIElement)?
+    var setMinimizedReturnValue: Bool = true
     var mockFocusedWindow: AXUIElement?
     var mockAppWindows: [AXUIElement]?
     var mockCloseButton: AXUIElement?
     var mockTabCloseButton: AXUIElement?
     var mockDocumentPath: String?
     var mockWindowTitle: String?
+    var mockMinimizeButton: AXUIElement?
+    var mockMinimizedElements: Set<AXUIElement> = []
 
     func getElement(at point: CGPoint) -> AXUIElement? {
         getElementCalledWith = point
@@ -32,7 +36,7 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         return true
     }
 
-    func getAttributeValue<T>(_ attribute: String, for _: AXUIElement) -> T? {
+    func getAttributeValue<T>(_ attribute: String, for element: AXUIElement) -> T? {
         if attribute == kAXFocusedWindowAttribute, let window = mockFocusedWindow {
             return window as? T
         }
@@ -41,6 +45,12 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         }
         if attribute == kAXCloseButtonAttribute {
             return mockCloseButton as? T
+        }
+        if attribute == kAXMinimizeButtonAttribute {
+            return mockMinimizeButton as? T
+        }
+        if attribute == kAXMinimizedAttribute {
+            return mockMinimizedElements.contains(element) as? T
         }
         return nil
     }
@@ -68,6 +78,11 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
 
     func getAppFromElement(_: AXUIElement) -> NSRunningApplication? {
         mockApp
+    }
+
+    func setMinimized(_ minimized: Bool, for element: AXUIElement) -> Bool {
+        setMinimizedCalledWith = (minimized, element)
+        return setMinimizedReturnValue
     }
 
     func focusWindow(_ window: AXUIElement) -> Bool {

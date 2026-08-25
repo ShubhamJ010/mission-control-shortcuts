@@ -110,47 +110,55 @@ final class PerformanceTests: XCTestCase {
 
     // MARK: - Keystroke pre-filter
 
-    func testShortcutCandidateRejectsPlainTypingAndUntrackedKeys() {
+    /// The admission set the tests simulate: every legacy key constant, as a
+    /// fully-configured binding store would report.
+    private static let simulatedBoundKeys: Set<Int64> = [
+        ShortcutActionRouter.kKeyW, ShortcutActionRouter.kKeyQ,
+        ShortcutActionRouter.kKeyM, ShortcutActionRouter.kKeyH,
+        ShortcutActionRouter.kKeyF, ShortcutActionRouter.kKeyT,
+        ShortcutActionRouter.kKeyN, ShortcutActionRouter.kKeySpace,
+        ShortcutActionRouter.kKeyD,
+        ShortcutActionRouter.kKeyA, ShortcutActionRouter.kKeyR,
+        ShortcutActionRouter.kKeyL, ShortcutActionRouter.kKeyS,
+        ShortcutActionRouter.kKeyRight, ShortcutActionRouter.kKeyLeft
+    ]
+
+    func testShortcutCandidateRejectsPlainTypingAndUnboundKeys() {
         let cmd = CGEventFlags.maskCommand
+        let bound = Self.simulatedBoundKeys
 
         // Plain typing without Cmd can never route.
-        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(keyCode: 0, flags: []))
-        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(keyCode: ShortcutActionRouter.kKeyW, flags: []))
-        // Untracked key even with Cmd.
-        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(keyCode: 7 /* X */, flags: cmd))
+        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(keyCode: 0, flags: [], boundKeyCodes: bound))
+        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(
+            keyCode: ShortcutActionRouter.kKeyW,
+            flags: [],
+            boundKeyCodes: bound
+        ))
+        // Unbound key even with Cmd.
+        XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(keyCode: 7 /* X */, flags: cmd, boundKeyCodes: bound))
         // Cmd+Ctrl / Cmd+Option combos are excluded by the router contract.
         XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(
-            keyCode: ShortcutActionRouter.kKeyW, flags: [.maskCommand, .maskControl]
+            keyCode: ShortcutActionRouter.kKeyW, flags: [.maskCommand, .maskControl], boundKeyCodes: bound
         ))
         XCTAssertFalse(ShortcutActionRouter.isShortcutCandidate(
-            keyCode: ShortcutActionRouter.kKeyW, flags: [.maskCommand, .maskAlternate]
+            keyCode: ShortcutActionRouter.kKeyW, flags: [.maskCommand, .maskAlternate], boundKeyCodes: bound
         ))
-        // Tracked keys with Cmd must pass.
+        // Bound keys with Cmd must pass.
         XCTAssertTrue(ShortcutActionRouter.isShortcutCandidate(
-            keyCode: ShortcutActionRouter.kKeyW, flags: cmd
-        ))
-        XCTAssertTrue(ShortcutActionRouter.isShortcutCandidate(
-            keyCode: ShortcutActionRouter.kKeySpace, flags: cmd
+            keyCode: ShortcutActionRouter.kKeyW, flags: cmd, boundKeyCodes: bound
         ))
         XCTAssertTrue(ShortcutActionRouter.isShortcutCandidate(
-            keyCode: ShortcutActionRouter.kKeyRight, flags: [.maskCommand, .maskShift]
+            keyCode: ShortcutActionRouter.kKeySpace, flags: cmd, boundKeyCodes: bound
+        ))
+        XCTAssertTrue(ShortcutActionRouter.isShortcutCandidate(
+            keyCode: ShortcutActionRouter.kKeyRight, flags: [.maskCommand, .maskShift], boundKeyCodes: bound
         ))
 
-        // Every kKey constant must be admitted — guards against someone adding
-        // a new shortcut constant but forgetting the whitelist.
-        let constants: [Int64] = [
-            ShortcutActionRouter.kKeyW, ShortcutActionRouter.kKeyQ,
-            ShortcutActionRouter.kKeyM, ShortcutActionRouter.kKeyH,
-            ShortcutActionRouter.kKeyF, ShortcutActionRouter.kKeyT,
-            ShortcutActionRouter.kKeyN, ShortcutActionRouter.kKeySpace,
-            ShortcutActionRouter.kKeyD,
-            ShortcutActionRouter.kKeyA, ShortcutActionRouter.kKeyR,
-            ShortcutActionRouter.kKeyL, ShortcutActionRouter.kKeyS,
-            ShortcutActionRouter.kKeyRight, ShortcutActionRouter.kKeyLeft
-        ]
-        for key in constants {
+        // Every key constant must be admitted — guards against someone adding
+        // a new shortcut constant but forgetting to wire it into the store.
+        for key in bound {
             XCTAssertTrue(
-                ShortcutActionRouter.isShortcutCandidate(keyCode: key, flags: cmd),
+                ShortcutActionRouter.isShortcutCandidate(keyCode: key, flags: cmd, boundKeyCodes: bound),
                 "key code \(key) must remain whitelisted"
             )
         }
@@ -161,13 +169,15 @@ final class PerformanceTests: XCTestCase {
         let keyCodes: [Int64] = [0, 13, 12, 46, 49, 124, 7]
         let flagSet: [CGEventFlags] = [[], .maskCommand, .maskCommand, [], .maskCommand, .maskCommand, []]
         let iterations = 100_000
+        let bound = Self.simulatedBoundKeys
 
         let start = CACurrentMediaTime()
         var hits = 0
         for i in 0 ..< iterations {
             if ShortcutActionRouter.isShortcutCandidate(
                 keyCode: keyCodes[i % keyCodes.count],
-                flags: flagSet[i % flagSet.count]
+                flags: flagSet[i % flagSet.count],
+                boundKeyCodes: bound
             ) {
                 hits += 1
             }

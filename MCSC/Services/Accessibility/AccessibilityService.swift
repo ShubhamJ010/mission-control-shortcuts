@@ -41,6 +41,10 @@ protocol AccessibilityServiceProtocol {
     /// Returns `nil` when the window has no accessible tab group.
     func findActiveTabCloseButton(in window: AXUIElement) -> AXUIElement?
 
+    /// Sets whether `window` is minimized (`kAXMinimizedAttribute`); `false`
+    /// restores it. Returns `true` if the owning app accepted the change.
+    func setMinimized(_ minimized: Bool, for window: AXUIElement) -> Bool
+
     /// Makes `window` the application's focused (key) window via the
     /// `kAXFocusedAttribute` AX attribute. Best-effort: some apps ignore
     /// programmatic focus changes. Returns `true` if the attribute was set.
@@ -105,31 +109,24 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         }
         screenObserver = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
-            object: nil,
-            queue: .main
-        ) { [weak self] _ in
-            self?.cachedDockFrame = nil
-        }
+            object: nil, queue: .main
+        ) { [weak self] _ in self?.cachedDockFrame = nil }
     }
 
     deinit {
-        if let screenObserver {
-            NotificationCenter.default.removeObserver(screenObserver)
-        }
+        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
     }
 
     /// Returns a cached `AXUIElement` for the Dock process, creating it on
     /// first use and re-creating it only if the Dock process was relaunched
     /// (detected via pid change). Caching avoids per-call element allocation.
     private func getDockAXElement() -> AXUIElement? {
-        if let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first {
-            if cachedDockElement == nil || cachedDockPID != dockApp.processIdentifier {
-                cachedDockElement = AXUIElementCreateApplication(dockApp.processIdentifier)
-                cachedDockPID = dockApp.processIdentifier
-            }
-            return cachedDockElement
+        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        if cachedDockElement == nil || cachedDockPID != dockApp.processIdentifier {
+            cachedDockElement = AXUIElementCreateApplication(dockApp.processIdentifier)
+            cachedDockPID = dockApp.processIdentifier
         }
-        return nil
+        return cachedDockElement
     }
 
     func getElement(at point: CGPoint) -> AXUIElement? {
@@ -353,6 +350,11 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let result = AXUIElementGetPid(element, &pid)
         guard result == .success else { return nil }
         return NSRunningApplication(processIdentifier: pid)
+    }
+
+    func setMinimized(_ minimized: Bool, for window: AXUIElement) -> Bool {
+        AXUIElementSetAttributeValue(window, kAXMinimizedAttribute as CFString,
+                                     minimized ? kCFBooleanTrue : kCFBooleanFalse) == .success
     }
 
     /// Makes `window` the application's focused (key) window. Used to steer the
