@@ -155,6 +155,10 @@ final class ShortcutViewModel {
         get { config.isAutoEjectEnabled } set { config.isAutoEjectEnabled = newValue }
     }
 
+    var isQuitAppIfNoWindowsEnabled: Bool {
+        get { config.isQuitAppIfNoWindowsEnabled } set { config.isQuitAppIfNoWindowsEnabled = newValue }
+    }
+
     var isDockActionsOutsideMCEnabled: Bool {
         get { config.isDockActionsOutsideMCEnabled }
         set {

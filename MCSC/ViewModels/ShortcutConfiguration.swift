@@ -169,6 +169,11 @@ struct ShortcutConfiguration {
         didSet { UserDefaults.standard.set(isKeyboardNavigationEnabled, forKey: Self.Keys.keyboardNavigation) }
     }
 
+    /// When true, close operations fall back to quitting the app if no open windows remain.
+    var isQuitAppIfNoWindowsEnabled = false {
+        didSet { UserDefaults.standard.set(isQuitAppIfNoWindowsEnabled, forKey: Self.Keys.quitAppIfNoWindowsEnabled) }
+    }
+
     // MARK: - General / Feedback — on by default (restores previous always-on behavior, now configurable).
 
     /// Haptic pulses for shortcuts/gestures. Previously always-on; now configurable.
@@ -234,6 +239,7 @@ struct ShortcutConfiguration {
         (\.isSwipeUpEnabled, Keys.swipeUpEnabled, true),
         (\.isTwoFingerDoubleTapEnabled, Keys.twoFingerDoubleTapEnabled, true),
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
+        (\.isQuitAppIfNoWindowsEnabled, Keys.quitAppIfNoWindowsEnabled, false),
         (\.isHapticFeedbackEnabled, Keys.hapticFeedbackEnabled, true),
         (\.isCursorFeedbackEnabled, Keys.cursorFeedbackEnabled, true),
         (\.isOptimizedAnimationModeEnabled, Keys.optimizedAnimationsEnabled, true)
@@ -481,6 +487,7 @@ private extension ShortcutConfiguration {
         static let swipeUpEnabled = "mcsc.gestures.swipeUp.enabled"
         static let twoFingerDoubleTapEnabled = "mcsc.gestures.twoFingerDoubleTap.enabled"
         static let autoEjectEnabled = "mcsc.autoEject.enabled"
+        static let quitAppIfNoWindowsEnabled = "mcsc.quitAppIfNoWindows.enabled"
         static let hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled"
         static let cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled"
         static let optimizedAnimationsEnabled = "mcsc.feedback.optimizedAnimations.enabled"

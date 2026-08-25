@@ -71,6 +71,7 @@ final class GestureActionRouter {
                 feedbackMode: feedbackMode,
                 haptic: haptic,
                 needsActivate: needsActivate,
+                quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled,
                 activateApp: activateApp
             )
         case .window:
@@ -81,6 +82,7 @@ final class GestureActionRouter {
                 feedbackMode: feedbackMode,
                 haptic: haptic,
                 needsActivate: needsActivate,
+                quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled,
                 activateApp: activateApp
             )
         }
@@ -96,12 +98,19 @@ final class GestureActionRouter {
         feedbackMode: CursorFeedbackOverlay.Mode,
         haptic: HapticType,
         needsActivate: Bool,
+        quitIfNoWindows: Bool,
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedGestureAction {
         switch action {
         case .closeWindow:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(.wholeApp, at: point, fromApp: app, service: service)
+                self?.actions.close.perform(
+                    .wholeApp,
+                    at: point,
+                    fromApp: app,
+                    service: service,
+                    quitIfNoWindows: quitIfNoWindows
+                )
             }
         case .quitApp:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -112,11 +121,23 @@ final class GestureActionRouter {
                 if needsActivate {
                     activateApp(point)
                 }
-                self?.actions.close.perform(.activeTab, at: point, fromApp: app, service: service)
+                self?.actions.close.perform(
+                    .activeTab,
+                    at: point,
+                    fromApp: app,
+                    service: service,
+                    quitIfNoWindows: quitIfNoWindows
+                )
             }
         case .closeAllTabs:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(.allTabs, at: point, fromApp: app, service: service)
+                self?.actions.close.perform(
+                    .allTabs,
+                    at: point,
+                    fromApp: app,
+                    service: service,
+                    quitIfNoWindows: quitIfNoWindows
+                )
             }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -192,12 +213,13 @@ final class GestureActionRouter {
         feedbackMode: CursorFeedbackOverlay.Mode,
         haptic: HapticType,
         needsActivate: Bool,
+        quitIfNoWindows: Bool,
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedGestureAction {
         switch action {
         case .closeWindow:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(.window, at: point, fromApp: nil, service: service)
+                self?.actions.close.perform(.window, at: point, fromApp: nil, service: service, quitIfNoWindows: quitIfNoWindows)
             }
         case .quitApp:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
@@ -208,11 +230,11 @@ final class GestureActionRouter {
                 if needsActivate {
                     activateApp(point)
                 }
-                self?.actions.close.perform(.activeTab, at: point, fromApp: nil, service: service)
+                self?.actions.close.perform(.activeTab, at: point, fromApp: nil, service: service, quitIfNoWindows: quitIfNoWindows)
             }
         case .closeAllTabs:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(.allTabs, at: point, fromApp: nil, service: service)
+                self?.actions.close.perform(.allTabs, at: point, fromApp: nil, service: service, quitIfNoWindows: quitIfNoWindows)
             }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in

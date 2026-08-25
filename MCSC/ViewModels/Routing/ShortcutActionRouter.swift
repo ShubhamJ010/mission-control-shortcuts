@@ -204,7 +204,13 @@ private extension ShortcutActionRouter {
                 guard let self else { return }
                 activateApp(location)
                 let scope: CloseScope = config.isTabShortcutsEnabled ? .activeTab : .window
-                self.actions.close.perform(scope, at: location, fromApp: app, service: service)
+                self.actions.close.perform(
+                    scope,
+                    at: location,
+                    fromApp: app,
+                    service: service,
+                    quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled
+                )
             }
         }
         if matched.contains(.quit) {
@@ -302,7 +308,7 @@ private extension ShortcutActionRouter {
 
     private func routeShiftTabActions(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
+        config: ShortcutConfiguration,
         service: AccessibilityServiceProtocol,
         location: CGPoint,
         app: NSRunningApplication?
@@ -310,7 +316,13 @@ private extension ShortcutActionRouter {
         if matched.contains(.closeAllTabs) {
             return .consumeAndExecute(feedbackMode: .closeAllTabs) { [weak self] in
                 guard let self else { return }
-                self.actions.close.perform(.allTabs, at: location, fromApp: app, service: service)
+                self.actions.close.perform(
+                    .allTabs,
+                    at: location,
+                    fromApp: app,
+                    service: service,
+                    quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled
+                )
             }
         }
         if matched.contains(.reopenTab) {

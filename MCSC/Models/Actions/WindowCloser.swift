@@ -30,17 +30,18 @@ struct WindowCloser {
         _ scope: CloseScope,
         at point: CGPoint,
         fromApp app: NSRunningApplication?,
-        service: AccessibilityServiceProtocol
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool = false
     ) {
         switch scope {
         case .activeTab:
-            closeActiveTab(at: point, fromApp: app, service: service)
+            closeActiveTab(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .allTabs:
-            postCloseAllTabsKeystroke(at: point, fromApp: app, service: service)
+            postCloseAllTabsKeystroke(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .window:
-            closeWindow(at: point, service: service)
+            closeWindow(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .wholeApp:
-            closeAllWindows(of: app, service: service)
+            closeAllWindows(of: app, service: service, quitIfNoWindows: quitIfNoWindows)
         }
     }
 
@@ -49,9 +50,14 @@ struct WindowCloser {
     private func closeActiveTab(
         at point: CGPoint,
         fromApp app: NSRunningApplication?,
-        service: AccessibilityServiceProtocol
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool
     ) {
         if let app {
+            if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
+                return
+            }
+
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
 
             // Act on the app's key window (the one being targeted from the Dock).
@@ -84,10 +90,14 @@ struct WindowCloser {
     private func postCloseAllTabsKeystroke(
         at point: CGPoint,
         fromApp app: NSRunningApplication?,
-        service: AccessibilityServiceProtocol
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool
     ) {
         var pid: pid_t = 0
         if let app {
+            if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
+                return
+            }
             pid = app.processIdentifier
         } else {
             guard let element = service.getElement(at: point),
@@ -96,19 +106,38 @@ struct WindowCloser {
         KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: [.maskCommand, .maskShift], to: pid)
     }
 
-    private func closeWindow(at point: CGPoint, service: AccessibilityServiceProtocol) {
+    private func closeWindow(
+        at point: CGPoint,
+        fromApp app: NSRunningApplication?,
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool
+    ) {
+        if let app {
+            if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
+                return
+            }
+        }
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
         pressRedCloseButton(of: window, service: service)
     }
 
-    private func closeAllWindows(of app: NSRunningApplication?, service: AccessibilityServiceProtocol) {
+    private func closeAllWindows(
+        of app: NSRunningApplication?,
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool
+    ) {
         guard let app,
               app.processIdentifier != NSRunningApplication.current.processIdentifier else { return }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
 
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
-              !windows.isEmpty else { return }
+              !windows.isEmpty else {
+            if quitIfNoWindows {
+                ForceQuitAppAction().perform(app: app)
+            }
+            return
+        }
 
         for window in windows {
             pressRedCloseButton(of: window, service: service)
@@ -116,6 +145,21 @@ struct WindowCloser {
     }
 
     // MARK: - Mechanisms
+
+    @discardableResult
+    private func fallbackQuitIfNoWindows(
+        for app: NSRunningApplication,
+        service: AccessibilityServiceProtocol
+    ) -> Bool {
+        guard app.processIdentifier != NSRunningApplication.current.processIdentifier else { return false }
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let windows: [AXUIElement]? = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
+        if windows == nil || windows?.isEmpty == true {
+            ForceQuitAppAction().perform(app: app)
+            return true
+        }
+        return false
+    }
 
     private func pressRedCloseButton(of window: AXUIElement, service: AccessibilityServiceProtocol) {
         if let closeButton: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window) {

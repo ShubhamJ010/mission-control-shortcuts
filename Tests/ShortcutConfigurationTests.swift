@@ -52,6 +52,19 @@ final class ShortcutConfigurationTests: XCTestCase {
         XCTAssertFalse(UserDefaults.standard.bool(forKey: titleBarKey))
     }
 
+    func testQuitAppIfNoWindowsTogglePersistsAndReloadsFromUserDefaults() {
+        let quitKey = "mcsc.quitAppIfNoWindows.enabled"
+        var config = ShortcutConfiguration()
+        XCTAssertFalse(config.isQuitAppIfNoWindowsEnabled)
+
+        config.isQuitAppIfNoWindowsEnabled = true
+        XCTAssertTrue(UserDefaults.standard.bool(forKey: quitKey))
+        XCTAssertTrue(ShortcutConfiguration().isQuitAppIfNoWindowsEnabled)
+
+        config.isQuitAppIfNoWindowsEnabled = false
+        XCTAssertFalse(UserDefaults.standard.bool(forKey: quitKey))
+    }
+
     /// Guards the single-source-of-truth contract: every stored-property
     /// literal must match its `toggleDefaults` entry, so `restoreDefaults()`
     /// can never drift from what a fresh instance reports.

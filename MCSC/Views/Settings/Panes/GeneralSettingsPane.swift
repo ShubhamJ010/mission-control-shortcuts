@@ -5,6 +5,7 @@ import Cocoa
 final class GeneralSettingsPane: MCSCSettingsPane {
     private var launchAtLoginCheckbox: NSButton!
     private var autoEjectCheckbox: NSButton!
+    private var quitAppIfNoWindowsCheckbox: NSButton!
     private var dockActionsCheckbox: NSButton!
     private var titleBarActionsCheckbox: NSButton!
     private var hoverCloseCheckbox: NSButton!
@@ -33,6 +34,12 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         autoEjectCheckbox = behavior.addCheckbox(title: "Auto-Eject Mounted Volumes",
                                                  target: self,
                                                  action: #selector(toggleAutoEject(_:)))
+        quitAppIfNoWindowsCheckbox = behavior.addDescribedCheckbox(
+            title: "Quit App if No Windows",
+            description: "Quits the application when a close action is performed and no open windows exist.",
+            target: self,
+            action: #selector(toggleQuitAppIfNoWindows(_:))
+        )
         dockActionsCheckbox = behavior.addDescribedCheckbox(
             title: "Dock Gestures & Shortcuts",
             description: "Gestures & Cmd-shortcuts while hovering Dock icons.",
@@ -128,6 +135,7 @@ final class GeneralSettingsPane: MCSCSettingsPane {
     override func refresh() {
         launchAtLoginCheckbox?.state = viewModel.isLaunchAtLoginEnabled ? .on : .off
         autoEjectCheckbox?.state = viewModel.isAutoEjectEnabled ? .on : .off
+        quitAppIfNoWindowsCheckbox?.state = viewModel.isQuitAppIfNoWindowsEnabled ? .on : .off
         dockActionsCheckbox?.state = viewModel.isDockActionsOutsideMCEnabled ? .on : .off
         titleBarActionsCheckbox?.state = viewModel.isTitleBarActionsOutsideMCEnabled ? .on : .off
         hoverCloseCheckbox?.state = viewModel.isHoverCloseButtonEnabled ? .on : .off
@@ -146,6 +154,11 @@ final class GeneralSettingsPane: MCSCSettingsPane {
     @objc private func toggleAutoEject(_ sender: NSButton) {
         viewModel.isAutoEjectEnabled.toggle()
         sender.state = viewModel.isAutoEjectEnabled ? .on : .off
+    }
+
+    @objc private func toggleQuitAppIfNoWindows(_ sender: NSButton) {
+        viewModel.isQuitAppIfNoWindowsEnabled.toggle()
+        sender.state = viewModel.isQuitAppIfNoWindowsEnabled ? .on : .off
     }
 
     @objc private func toggleDockActions(_ sender: NSButton) {
