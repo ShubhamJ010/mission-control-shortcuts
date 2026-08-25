@@ -23,6 +23,22 @@ final class ShortcutRecorderField: NSView {
         }
     }
 
+    /// Whether the field is interactive. When false, clicking does not arm
+    /// recording, clear is disabled, and the control renders dimmed.
+    var isEnabled: Bool = true {
+        didSet {
+            guard isEnabled != oldValue else { return }
+            recordButton.isEnabled = isEnabled
+            clearButton.isEnabled = isEnabled
+            alphaValue = isEnabled ? 1.0 : 0.5
+            if !isEnabled, isRecording {
+                endRecording()
+            } else {
+                updateDisplay()
+            }
+        }
+    }
+
     private var isRecording = false
     /// Token invalidating a stale transient hint (e.g. "Use ⌘+Key") if the
     /// field state changes before the restore fires.

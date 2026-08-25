@@ -3,27 +3,25 @@ import Cocoa
 /// Scope of a close operation in the unified close flow.
 ///
 /// - `activeTab`: the selected tab of one window (⌘W / gesture closeTab).
-/// - `allTabs`: every tab of an app (⌘⇧W / gesture closeAllTabs) — keystroke only.
 /// - `window`: one whole window via its red traffic-light button.
 /// - `wholeApp`: every window of an app (Dock-triggered close).
 enum CloseScope {
     case activeTab
-    case allTabs
     case window
     case wholeApp
 }
 
 /// Unified close family: one target-resolution + mechanism ladder for tab,
 /// window, and app closes. Replaces the former CloseTabAction /
-/// CloseTabAppAction / CloseWindowAction / CloseAppAction /
-/// CloseAllTabsAction quartet whose cursor-vs-Dock branching was duplicated
+/// CloseTabAppAction / CloseWindowAction / CloseAppAction
+/// quartet whose cursor-vs-Dock branching was duplicated
 /// across routers.
 ///
 /// Targeting rule: a non-nil `app` means the trigger was a Dock icon, so the
 /// app's key window (or full window list) is acted on; otherwise the hovered
 /// window under `point` is resolved through accessibility.
 struct WindowCloser {
-    /// Virtual key code for "W" — shared by ⌘W and ⌘⇧W fallback keystrokes.
+    /// Virtual key code for "W" — used by ⌘W fallback keystroke.
     private static let keyW: CGKeyCode = 0x0D
 
     func perform(
@@ -36,8 +34,6 @@ struct WindowCloser {
         switch scope {
         case .activeTab:
             closeActiveTab(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
-        case .allTabs:
-            postCloseAllTabsKeystroke(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .window:
             closeWindow(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .wholeApp:
@@ -85,25 +81,6 @@ struct WindowCloser {
             guard AXUIElementGetPid(element, &pid) == .success else { return }
             KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
         }
-    }
-
-    private func postCloseAllTabsKeystroke(
-        at point: CGPoint,
-        fromApp app: NSRunningApplication?,
-        service: AccessibilityServiceProtocol,
-        quitIfNoWindows: Bool
-    ) {
-        var pid: pid_t = 0
-        if let app {
-            if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
-                return
-            }
-            pid = app.processIdentifier
-        } else {
-            guard let element = service.getElement(at: point),
-                  AXUIElementGetPid(element, &pid) == .success else { return }
-        }
-        KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: [.maskCommand, .maskShift], to: pid)
     }
 
     private func closeWindow(

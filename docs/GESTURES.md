@@ -75,7 +75,7 @@ switches to the `Cmd` variant (right column). All 14 bindings are re-mappable in
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Pinch In** (`pinchIn`) | `Close Window` | `Quit App` | `arrow.inward` | `PinchInRecognizer.swift` |
 | 2 | **Pinch Out** (`pinchOut`) | `Toggle Fullscreen` | `New Window` (`Cmd+N`) | `arrow.outward` | `PinchOutRecognizer.swift` |
-| 3 | **Swipe Left** (`swipeLeft`) | `Close Tab` | `Close All Tabs` (`Cmd+Shift+W`) | `arrow.left` | `TwoFingerSwipeLeftRecognizer.swift` |
+| 3 | **Swipe Left** (`swipeLeft`) | `Close Tab` | `Close Window` | `arrow.left` | `TwoFingerSwipeLeftRecognizer.swift` |
 | 4 | **Swipe Right** (`swipeRight`) | `Reopen Tab` | `New Tab` (`Cmd+T`) / `New Window` on Dock | `arrow.right` | `TwoFingerSwipeRightRecognizer.swift` |
 | 5 | **Swipe Up** (`swipeUp`) | `Minimize` | `Hide App` | `arrow.up` | `SwipeRecognizer.swift` |
 | 6 | **Swipe Down** (`swipeDown`) | `Fill Screen` | `Make Larger` (+33%) | `arrow.down` | `SwipeRecognizer.swift` |
@@ -164,13 +164,13 @@ When the cursor is over a **Finder window showing an ejectable/removable volume*
 - **Ejection:** `EjectVolumeAction` → `MountedVolumeService.ejectVolume(at:)` (`NSWorkspace.unmountAndEjectDevice`).
   See [SHORTCUTS.md](./SHORTCUTS.md) for the full detection and toggle details.
 
-#### All 17 Actions — What Gestures Can Trigger
+#### All 16 Actions — What Gestures Can Trigger
 
-Gestures can trigger **any** of the 17 `GestureAction` (`GestureAction.swift:87`), but Settings filters popups to `kind.naturalActions` (`GestureAction.swift:63`) for natural UX:
+Gestures can trigger **any** of the 16 `GestureAction` (`GestureAction.swift:87`), but Settings filters popups to `kind.naturalActions` (`GestureAction.swift:63`) for natural UX:
 
-| Category | Actions (17) | Natural gestures |
+| Category | Actions (16) | Natural gestures |
 | --- | --- | --- |
-| **Tab** (4) | `Close Tab`, `Close All Tabs`, `Reopen Tab`, `New Tab` | Swipe Left/Right |
+| **Tab** (3) | `Close Tab`, `Reopen Tab`, `New Tab` | Swipe Left/Right |
 | **Window** (3) | `Close Window`, `Minimize`, `Toggle Fullscreen` | Pinch In/Out, Swipe Up |
 | **Size** (5) — `WindowActions/SizeActions.swift:3` | `Fill Screen`, `Almost Maximize`, `Reasonable Size`, `Make Larger`, `Make Smaller` | Pinch In/Out, Swipe Down, 2FTap |
 | **App** (3) | `Quit App`, `Hide App`, `New Window` | Pinch In/Out, Swipe Up |

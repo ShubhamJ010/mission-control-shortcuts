@@ -141,7 +141,7 @@ Once Mission Control is open, point at any preview or just start typing.
 | Gesture | Action | With `Cmd` |
 | --- | --- | --- |
 | Pinch in | Close window / quit app | Force quit app |
-| Swipe left | Close active tab | Close all tabs |
+| Swipe left | Close active tab | Close window |
 | Swipe right | Reopen closed tab | New window |
 | Swipe up | Minimize window | Hide app |
 | Swipe down | Fill screen | Make larger (+33%) |

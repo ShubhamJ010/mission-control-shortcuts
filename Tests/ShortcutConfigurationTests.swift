@@ -104,7 +104,6 @@ final class ShortcutConfigurationTests: XCTestCase {
         XCTAssertNil(config.binding(for: .fullscreen))
         XCTAssertNil(config.binding(for: .newTab))
         XCTAssertNil(config.binding(for: .newWindow))
-        XCTAssertNil(config.binding(for: .closeAllTabs))
         XCTAssertNil(config.binding(for: .reopenTab))
         XCTAssertNil(config.binding(for: .fillScreen))
         XCTAssertNil(config.binding(for: .moveNextDesktop))

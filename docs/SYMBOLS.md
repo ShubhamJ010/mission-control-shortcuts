@@ -41,7 +41,6 @@ replacement transition.
 | `.makeSmaller` | `arrow.up.right.and.arrow.down.left.rectangle` | — | Make Smaller Window | Accent (`controlAccentColor`) | — | — |
 | `.closeTab` | `xmark.rectangle.fill` | — | Close Tab | System multicolor (red X) | `.wiggleByLayer` | — |
 | `.reopenTab` | `plus.rectangle.fill` | — | Reopen Tab | Black + system green (`[.black, .systemGreen]` at 100%) | `.wiggleByLayer` | — |
-| `.closeAllTabs` | `rectangle.badge.xmark` | — | Close All Tabs | System multicolor (red X badge) | `.wiggleByLayer` | — |
 | `.newWindow` | `rectangle.badge.plus` | — | New Window | System green | `.wiggleByLayer` | — |
 | `.newTab` | `plus.rectangle.on.rectangle` | — | New Tab | System green | `.wiggleByLayer` | — |
 | `.fullscreen` | `arrow.down.left.and.arrow.up.right.circle.fill` | — | Toggle Fullscreen | Black + system green (`[.black, .systemGreen]`) — same as `PreviewCloseButtonOverlay.Mode.fullscreen` | hover-style scale-up + fade-in\* | — |
@@ -104,7 +103,7 @@ Feedback mode = the symbol shown at the cursor when the trigger fires.
 | `Cmd + Pinch-in` on ejectable Finder volume window\* | `.eject` | `eject.circle.fill` | Close Finder window + eject volume |
 | Two-finger swipe left | `.closeTab` | `xmark.rectangle.fill` | Close tab |
 | Swipe left on ejectable Finder volume window\* | `.eject` | `eject.circle.fill` | Close Finder window + eject volume |
-| `Cmd + swipe left` | `.closeAllTabs` | `rectangle.badge.xmark` | Close all tabs |
+| `Cmd + swipe left` | `.close` | `xmark.circle.fill` | Close window |
 | Two-finger swipe right | `.reopenTab` | `plus.rectangle.fill` | Reopen closed tab |
 | `Cmd + swipe right` (window) | `.newTab` | `plus.rectangle.on.rectangle` | New tab (`Cmd+T`) |
 | `Cmd + swipe right` (Dock) | `.newWindow` | `rectangle.badge.plus` | New window |

@@ -66,11 +66,6 @@ struct ShortcutConfiguration {
         set { shortcutBindings[.newWindow] = newValue ? RoutedAction.newWindow.canonicalBinding : nil }
     }
 
-    var isCmdShiftWEnabled: Bool {
-        get { shortcutBindings[.closeAllTabs] != nil }
-        set { shortcutBindings[.closeAllTabs] = newValue ? RoutedAction.closeAllTabs.canonicalBinding : nil }
-    }
-
     var isCmdShiftTEnabled: Bool {
         get { shortcutBindings[.reopenTab] != nil }
         set { shortcutBindings[.reopenTab] = newValue ? RoutedAction.reopenTab.canonicalBinding : nil }
@@ -428,7 +423,6 @@ private extension ShortcutConfiguration {
         (Keys.cmdFEnabled, .fullscreen),
         (Keys.cmdTEnabled, .newTab),
         (Keys.cmdNEnabled, .newWindow),
-        (Keys.cmdShiftWEnabled, .closeAllTabs),
         (Keys.cmdShiftTEnabled, .reopenTab),
         (Keys.fillScreenEnabled, .fillScreen),
         (Keys.almostMaximizeEnabled, .almostMaximize),
@@ -465,7 +459,6 @@ private extension ShortcutConfiguration {
         static let cmdSpaceEnabled = "mcsc.shortcuts.cmdSpace.enabled"
         static let cmdTEnabled = "mcsc.shortcuts.cmdT.enabled"
         static let cmdNEnabled = "mcsc.shortcuts.cmdN.enabled"
-        static let cmdShiftWEnabled = "mcsc.shortcuts.cmdShiftW.enabled"
         static let cmdShiftTEnabled = "mcsc.shortcuts.cmdShiftT.enabled"
         static let fillScreenEnabled = "mcsc.shortcuts.fillScreen.enabled"
         static let almostMaximizeEnabled = "mcsc.shortcuts.almostMaximize.enabled"

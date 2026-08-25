@@ -129,16 +129,6 @@ final class GestureActionRouter {
                     quitIfNoWindows: quitIfNoWindows
                 )
             }
-        case .closeAllTabs:
-            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(
-                    .allTabs,
-                    at: point,
-                    fromApp: app,
-                    service: service,
-                    quitIfNoWindows: quitIfNoWindows
-                )
-            }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
                 self?.actions.reopenTabAppAction.perform(app: app)
@@ -232,10 +222,6 @@ final class GestureActionRouter {
                 }
                 self?.actions.close.perform(.activeTab, at: point, fromApp: nil, service: service, quitIfNoWindows: quitIfNoWindows)
             }
-        case .closeAllTabs:
-            .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
-                self?.actions.close.perform(.allTabs, at: point, fromApp: nil, service: service, quitIfNoWindows: quitIfNoWindows)
-            }
         case .reopenTab:
             .execute(feedbackMode: feedbackMode, haptic: haptic) { [weak self] in
                 self?.actions.reopenTabAction.perform(at: point, service: service)
@@ -308,7 +294,6 @@ final class GestureActionRouter {
         case .closeWindow: .close
         case .quitApp: .quit
         case .closeTab: .closeTab
-        case .closeAllTabs: .closeAllTabs
         case .reopenTab: .reopenTab
         case .newTab: .newTab
         case .newWindow: .newWindow

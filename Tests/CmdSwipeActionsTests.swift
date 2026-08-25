@@ -15,13 +15,6 @@ final class CmdSwipeActionsTests: XCTestCase {
         super.tearDown()
     }
 
-    func testCloseAllTabsWithNilElementDoesNotCrash() {
-        mockService.mockElement = nil
-        let point = CGPoint(x: 120, y: 200)
-        WindowCloser().perform(.allTabs, at: point, fromApp: nil, service: mockService)
-        XCTAssertEqual(mockService.getElementCalledWith, point)
-    }
-
     func testNewWindowActionWithNilElementDoesNotCrash() {
         mockService.mockElement = nil
         let action = NewWindowAction()

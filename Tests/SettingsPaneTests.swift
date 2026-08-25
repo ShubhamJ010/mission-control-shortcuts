@@ -448,4 +448,47 @@ final class SettingsPaneTests: XCTestCase {
         XCTAssertTrue(fillScreenClear.isHidden,
                       "✕ must stay hidden while the field shows the placeholder")
     }
+
+    func testWindowShortcutsPaneToggleTabShortcutsDisablesTabRecorders() throws {
+        let pane = WindowShortcutsPane(viewModel: makeViewModel(),
+                                       tabName: "Windows",
+                                       tabImage: nil,
+                                       tabIdentifier: "windows")
+        pane.loadView()
+
+        let recorders = try XCTUnwrap(
+            Mirror(reflecting: pane).descendant("recorders") as? [RoutedAction: ShortcutRecorderField],
+            "Recorder outlet dictionary missing"
+        )
+        let closeTabField = try XCTUnwrap(recorders[.closeTab])
+        let reopenTabField = try XCTUnwrap(recorders[.reopenTab])
+        let newTabField = try XCTUnwrap(recorders[.newTab])
+
+        // Initially enabled
+        XCTAssertTrue(closeTabField.isEnabled)
+        XCTAssertTrue(reopenTabField.isEnabled)
+        XCTAssertTrue(newTabField.isEnabled)
+
+        // Find checkbox and turn off
+        let checkbox = try XCTUnwrap(
+            Mirror(reflecting: pane).descendant("tabShortcutsCheckbox") as? NSButton,
+            "Tab shortcuts checkbox missing"
+        )
+        checkbox.state = .off
+        sendAction(of: checkbox)
+
+        XCTAssertFalse(pane.viewModel.isTabShortcutsEnabled)
+        XCTAssertFalse(closeTabField.isEnabled)
+        XCTAssertFalse(reopenTabField.isEnabled)
+        XCTAssertFalse(newTabField.isEnabled)
+
+        // Turn back on
+        checkbox.state = .on
+        sendAction(of: checkbox)
+
+        XCTAssertTrue(pane.viewModel.isTabShortcutsEnabled)
+        XCTAssertTrue(closeTabField.isEnabled)
+        XCTAssertTrue(reopenTabField.isEnabled)
+        XCTAssertTrue(newTabField.isEnabled)
+    }
 }

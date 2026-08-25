@@ -64,9 +64,6 @@ final class WindowShortcutsPane: MCSCSettingsPane {
         recorders[.closeTab] = addShortcutRow(
             section: tabSection, mode: .closeTab, title: "Close Tab", action: .closeTab
         )
-        recorders[.closeAllTabs] = addShortcutRow(
-            section: tabSection, mode: .closeAllTabs, title: "Close All Tabs", action: .closeAllTabs
-        )
         recorders[.reopenTab] = addShortcutRow(
             section: tabSection, mode: .reopenTab, title: "Reopen Tab", action: .reopenTab
         )
@@ -115,6 +112,7 @@ final class WindowShortcutsPane: MCSCSettingsPane {
 
     override func refresh() {
         tabShortcutsCheckbox?.state = viewModel.isTabShortcutsEnabled ? .on : .off
+        updateTabRecordersEnabledState()
         for (action, recorder) in recorders {
             recorder.binding = viewModel.config.binding(for: action)
         }
@@ -122,5 +120,13 @@ final class WindowShortcutsPane: MCSCSettingsPane {
 
     @objc private func toggleTabShortcuts(_ sender: NSButton) {
         viewModel.isTabShortcutsEnabled = sender.state == .on
+        updateTabRecordersEnabledState()
+    }
+
+    private func updateTabRecordersEnabledState() {
+        let isEnabled = viewModel.isTabShortcutsEnabled
+        recorders[.closeTab]?.isEnabled = isEnabled
+        recorders[.reopenTab]?.isEnabled = isEnabled
+        recorders[.newTab]?.isEnabled = isEnabled
     }
 }

@@ -115,10 +115,6 @@ final class ShortcutViewModel {
         get { config.isCmdNEnabled } set { config.isCmdNEnabled = newValue }
     }
 
-    var isCmdShiftWEnabled: Bool {
-        get { config.isCmdShiftWEnabled } set { config.isCmdShiftWEnabled = newValue }
-    }
-
     var isCmdShiftTEnabled: Bool {
         get { config.isCmdShiftTEnabled } set { config.isCmdShiftTEnabled = newValue }
     }

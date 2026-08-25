@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3-beta (26 Aug 2026)
+
+- **Close All Tabs Removed**: The `Cmd+Shift+W` / `Cmd+swipe-left` "Close All Tabs" action is fully removed — `GestureAction.closeAllTabs`, `RoutedAction.closeAllTabs`, `CloseScope.allTabs`, and the `.closeAllTabs` cursor feedback mode (`rectangle.badge.xmark`) are gone. `Cmd+swipe-left` now defaults to **Close Window** (`.close` feedback), and the ⌘⇧W settings row, config key (`mcsc.shortcuts.cmdShiftW.enabled`), and its `WindowCloser` keystroke path are deleted.
+- **Tab Shortcuts Now Gate Tab Actions**: `ShortcutActionRouter` respects `isTabShortcutsEnabled` for `Cmd+T` / `Cmd+Shift+T` (and `Cmd+W` close-tab routing) — disabling the tab-shortcuts toggle no longer leaves tab keystrokes active behind it.
+- **Recorder Enable State**: `ShortcutRecorderField` gained an `isEnabled` property (dims the field, disables record/clear, cancels in-flight recording); `WindowShortcutsPane` now disables the tab recorder rows whenever the tab-shortcuts toggle is off, with a regression test covering both directions.
 ## 0.6.2-beta (25 Aug 2026)
 
 - **Close Family Unified under WindowCloser**: All window-close paths (`Cmd+W` / swipe-left / pinch-in / force-quit variants) now route through a single `WindowCloser` helper; `Cmd+Shift+E` fallback path deprecated and removed.

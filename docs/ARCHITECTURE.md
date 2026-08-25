@@ -51,7 +51,7 @@ MCSC strictly follows the **Model-View-ViewModel (MVVM)** pattern with protocol-
 ```
 
 ### 1. Models (`MCSC/Models`)
- - **Unified Close Flow:** `WindowCloser` (`Models/Actions/WindowCloser.swift`) — single stateless entry point for the close family, scoped by `CloseScope` (`.activeTab` / `.allTabs` / `.window` / `.wholeApp`). A non-nil `fromApp` means a Dock trigger (key window or full window list); otherwise the hovered window under the cursor is resolved. Dock-triggered `.wholeApp` with zero windows is a no-op (never terminates).
+ - **Unified Close Flow:** `WindowCloser` (`Models/Actions/WindowCloser.swift`) — single stateless entry point for the close family, scoped by `CloseScope` (`.activeTab` / `.window` / `.wholeApp`). A non-nil `fromApp` means a Dock trigger (key window or full window list); otherwise the hovered window under the cursor is resolved. Dock-triggered `.wholeApp` with zero windows is a no-op (never terminates).
  - **Single-Responsibility Structs:** `MinimizeWindowAction`, `HideApplicationAction`, `ForceQuitAction`, `MinimizeAppAction`, `ForceQuitAppAction`, `ReopenTabAction`, `NewWindowAction`, `FillScreenAction`, `MakeLargerAction`, `MakeSmallerAction`, `ReasonableSizeAction`, `AlmostMaximizeAction`, `EjectVolumeAction` (closes an ejectable Finder window via `kAXCloseButtonAttribute` then ejects via `MountedVolumeService`) — window actions live in `Models/Actions/WindowActions/` (`WindowControlActions.swift` + `SizeActions.swift` + `DesktopNavigationActions.swift`).
 - **Fuzzy Finder Models:**
   - `WindowSelectionEngine`: Pure, stateless fuzzy search ranking prefix matches over substring matches and resolving top-left thumbnail shoulder coordinates.

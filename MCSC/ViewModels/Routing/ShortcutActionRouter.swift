@@ -199,7 +199,7 @@ private extension ShortcutActionRouter {
         app: NSRunningApplication?,
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedShortcutAction? {
-        if matched.contains(.close) || matched.contains(.closeTab) {
+        if matched.contains(.close) || (config.isTabShortcutsEnabled && matched.contains(.closeTab)) {
             return .consumeAndExecute(feedbackMode: .close) { [weak self] in
                 guard let self else { return }
                 activateApp(location)
@@ -248,7 +248,7 @@ private extension ShortcutActionRouter {
 
     func routePureCmdWindowShortcuts(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
+        config: ShortcutConfiguration,
         service: AccessibilityServiceProtocol,
         location: CGPoint,
         app: NSRunningApplication?
@@ -263,7 +263,7 @@ private extension ShortcutActionRouter {
                 }
             }
         }
-        if matched.contains(.newTab) {
+        if config.isTabShortcutsEnabled && matched.contains(.newTab) {
             let mode: CursorFeedbackOverlay.Mode = (app != nil) ? .newWindow : .newTab
             return .consumeAndExecute(feedbackMode: mode) { [weak self] in
                 guard let self else { return }
@@ -313,18 +313,7 @@ private extension ShortcutActionRouter {
         location: CGPoint,
         app: NSRunningApplication?
     ) -> ResolvedShortcutAction? {
-        if matched.contains(.closeAllTabs) {
-            return .consumeAndExecute(feedbackMode: .closeAllTabs) { [weak self] in
-                guard let self else { return }
-                self.actions.close.perform(
-                    .allTabs,
-                    at: location,
-                    fromApp: app,
-                    service: service,
-                    quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled
-                )
-            }
-        }
+        guard config.isTabShortcutsEnabled else { return nil }
         if matched.contains(.reopenTab) {
             return .consumeAndExecute(feedbackMode: .reopenTab) { [weak self] in
                 guard let self else { return }

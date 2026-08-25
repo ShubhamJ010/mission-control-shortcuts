@@ -72,24 +72,22 @@ icon) to act on the whole app.
 | `Cmd + F` | Toggle fullscreen (`kAXZoomButtonAttribute`) | Toggle fullscreen (all windows) | OFF |
 | `Cmd + T` | New tab (`Cmd+T`) | New window (`Cmd+N` fallback) | OFF |
 | `Cmd + N` | New window (`Cmd+N`) | New window (`Cmd+N`) | OFF |
-| `Cmd + Shift + W` | Close all tabs (`Cmd+Shift+W`) | Close all tabs | OFF |
 | `Cmd + Shift + T` | Reopen last closed tab (`Cmd+Shift+T`) | Reopen tab (to app) | OFF |
 | `Cmd + Space` | Recover the Mission Control / Spotlight state (see below) | Same | ON |
 
-> Config: `ShortcutConfiguration` (`mcsc.shortcuts.*`) — toggled in **Settings → Shortcuts** (`MCSC/Views/Settings/Panes/MCSCSettingsPanes.swift:142`). Window shortcuts require `Cmd` held without `Ctrl/Opt/Shift` (except the two `Cmd+Shift` combos). All require `isMissionControlActive || isDockActionsOutsideMCEnabled`.
+> Config: `ShortcutConfiguration` (`mcsc.shortcuts.*`) — toggled in **Settings → Shortcuts** (`MCSC/Views/Settings/Panes/MCSCSettingsPanes.swift:142`). Window shortcuts require `Cmd` held without `Ctrl/Opt/Shift` (except the `Cmd+Shift` combos). All require `isMissionControlActive || isDockActionsOutsideMCEnabled`.
 
 ---
 
-## All 17 Actions — Categorized (Shortcut vs Gesture)
+## All 16 Actions — Categorized (Shortcut vs Gesture)
 
-Source of truth: `GestureAction` (`MCSC/Models/Gestures/GestureAction.swift:87`, `CaseIterable` 17) — every action is executable via **gesture** (re-mappable), only a subset has a **dedicated keyboard shortcut**. Routers: `ShortcutActionRouter.swift:32` (keyboard) vs `GestureActionRouter.swift:24` (trackpad).
+Source of truth: `GestureAction` (`MCSC/Models/Gestures/GestureAction.swift:87`, `CaseIterable` 16) — every action is executable via **gesture** (re-mappable), only a subset has a **dedicated keyboard shortcut**. Routers: `ShortcutActionRouter.swift:32` (keyboard) vs `GestureActionRouter.swift:24` (trackpad).
 
 ### Tab — `MCSC/Models/Actions/TabActions.swift`
 
 | Action | Keyboard | Gesture default | Window (`at:point`) | Dock (`app:`) |
 | --- | --- | --- | --- | --- |
 | `Close Tab` | `Cmd+W` (fallback when no tab strip) | `Swipe Left` plain | `WindowCloser(.activeTab)` — `findActiveTabCloseButton` else focus + `Cmd+W` (`0x0D`) | `WindowCloser(.activeTab)` — keyWindow tab btn else `Cmd+W` |
-| `Close All Tabs` | `Cmd+Shift+W` | `Cmd+Swipe Left` | `WindowCloser(.allTabs)` `Cmd+Shift+W` (`0x0D`) | `WindowCloser(.allTabs)` to docked app `pid` |
 | `Reopen Tab` | `Cmd+Shift+T` | `Swipe Right` plain | `ReopenTabAction` `Cmd+Shift+T` (`0x11`) | `ReopenTabAppAction` `Cmd+Shift+T` to `pid` |
 | `New Tab` | `Cmd+T` (window only) | `Cmd+Swipe Right` | `NewTabAction` `Cmd+T` (`0x11`) | fallback → `NewWindowAction` `Cmd+N` (`GestureActionRouter.swift:108`) |
 

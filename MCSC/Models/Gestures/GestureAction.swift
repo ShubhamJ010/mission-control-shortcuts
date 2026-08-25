@@ -65,11 +65,11 @@ enum GestureKind: String, CaseIterable {
     var naturalActions: [GestureAction] {
         switch self {
         case .pinchIn:
-            [.closeWindow, .quitApp, .closeTab, .closeAllTabs, .makeSmaller]
+            [.closeWindow, .quitApp, .closeTab, .makeSmaller]
         case .pinchOut:
             [.toggleFullscreen, .fillScreen, .almostMaximize, .makeLarger, .newWindow]
         case .swipeLeft:
-            [.closeTab, .closeAllTabs, .closeWindow, .quitApp, .movePreviousDesktop]
+            [.closeTab, .closeWindow, .quitApp, .movePreviousDesktop]
         case .swipeRight:
             [.reopenTab, .newTab, .newWindow, .moveNextDesktop]
         case .swipeUp:
@@ -85,12 +85,10 @@ enum GestureKind: String, CaseIterable {
 // MARK: - Action
 
 /// The window/app action a gesture can be bound to.
-/// Raw values are persisted to UserDefaults, so never rename or delete — only append.
 enum GestureAction: String, CaseIterable {
     case closeWindow
     case quitApp
     case closeTab
-    case closeAllTabs
     case reopenTab
     case newTab
     case newWindow
@@ -113,7 +111,6 @@ enum GestureAction: String, CaseIterable {
         case .closeWindow: "Close Window"
         case .quitApp: "Quit App"
         case .closeTab: "Close Tab"
-        case .closeAllTabs: "Close All Tabs"
         case .reopenTab: "Reopen Tab"
         case .newTab: "New Tab"
         case .newWindow: "New Window"
@@ -149,7 +146,7 @@ enum GestureDefaults {
         case (.pinchOut, false): .toggleFullscreen
         case (.pinchOut, true): .newWindow
         case (.swipeLeft, false): .closeTab
-        case (.swipeLeft, true): .closeAllTabs
+        case (.swipeLeft, true): .closeWindow
         case (.swipeRight, false): .reopenTab
         case (.swipeRight, true): .newTab
         case (.swipeDown, false): .fillScreen

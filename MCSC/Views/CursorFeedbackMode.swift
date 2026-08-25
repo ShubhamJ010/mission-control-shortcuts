@@ -21,7 +21,6 @@ extension CursorFeedbackOverlay {
         case maximize
         case closeTab
         case reopenTab
-        case closeAllTabs
         case newWindow
         case newTab
         case fullscreen
@@ -44,7 +43,6 @@ extension CursorFeedbackOverlay {
             case .maximize: "rectangle.fill"
             case .closeTab: "xmark.rectangle.fill"
             case .reopenTab: "plus.rectangle.fill"
-            case .closeAllTabs: "rectangle.fill.badge.xmark"
             case .newWindow: "macwindow.badge.plus"
             case .newTab: "plus.rectangle.fill.on.rectangle.fill"
             case .fullscreen: "arrow.down.left.and.arrow.up.right.circle.fill"
@@ -69,7 +67,6 @@ extension CursorFeedbackOverlay {
             case .maximize: "Maximize Window"
             case .closeTab: "Close Tab"
             case .reopenTab: "Reopen Tab"
-            case .closeAllTabs: "Close All Tabs"
             case .newWindow: "New Window"
             case .newTab: "New Tab"
             case .fullscreen: "Toggle Fullscreen"
@@ -113,9 +110,6 @@ extension CursorFeedbackOverlay {
             case .reopenTab:
                 // Black rectangle body + green plus, both at 100% (palette layer 1: black, layer 2: green).
                 [.black, .systemGreen]
-            case .closeAllTabs:
-                // Primary 100% + Red 100% for Cmd+Shift+W — 2-layer palette for fill variant
-                [.white, .systemRed]
             case .newWindow:
                 // Green window, white badge, black plus — badge is layer 1, window layer 2 for macwindow.badge.plus
                 [.white, .systemGreen, .black]
@@ -129,7 +123,7 @@ extension CursorFeedbackOverlay {
             switch self {
             case .close, .quit, .newWindow, .eject:
                 .bouncePop
-            case .closeTab, .reopenTab, .closeAllTabs, .newTab:
+            case .closeTab, .reopenTab, .newTab:
                 .wiggle
             case .minimize, .hide, .makeSmaller, .minimizeAll:
                 .shrinkDown
@@ -154,7 +148,6 @@ extension CursorFeedbackOverlay {
             case .spaceRight: "arrow.right.circle"
             case .spaceLeft: "arrow.left.circle"
             case .newTab: "plus.rectangle.on.rectangle"
-            case .closeAllTabs: "rectangle.badge.xmark"
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil
             }
         }
@@ -175,7 +168,7 @@ extension CursorFeedbackOverlay {
         var entryAnimation: EntryAnimation? {
             switch self {
             case .close, .quit, .newWindow: .bounceUpByLayer
-            case .closeTab, .reopenTab, .closeAllTabs, .newTab: .wiggleByLayer
+            case .closeTab, .reopenTab, .newTab: .wiggleByLayer
             case .minimize, .hide, .eject, .almost, .reasonable, .makeSmaller, .maximize, .fullscreen, .spaceRight,
                  .spaceLeft, .minimizeAll, .unminimizeAll: nil
             }
@@ -192,7 +185,7 @@ extension CursorFeedbackOverlay {
             switch self {
             case .almost, .reasonable, .maximize, .minimize, .hide, .minimizeAll, .unminimizeAll: .downUpReveal
             case .eject: .magicDownUpReveal
-            case .spaceRight, .spaceLeft, .newTab, .closeAllTabs: .replace
+            case .spaceRight, .spaceLeft, .newTab: .replace
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil
             }
         }

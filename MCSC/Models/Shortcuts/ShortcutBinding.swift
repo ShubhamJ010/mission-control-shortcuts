@@ -41,7 +41,6 @@ enum RoutedAction: String, Codable, CaseIterable {
     case fullscreen
     case newTab
     case newWindow
-    case closeAllTabs
     case reopenTab
     case fillScreen
     case almostMaximize
@@ -65,7 +64,6 @@ enum RoutedAction: String, Codable, CaseIterable {
         case .fullscreen: ShortcutBinding(keyCode: 3) // F
         case .newTab: ShortcutBinding(keyCode: 17) // T
         case .newWindow: ShortcutBinding(keyCode: 45) // N
-        case .closeAllTabs: ShortcutBinding(keyCode: 13, includesShift: true)
         case .reopenTab: ShortcutBinding(keyCode: 17, includesShift: true)
         case .fillScreen: ShortcutBinding(keyCode: 2, includesShift: true) // D
         case .almostMaximize: ShortcutBinding(keyCode: 0, includesShift: true) // A
@@ -97,7 +95,7 @@ extension RoutedAction {
     static let routeOrder: [RoutedAction] = [
         .close, .closeTab, .quit, .minimize, .hide,
         .fullscreen, .newTab, .newWindow,
-        .closeAllTabs, .reopenTab,
+        .reopenTab,
         .fillScreen, .almostMaximize, .reasonableSize, .makeLarger, .makeSmaller,
         .moveNextDesktop, .movePreviousDesktop,
         .minimizeAll, .unminimizeAll

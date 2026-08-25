@@ -97,7 +97,6 @@ final class RouterTests: XCTestCase {
         XCTAssertFalse(config.isCmdFEnabled)
         XCTAssertFalse(config.isCmdTEnabled)
         XCTAssertFalse(config.isCmdNEnabled)
-        XCTAssertFalse(config.isCmdShiftWEnabled)
         XCTAssertFalse(config.isCmdShiftTEnabled)
     }
 
@@ -170,29 +169,6 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    func testShortcutRouterCmdShiftWRoutesToCloseAllTabsWhenEnabled() {
-        var config = ShortcutConfiguration()
-        config.isCmdShiftWEnabled = true
-
-        let result = shortcutRouter.routeShortcut(
-            keyCode: ShortcutActionRouter.kKeyW,
-            flags: [.maskCommand, .maskShift],
-            location: CGPoint(x: 100, y: 100),
-            config: config,
-            isMissionControlActive: true,
-            target: .none,
-            service: mockService,
-            activateApp: { _ in }
-        )
-
-        switch result {
-        case let .consumeAndExecute(feedbackMode, _):
-            XCTAssertEqual(feedbackMode, .closeAllTabs)
-        case .ignore:
-            XCTFail("Expected Cmd+Shift+W to route to closeAllTabs")
-        }
-    }
-
     func testShortcutRouterCmdShiftTRoutesToReopenTabWhenEnabled() {
         var config = ShortcutConfiguration()
         config.isCmdShiftTEnabled = true
@@ -213,6 +189,43 @@ final class RouterTests: XCTestCase {
             XCTAssertEqual(feedbackMode, .reopenTab)
         case .ignore:
             XCTFail("Expected Cmd+Shift+T to route to reopenTab")
+        }
+    }
+
+    func testShortcutRouterTabShortcutsDisabledIgnoresTabActions() {
+        var config = ShortcutConfiguration()
+        config.isTabShortcutsEnabled = false
+        config.isCmdTEnabled = true
+        config.isCmdShiftTEnabled = true
+
+        // Cmd+T should be ignored when tab shortcuts are disabled.
+        let newTabResult = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyT,
+            flags: .maskCommand,
+            location: CGPoint(x: 100, y: 100),
+            config: config,
+            isMissionControlActive: true,
+            target: .none,
+            service: mockService,
+            activateApp: { _ in }
+        )
+        if case .consumeAndExecute = newTabResult {
+            XCTFail("Expected Cmd+T to be ignored when isTabShortcutsEnabled is false")
+        }
+
+        // Cmd+Shift+T should be ignored when tab shortcuts are disabled.
+        let reopenTabResult = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyT,
+            flags: [.maskCommand, .maskShift],
+            location: CGPoint(x: 100, y: 100),
+            config: config,
+            isMissionControlActive: true,
+            target: .none,
+            service: mockService,
+            activateApp: { _ in }
+        )
+        if case .consumeAndExecute = reopenTabResult {
+            XCTFail("Expected Cmd+Shift+T to be ignored when isTabShortcutsEnabled is false")
         }
     }
 
@@ -740,7 +753,7 @@ final class RouterTests: XCTestCase {
             (.pinchOut(atNormalized: (0.5, 0.5)), .fullscreen),
             (.cmdPinchOut(atNormalized: (0.5, 0.5)), .newWindow),
             (.swipeLeft(atNormalized: (0.5, 0.5)), .closeTab),
-            (.cmdSwipeLeft(atNormalized: (0.5, 0.5)), .closeAllTabs),
+            (.cmdSwipeLeft(atNormalized: (0.5, 0.5)), .close),
             (.swipeRight(atNormalized: (0.5, 0.5)), .reopenTab),
             (.cmdSwipeRight(atNormalized: (0.5, 0.5)), .newWindow),
             (.swipeDown(atNormalized: (0.5, 0.5)), .maximize),
