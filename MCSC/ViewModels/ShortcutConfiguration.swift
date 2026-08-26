@@ -13,6 +13,8 @@ struct ShortcutConfiguration {
     /// `UserDefaults` key holding the JSON-encoded binding map. Exposed so
     /// test suites can reset persisted state between runs.
     static let bindingsStorageKey = "mcsc.shortcuts.bindings"
+    static let gestureActionsStorageKey = "mcsc.gestures.actions"
+    static let cmdGestureActionsStorageKey = "mcsc.gestures.cmdActions"
 
     // MARK: Legacy boolean toggle API
 

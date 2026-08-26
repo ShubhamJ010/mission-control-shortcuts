@@ -73,9 +73,9 @@ enum GestureKind: String, CaseIterable {
         case .swipeRight:
             [.reopenTab, .newTab, .newWindow, .moveNextDesktop]
         case .swipeUp:
-            [.unminimizeAll, .minimize, .hideApp, .makeSmaller]
+            [.fillScreen, .almostMaximize, .toggleFullscreen, .makeLarger, .reasonableSize, .unminimizeAll]
         case .swipeDown:
-            [.minimizeAll, .fillScreen, .almostMaximize, .makeLarger, .makeSmaller, .reasonableSize]
+            [.minimize, .minimizeAll, .hideApp, .makeSmaller]
         case .twoFingerDoubleTap:
             [.reasonableSize, .almostMaximize, .toggleFullscreen, .makeSmaller, .makeLarger]
         }
@@ -149,10 +149,10 @@ enum GestureDefaults {
         case (.swipeLeft, true): .closeWindow
         case (.swipeRight, false): .reopenTab
         case (.swipeRight, true): .newTab
-        case (.swipeDown, false): .fillScreen
-        case (.swipeDown, true): .makeLarger
-        case (.swipeUp, false): .minimize
-        case (.swipeUp, true): .hideApp
+        case (.swipeUp, false): .fillScreen
+        case (.swipeUp, true): .makeLarger
+        case (.swipeDown, false): .minimize
+        case (.swipeDown, true): .hideApp
         case (.twoFingerDoubleTap, false): .reasonableSize
         case (.twoFingerDoubleTap, true): .almostMaximize
         }

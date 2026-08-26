@@ -42,7 +42,7 @@ highlight on the best match, and shows a Dock-style query pill. `Tab` cycles
 matches, `Enter` jumps straight to the window.
 
 **Fourteen trackpad gestures, right inside Mission Control.** Pinch to close
-or force quit, swipe up to minimize, swipe down to fill the screen, double-tap
+or force quit, swipe up to fill the screen, swipe down to minimize, double-tap
 to resize. Each gesture has a `Cmd` variant, so fourteen actions sit under two
 fingers. Gestures fire once per finger lift, so holding your hand still never
 repeats them by accident.
@@ -143,8 +143,8 @@ Once Mission Control is open, point at any preview or just start typing.
 | Pinch in | Close window / quit app | Force quit app |
 | Swipe left | Close active tab | Close window |
 | Swipe right | Reopen closed tab | New window |
-| Swipe up | Minimize window | Hide app |
-| Swipe down | Fill screen | Make larger (+33%) |
+| Swipe up | Fill screen | Make larger (+33%) |
+| Swipe down | Minimize window | Hide app |
 | Double tap | Reasonable size (60%) | Almost maximize (90%) |
 
 On windows showing an ejectable volume, pinch-in and swipe-left eject instead

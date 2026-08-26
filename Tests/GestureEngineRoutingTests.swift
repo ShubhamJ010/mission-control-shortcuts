@@ -6,6 +6,7 @@ final class GestureEngineRoutingTests: XCTestCase {
     private var pinchRecognizer: PinchInRecognizer!
     private var swipeLeftRecognizer: TwoFingerSwipeLeftRecognizer!
     private var swipeRightRecognizer: TwoFingerSwipeRightRecognizer!
+    private var swipeRecognizer: SwipeRecognizer!
     private var tapRecognizer: TwoFingerDoubleTapRecognizer!
     private var recognizedGestures: [GestureResult] = []
 
@@ -34,6 +35,13 @@ final class GestureEngineRoutingTests: XCTestCase {
         swipeRightRecognizer.isEnabled = { true }
         engine.register(swipeRightRecognizer)
 
+        swipeRecognizer = SwipeRecognizer()
+        swipeRecognizer.isCmdHeld = { false }
+        swipeRecognizer.isEnabled = { true }
+        swipeRecognizer.isSwipeUpEnabled = { true }
+        swipeRecognizer.isSwipeDownEnabled = { true }
+        engine.register(swipeRecognizer)
+
         engine.onGestureRecognized = { [weak self] gesture in
             self?.recognizedGestures.append(gesture)
         }
@@ -44,6 +52,7 @@ final class GestureEngineRoutingTests: XCTestCase {
         pinchRecognizer = nil
         swipeLeftRecognizer = nil
         swipeRightRecognizer = nil
+        swipeRecognizer = nil
         tapRecognizer = nil
         recognizedGestures = []
         super.tearDown()
@@ -171,5 +180,93 @@ final class GestureEngineRoutingTests: XCTestCase {
         engine.processFrame([t1More, t2More], timestamp: 1.3)
 
         XCTAssertEqual(recognizedGestures.count, 1, "Subsequent frames without finger lift must be ignored")
+    }
+
+    func testSwipeUpTriggeredWhenFingersSlideUp() {
+        // Start touch at mid Y = 0.4
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.4, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.4, size: 1.0)
+        engine.processFrame([t1, t2], timestamp: 1.0)
+
+        // Slide upward toward screen: mid Y = 0.6 (deltaY = +0.2 > 0.08 swipeThreshold)
+        let t1Moved = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.6, size: 1.0)
+        let t2Moved = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.6, size: 1.0)
+        engine.processFrame([t1Moved, t2Moved], timestamp: 1.1)
+
+        XCTAssertEqual(recognizedGestures.count, 1)
+        if let first = recognizedGestures.first {
+            switch first {
+            case .swipeUp:
+                break // Success
+            default:
+                XCTFail("Expected .swipeUp when deltaY > 0, got: \(first)")
+            }
+        }
+    }
+
+    func testSwipeDownTriggeredWhenFingersSlideDown() {
+        // Start touch at mid Y = 0.6
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.6, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.6, size: 1.0)
+        engine.processFrame([t1, t2], timestamp: 1.0)
+
+        // Slide downward toward user: mid Y = 0.4 (deltaY = -0.2 < -0.08 swipeThreshold)
+        let t1Moved = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.4, size: 1.0)
+        let t2Moved = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.4, size: 1.0)
+        engine.processFrame([t1Moved, t2Moved], timestamp: 1.1)
+
+        XCTAssertEqual(recognizedGestures.count, 1)
+        if let first = recognizedGestures.first {
+            switch first {
+            case .swipeDown:
+                break // Success
+            default:
+                XCTFail("Expected .swipeDown when deltaY < 0, got: \(first)")
+            }
+        }
+    }
+
+    func testCmdSwipeUpTriggeredWhenFingersSlideUpWithCmd() {
+        swipeRecognizer.isCmdHeld = { true }
+
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.3, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.3, size: 1.0)
+        engine.processFrame([t1, t2], timestamp: 1.0)
+
+        let t1Moved = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.55, size: 1.0)
+        let t2Moved = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.55, size: 1.0)
+        engine.processFrame([t1Moved, t2Moved], timestamp: 1.1)
+
+        XCTAssertEqual(recognizedGestures.count, 1)
+        if let first = recognizedGestures.first {
+            switch first {
+            case .cmdSwipeUp:
+                break // Success
+            default:
+                XCTFail("Expected .cmdSwipeUp when deltaY > 0 with Cmd held, got: \(first)")
+            }
+        }
+    }
+
+    func testCmdSwipeDownTriggeredWhenFingersSlideDownWithCmd() {
+        swipeRecognizer.isCmdHeld = { true }
+
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.7, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.7, size: 1.0)
+        engine.processFrame([t1, t2], timestamp: 1.0)
+
+        let t1Moved = TouchPoint(identifier: 1, state: 4, normalizedX: 0.4, normalizedY: 0.45, size: 1.0)
+        let t2Moved = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.45, size: 1.0)
+        engine.processFrame([t1Moved, t2Moved], timestamp: 1.1)
+
+        XCTAssertEqual(recognizedGestures.count, 1)
+        if let first = recognizedGestures.first {
+            switch first {
+            case .cmdSwipeDown:
+                break // Success
+            default:
+                XCTFail("Expected .cmdSwipeDown when deltaY < 0 with Cmd held, got: \(first)")
+            }
+        }
     }
 }

@@ -104,9 +104,16 @@ final class SwipeRecognizer: GestureRecognizer {
             if abs(deltaY) >= config.swipeThreshold {
                 let center: (Float, Float) = (currentMidX, currentMidY)
                 let cmdHeld = isCmdHeld?() ?? false
-                let goingDown = deltaY > 0
 
-                let directionEnabled = goingDown ? (isSwipeDownEnabled?() ?? true) : (isSwipeUpEnabled?() ?? true)
+                // NOTE ON MULTITOUCH COORDINATE SYSTEM:
+                // In Apple's MultitouchSupport framework, normalizedY = 0.0 is at the bottom of the trackpad
+                // (closest to the user) and normalizedY = 1.0 is at the top of the trackpad (closest to the screen).
+                // - Moving fingers UP towards the screen: currentMidY > startMidY -> deltaY > 0 -> Swipe Up (.swipeUp / .cmdSwipeUp)
+                // - Moving fingers DOWN towards the user: currentMidY < startMidY -> deltaY < 0 -> Swipe Down (.swipeDown / .cmdSwipeDown)
+                // Do NOT invert this logic! deltaY > 0 is Swipe Up, deltaY < 0 is Swipe Down.
+                let goingUp = deltaY > 0
+
+                let directionEnabled = goingUp ? (isSwipeUpEnabled?() ?? true) : (isSwipeDownEnabled?() ?? true)
                 guard directionEnabled else {
                     state = .cooldown(until: timestamp + config.cooldownDuration)
                     return nil
@@ -114,10 +121,10 @@ final class SwipeRecognizer: GestureRecognizer {
 
                 state = .cooldown(until: timestamp + config.cooldownDuration)
 
-                if goingDown {
-                    return cmdHeld ? .cmdSwipeDown(atNormalized: center) : .swipeDown(atNormalized: center)
-                } else {
+                if goingUp {
                     return cmdHeld ? .cmdSwipeUp(atNormalized: center) : .swipeUp(atNormalized: center)
+                } else {
+                    return cmdHeld ? .cmdSwipeDown(atNormalized: center) : .swipeDown(atNormalized: center)
                 }
             }
 

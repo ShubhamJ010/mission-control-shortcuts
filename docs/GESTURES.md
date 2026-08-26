@@ -77,8 +77,8 @@ switches to the `Cmd` variant (right column). All 14 bindings are re-mappable in
 | 2 | **Pinch Out** (`pinchOut`) | `Toggle Fullscreen` | `New Window` (`Cmd+N`) | `arrow.outward` | `PinchOutRecognizer.swift` |
 | 3 | **Swipe Left** (`swipeLeft`) | `Close Tab` | `Close Window` | `arrow.left` | `TwoFingerSwipeLeftRecognizer.swift` |
 | 4 | **Swipe Right** (`swipeRight`) | `Reopen Tab` | `New Tab` (`Cmd+T`) / `New Window` on Dock | `arrow.right` | `TwoFingerSwipeRightRecognizer.swift` |
-| 5 | **Swipe Up** (`swipeUp`) | `Minimize` | `Hide App` | `arrow.up` | `SwipeRecognizer.swift` |
-| 6 | **Swipe Down** (`swipeDown`) | `Fill Screen` | `Make Larger` (+33%) | `arrow.down` | `SwipeRecognizer.swift` |
+| 5 | **Swipe Up** (`swipeUp`) | `Fill Screen` | `Make Larger` (+33%) | `arrow.up` | `SwipeRecognizer.swift` |
+| 6 | **Swipe Down** (`swipeDown`) | `Minimize` | `Hide App` | `arrow.down` | `SwipeRecognizer.swift` |
 | 7 | **2-Finger Double Tap** (`twoFingerDoubleTap`) | `Reasonable Size` (60%) | `Almost Maximize` (90%) | `hand.tap` | `TwoFingerDoubleTapRecognizer.swift` |
 
 Source: `GestureKind` (`MCSC/Models/Gestures/GestureAction.swift:8`, 7 cases) × `GestureDefaults` (`GestureAction.swift:136`, `plain`/`cmd` 14) · `HapticType` (`GestureKind.haptic:48`) · `GestureResult` (`Models/Gestures/GestureRecognizer.swift:4`, 14 cases).
@@ -87,7 +87,7 @@ Source: `GestureKind` (`MCSC/Models/Gestures/GestureAction.swift:8`, 7 cases) ×
 > **Make Smaller (−33%)** is a 5th size action (`SizeActions.swift:61`) available for **Pinch In**, **Swipe Down**, and **2-Finger Double Tap** via `naturalActions` but **unbound by default** (no default `GestureDefaults` entry). It shrinks via `÷1.33` clamped to 200×100 pt — inverse of `Make Larger` so `Larger → Smaller` restores size. Also selectable for any gesture if you change `Settings → Gestures` popup filter from `kind.naturalActions` (`GestureAction.swift:63`) to `GestureAction.allCases` (`MCSCSettingsPanes.swift:388`).
 
 > [!NOTE]
-> Swipe-down pair: plain = **fill screen** (`setFrame(axBounds)`), `Cmd` = **+33%** (`MakeLargerAction` `×1.33` center-anchored). Both show `rectangle.fill` maximize symbol.
+> Swipe-up pair: plain = **fill screen** (`setFrame(axBounds)`), `Cmd` = **+33%** (`MakeLargerAction` `×1.33` center-anchored). Both show `rectangle.fill` maximize symbol.
 
 ### Target resolution
 
@@ -107,14 +107,14 @@ screen and resize) only act on a window target and do nothing over the Dock.
 
 | Gesture | Window | Dock | Empty |
 |---------|:------:|:----:|:-----:|
-| Pinch in / Swipe left/up | ✅ | ✅ | ❌ |
+| Pinch in / Swipe left/down | ✅ | ✅ | ❌ |
 | Pinch out | ✅ | ❌ | ❌ |
 | Cmd + Pinch out | ✅ | ✅ | ❌ |
 | Swipe right (reopen) | ✅ | ✅ | ❌ |
 | Cmd + Swipe right | ✅ (new tab) | ✅ (new window) | ❌ |
-| Swipe down / Double tap | ✅ | ❌ | ❌ |
+| Swipe up / Double tap | ✅ | ❌ | ❌ |
 
-> Details: `GestureActionRouter.swift:24-171` — `swipeDown`/`doubleTap` return `.none` for Dock.
+> Details: `GestureActionRouter.swift:24-171` — `swipeUp`/`doubleTap` return `.none` for Dock.
 
 ### Dock gestures outside Mission Control
 

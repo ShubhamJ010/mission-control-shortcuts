@@ -21,6 +21,8 @@ final class RouterTests: XCTestCase {
             UserDefaults.standard.removeObject(forKey: entry.key)
         }
         UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.bindingsStorageKey)
+        UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.gestureActionsStorageKey)
+        UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.cmdGestureActionsStorageKey)
     }
 
     func testShortcutRouterCmdWProducesCloseActionWhenEnabled() {
@@ -756,10 +758,10 @@ final class RouterTests: XCTestCase {
             (.cmdSwipeLeft(atNormalized: (0.5, 0.5)), .close),
             (.swipeRight(atNormalized: (0.5, 0.5)), .reopenTab),
             (.cmdSwipeRight(atNormalized: (0.5, 0.5)), .newWindow),
-            (.swipeDown(atNormalized: (0.5, 0.5)), .maximize),
-            (.cmdSwipeDown(atNormalized: (0.5, 0.5)), .maximize),
-            (.swipeUp(atNormalized: (0.5, 0.5)), .minimize),
-            (.cmdSwipeUp(atNormalized: (0.5, 0.5)), .hide),
+            (.swipeDown(atNormalized: (0.5, 0.5)), .minimize),
+            (.cmdSwipeDown(atNormalized: (0.5, 0.5)), .hide),
+            (.swipeUp(atNormalized: (0.5, 0.5)), .maximize),
+            (.cmdSwipeUp(atNormalized: (0.5, 0.5)), .maximize),
             (.twoFingerDoubleTap, .reasonable),
             (.cmdTwoFingerDoubleTap, .almost)
         ]
