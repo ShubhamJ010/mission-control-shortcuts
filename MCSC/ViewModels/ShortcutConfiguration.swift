@@ -105,9 +105,7 @@ struct ShortcutConfiguration {
 
     var isMovePreviousDesktopEnabled: Bool {
         get { shortcutBindings[.movePreviousDesktop] != nil }
-        set {
-            shortcutBindings[.movePreviousDesktop] = newValue ? RoutedAction.movePreviousDesktop.canonicalBinding : nil
-        }
+        set { shortcutBindings[.movePreviousDesktop] = newValue ? RoutedAction.movePreviousDesktop.canonicalBinding : nil }
     }
 
     var isGesturesEnabled = true {
@@ -140,6 +138,14 @@ struct ShortcutConfiguration {
 
     var isTwoFingerDoubleTapEnabled = true {
         didSet { UserDefaults.standard.set(isTwoFingerDoubleTapEnabled, forKey: Self.Keys.twoFingerDoubleTapEnabled) }
+    }
+
+    var isTwoFingerHoldEnabled = true {
+        didSet { UserDefaults.standard.set(isTwoFingerHoldEnabled, forKey: Self.Keys.twoFingerHoldEnabled) }
+    }
+
+    var twoFingerHoldDuration: Double = 0.4 {
+        didSet { UserDefaults.standard.set(twoFingerHoldDuration, forKey: Self.Keys.twoFingerHoldDuration) }
     }
 
     var isAutoEjectEnabled = true {
@@ -206,6 +212,9 @@ struct ShortcutConfiguration {
         loadStoredToggles()
         loadStoredBindings()
         loadStoredGestureMappings()
+        if let val = UserDefaults.standard.object(forKey: Self.Keys.twoFingerHoldDuration) as? Double {
+            twoFingerHoldDuration = val
+        }
     }
 
     /// Single source of truth for every persisted toggle: its `UserDefaults`
@@ -235,6 +244,7 @@ struct ShortcutConfiguration {
         (\.isSwipeDownEnabled, Keys.swipeDownEnabled, true),
         (\.isSwipeUpEnabled, Keys.swipeUpEnabled, true),
         (\.isTwoFingerDoubleTapEnabled, Keys.twoFingerDoubleTapEnabled, true),
+        (\.isTwoFingerHoldEnabled, Keys.twoFingerHoldEnabled, true),
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
         (\.isQuitAppIfNoWindowsEnabled, Keys.quitAppIfNoWindowsEnabled, false),
         (\.isHapticFeedbackEnabled, Keys.hapticFeedbackEnabled, true),
@@ -293,6 +303,7 @@ struct ShortcutConfiguration {
         for entry in Self.toggleDefaults {
             self[keyPath: entry.keyPath] = entry.defaultValue
         }
+        twoFingerHoldDuration = 0.4
         shortcutBindings = RoutedAction.defaultBindings
         resetGestureMappings()
     }
@@ -417,22 +428,14 @@ private extension ShortcutConfiguration {
     }
 
     static let legacyShortcutToggles: [(key: String, action: RoutedAction)] = [
-        (Keys.closingEnabled, .close),
-        (Keys.cmdWEnabled, .closeTab),
-        (Keys.cmdQEnabled, .quit),
-        (Keys.cmdMEnabled, .minimize),
-        (Keys.cmdHEnabled, .hide),
-        (Keys.cmdFEnabled, .fullscreen),
-        (Keys.cmdTEnabled, .newTab),
-        (Keys.cmdNEnabled, .newWindow),
-        (Keys.cmdShiftTEnabled, .reopenTab),
-        (Keys.fillScreenEnabled, .fillScreen),
-        (Keys.almostMaximizeEnabled, .almostMaximize),
-        (Keys.reasonableSizeEnabled, .reasonableSize),
-        (Keys.makeLargerEnabled, .makeLarger),
-        (Keys.makeSmallerEnabled, .makeSmaller),
-        (Keys.moveNextDesktopEnabled, .moveNextDesktop),
-        (Keys.movePreviousDesktopEnabled, .movePreviousDesktop)
+        (Keys.closingEnabled, .close), (Keys.cmdWEnabled, .closeTab),
+        (Keys.cmdQEnabled, .quit), (Keys.cmdMEnabled, .minimize),
+        (Keys.cmdHEnabled, .hide), (Keys.cmdFEnabled, .fullscreen),
+        (Keys.cmdTEnabled, .newTab), (Keys.cmdNEnabled, .newWindow),
+        (Keys.cmdShiftTEnabled, .reopenTab), (Keys.fillScreenEnabled, .fillScreen),
+        (Keys.almostMaximizeEnabled, .almostMaximize), (Keys.reasonableSizeEnabled, .reasonableSize),
+        (Keys.makeLargerEnabled, .makeLarger), (Keys.makeSmallerEnabled, .makeSmaller),
+        (Keys.moveNextDesktopEnabled, .moveNextDesktop), (Keys.movePreviousDesktopEnabled, .movePreviousDesktop)
     ]
 
     static func loadBool(forKey key: String) -> Bool? {
@@ -481,6 +484,8 @@ private extension ShortcutConfiguration {
         static let swipeDownEnabled = "mcsc.gestures.swipeDown.enabled"
         static let swipeUpEnabled = "mcsc.gestures.swipeUp.enabled"
         static let twoFingerDoubleTapEnabled = "mcsc.gestures.twoFingerDoubleTap.enabled"
+        static let twoFingerHoldEnabled = "mcsc.gestures.twoFingerHold.enabled"
+        static let twoFingerHoldDuration = "mcsc.gestures.twoFingerHold.duration"
         static let autoEjectEnabled = "mcsc.autoEject.enabled"
         static let quitAppIfNoWindowsEnabled = "mcsc.quitAppIfNoWindows.enabled"
         static let hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled"

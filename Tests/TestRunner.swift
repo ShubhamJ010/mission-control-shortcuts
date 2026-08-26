@@ -18,6 +18,7 @@ struct TestRunner {
             DesktopNavigationActionTests.defaultTestSuite,
             ShortcutConfigurationTests.defaultTestSuite,
             DockInteractionSuppressorTests.defaultTestSuite,
+            TwoFingerHoldDetectorTests.defaultTestSuite,
             PerformanceTests.defaultTestSuite,
             OverlayAnimationStrategyTests.defaultTestSuite,
             SettingsPaneTests.defaultTestSuite

@@ -140,21 +140,30 @@ enum GestureAction: String, CaseIterable {
 /// Factory defaults matching the legacy hardcoded GestureActionRouter mappings.
 enum GestureDefaults {
     static func action(for kind: GestureKind, isCmd: Bool) -> GestureAction {
-        switch (kind, isCmd) {
-        case (.pinchIn, false): .closeWindow
-        case (.pinchIn, true): .quitApp
-        case (.pinchOut, false): .toggleFullscreen
-        case (.pinchOut, true): .newWindow
-        case (.swipeLeft, false): .closeTab
-        case (.swipeLeft, true): .closeWindow
-        case (.swipeRight, false): .reopenTab
-        case (.swipeRight, true): .newTab
-        case (.swipeUp, false): .fillScreen
-        case (.swipeUp, true): .makeLarger
-        case (.swipeDown, false): .minimize
-        case (.swipeDown, true): .hideApp
-        case (.twoFingerDoubleTap, false): .reasonableSize
-        case (.twoFingerDoubleTap, true): .almostMaximize
+        isCmd ? cmdAction(for: kind) : plainAction(for: kind)
+    }
+
+    static func plainAction(for kind: GestureKind) -> GestureAction {
+        switch kind {
+        case .pinchIn: .closeWindow
+        case .pinchOut: .toggleFullscreen
+        case .swipeLeft: .closeTab
+        case .swipeRight: .reopenTab
+        case .swipeUp: .fillScreen
+        case .swipeDown: .minimize
+        case .twoFingerDoubleTap: .reasonableSize
+        }
+    }
+
+    static func cmdAction(for kind: GestureKind) -> GestureAction {
+        switch kind {
+        case .pinchIn: .quitApp
+        case .pinchOut: .newWindow
+        case .swipeLeft: .closeWindow
+        case .swipeRight: .newTab
+        case .swipeUp: .makeLarger
+        case .swipeDown: .hideApp
+        case .twoFingerDoubleTap: .almostMaximize
         }
     }
 

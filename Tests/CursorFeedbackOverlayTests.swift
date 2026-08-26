@@ -72,7 +72,7 @@ final class CursorFeedbackOverlayTests: XCTestCase {
     func testCursorFeedbackModesAllRenderSymbols() {
         // Every shortcut/gesture feedback type must resolve to a real SF
         // Symbol, otherwise its feedback silently disappears.
-        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 18,
+        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 19,
                        "Adding a feedback mode must also extend this coverage")
         for mode in CursorFeedbackOverlay.Mode.allCases {
             let image = renderedSymbol(symbolName: mode.symbolName,
@@ -83,6 +83,16 @@ final class CursorFeedbackOverlayTests: XCTestCase {
             XCTAssertFalse(mode.accessibilityDescription.isEmpty,
                            "CursorFeedbackOverlay.Mode.\(mode) needs an accessibility description")
         }
+    }
+
+    func testCommandModeUsesCommandCircleFillSymbolWithAccentPalette() {
+        let mode = CursorFeedbackOverlay.Mode.command
+        XCTAssertEqual(mode.symbolName, "command.circle.fill")
+        XCTAssertEqual(mode.accessibilityDescription, "Command Modifier")
+        let palette = mode.paletteColors
+        XCTAssertEqual(palette?.count, 2)
+        XCTAssertEqual(palette?[0], .white)
+        XCTAssertEqual(palette?[1], .controlAccentColor)
     }
 
     func testEjectModeUsesEjectCircleFillSymbolWithRedPrimary() {

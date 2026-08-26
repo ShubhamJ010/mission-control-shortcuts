@@ -8,6 +8,7 @@ final class GestureSettingsPane: MCSCSettingsPane {
 
     private var layoutView: SettingsLayoutView?
     private var gesturesToggleCheckbox: NSButton!
+    private var holdModifierCheckbox: NSButton?
 
     private struct GestureRow {
         let kind: GestureKind
@@ -31,15 +32,25 @@ final class GestureSettingsPane: MCSCSettingsPane {
         layoutView.install(in: view)
         self.layoutView = layoutView
 
-        // Toggle switch — full-width checkbox with description, like DemoViewControllers General "Startup"
+        // Master toggle
         let toggleSection = layoutView.addCheckboxSection(
             title: "Enable Gestures",
-            description: "Master switch for all trackpad gesture recognition. Individual gestures can be toggled below.",
+            description: "Master switch for all trackpad gesture recognition.",
             identifier: .init("Master"),
             target: self,
             action: #selector(toggleGestures(_:))
         )
         gesturesToggleCheckbox = toggleSection.checkbox
+
+        // Two-Finger Hold modifier toggle
+        let holdSection = layoutView.addCheckboxSection(
+            title: "Two-Finger Hold for Command (⌘)",
+            description: "Hold two fingers still to activate ⌘ modifier for gesture chaining.",
+            identifier: .init("HoldModifier"),
+            target: self,
+            action: #selector(toggleHoldModifier(_:))
+        )
+        holdModifierCheckbox = holdSection.checkbox
 
         layoutView.addSeparatorSection(identifier: .init("Sep.Master"))
 
@@ -66,12 +77,12 @@ final class GestureSettingsPane: MCSCSettingsPane {
         layoutView.addSeparatorSection(identifier: .init("Sep.Restore"))
 
         layoutView.addButtonSection(title: "Restore Defaults",
-                                    controlSize: .regular,
-                                    alignment: .trailing,
-                                    widthMode: .contentBlock,
-                                    identifier: .init("RestoreDefaults"),
-                                    target: self,
-                                    action: #selector(restoreDefaults(_:)))
+                                     controlSize: .regular,
+                                     alignment: .trailing,
+                                     widthMode: .contentBlock,
+                                     identifier: .init("RestoreDefaults"),
+                                     target: self,
+                                     action: #selector(restoreDefaults(_:)))
     }
 
     /// Builds one gesture row: primary-action popup + enable switch accessory,
@@ -151,6 +162,9 @@ final class GestureSettingsPane: MCSCSettingsPane {
         gesturesToggleCheckbox?.state = viewModel.isGesturesEnabled ? .on : .off
 
         let gesturesEnabled = viewModel.isGesturesEnabled
+        holdModifierCheckbox?.state = viewModel.isTwoFingerHoldEnabled ? .on : .off
+        holdModifierCheckbox?.isEnabled = gesturesEnabled
+
         for row in gestureRows {
             let kindEnabled: Bool = switch row.kind {
             case .pinchIn: viewModel.isPinchInEnabled
@@ -208,6 +222,12 @@ final class GestureSettingsPane: MCSCSettingsPane {
         refresh()
     }
 
+    @objc private func toggleHoldModifier(_ sender: NSButton) {
+        viewModel.isTwoFingerHoldEnabled.toggle()
+        sender.state = viewModel.isTwoFingerHoldEnabled ? .on : .off
+        refresh()
+    }
+
     @objc private func toggleGestureEnabled(_ sender: NSSwitch) {
         guard let kind = GestureKind.allCases[safe: sender.tag] else { return }
         let enabled = (sender.state == .on)
@@ -238,6 +258,8 @@ final class GestureSettingsPane: MCSCSettingsPane {
         viewModel.isSwipeDownEnabled = true
         viewModel.isSwipeUpEnabled = true
         viewModel.isTwoFingerDoubleTapEnabled = true
+        viewModel.isTwoFingerHoldEnabled = true
+        viewModel.twoFingerHoldDuration = 0.4
         viewModel.resetGestureMappings()
         refreshAllPanes()
     }

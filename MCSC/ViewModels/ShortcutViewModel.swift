@@ -203,6 +203,22 @@ final class ShortcutViewModel {
         get { config.isTwoFingerDoubleTapEnabled } set { config.isTwoFingerDoubleTapEnabled = newValue }
     }
 
+    var isTwoFingerHoldEnabled: Bool {
+        get { config.isTwoFingerHoldEnabled }
+        set {
+            config.isTwoFingerHoldEnabled = newValue
+            holdDetector.config.holdDuration = config.twoFingerHoldDuration
+        }
+    }
+
+    var twoFingerHoldDuration: Double {
+        get { config.twoFingerHoldDuration }
+        set {
+            config.twoFingerHoldDuration = newValue
+            holdDetector.config.holdDuration = newValue
+        }
+    }
+
     var isKeyboardNavigationEnabled: Bool {
         get { config.isKeyboardNavigationEnabled } set { config.isKeyboardNavigationEnabled = newValue }
     }
@@ -253,6 +269,8 @@ final class ShortcutViewModel {
     private var lastGestureFrameTime: Double = 0
     private let gestureFrameInterval: Double = 1.0 / 30.0
 
+    var holdDetector = TwoFingerHoldDetector()
+
     var isLaunchAtLoginEnabled: Bool {
         launchAtLoginService.isEnabled
     }
@@ -266,6 +284,7 @@ final class ShortcutViewModel {
         self.missionControlService = missionControlService
         self.launchAtLoginService = launchAtLoginService
 
+        holdDetector.config.holdDuration = config.twoFingerHoldDuration
         setupCallbacks()
 
         // Cooldown after Mission Control activates to avoid false gesture detection
@@ -293,8 +312,10 @@ final class ShortcutViewModel {
 
     /// Registers every trackpad recognizer with the shared gesture engine.
     private func registerGestureRecognizers() {
-        let cmdHeldProvider: () -> Bool = {
-            NSEvent.modifierFlags.contains(.command)
+        let cmdHeldProvider: () -> Bool = { [weak self] in
+            guard let self else { return false }
+            return NSEvent.modifierFlags.contains(.command)
+                || (self.config.isTwoFingerHoldEnabled && self.holdDetector.isHoldActive)
         }
         let twoFingerTapRecognizer = TwoFingerDoubleTapRecognizer()
         twoFingerTapRecognizer.isCmdHeld = cmdHeldProvider
@@ -364,6 +385,21 @@ final class ShortcutViewModel {
             }
 
             guard mcActive || dockHovered || titleBarHovered else { return }
+
+            if touches.isEmpty {
+                self.holdDetector.handleTouchesEnded(timestamp: timestamp)
+            } else if self.config.isTwoFingerHoldEnabled {
+                let holdJustActivated = self.holdDetector.processFrame(touches, timestamp: timestamp)
+                if holdJustActivated {
+                    if self.config.isCursorFeedbackEnabled {
+                        self.cursorFeedback.show(at: axPoint, mode: .command)
+                    }
+                    if self.config.isHapticFeedbackEnabled {
+                        HapticService.perform(.twoFingerHold)
+                    }
+                }
+            }
+
             self.gestureEngine.processFrame(touches, timestamp: timestamp)
         }
     }
@@ -403,6 +439,7 @@ final class ShortcutViewModel {
         hoverService.stop()
         dockSuppressor.stop()
         gestureEngine.reset()
+        holdDetector.reset()
         cursorFeedback.hide()
     }
 }

@@ -56,6 +56,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Models/Gestures/TwoFingerSwipeRightRecognizer.swift" \
   "${ROOT_DIR}/MCSC/Models/Gestures/SwipeRecognizer.swift" \
   "${ROOT_DIR}/MCSC/Models/Gestures/TwoFingerDoubleTapRecognizer.swift" \
+  "${ROOT_DIR}/MCSC/Models/Gestures/TwoFingerHoldDetector.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/ShortcutAction.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActions/WindowControlActions.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActions/DesktopNavigationActions.swift" \
@@ -100,6 +101,7 @@ swiftc \
   "${SCRIPT_DIR}/SearchBarOverlayTests.swift" \
   "${SCRIPT_DIR}/CursorFeedbackOverlayTests.swift" \
   "${SCRIPT_DIR}/ShortcutConfigurationTests.swift" \
+  "${SCRIPT_DIR}/TwoFingerHoldDetectorTests.swift" \
   "${SCRIPT_DIR}/RouterTests.swift" \
   "${SCRIPT_DIR}/DockInteractionSuppressorTests.swift" \
   "${SCRIPT_DIR}/PerformanceTests.swift" \

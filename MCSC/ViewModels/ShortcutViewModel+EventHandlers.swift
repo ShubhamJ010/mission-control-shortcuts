@@ -81,32 +81,36 @@ extension ShortcutViewModel {
     func setupGestureResultHandler() {
         gestureEngine.onGestureRecognized = { [weak self] result in
             guard let self else { return }
-            let axPoint = self.currentAXMouseLocation()
+            self.holdDetector.reset()
+            self.handleGestureResult(result)
+        }
+    }
 
-            let target = self.resolveTarget(at: axPoint)
-            let resolution = self.gestureRouter.routeGesture(
-                result,
-                at: axPoint,
-                target: target,
-                service: self.accessibilityService,
-                volumeService: self.volumeService,
-                isAutoEjectEnabled: self.config.isAutoEjectEnabled,
-                config: self.config,
-                activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
-            )
+    func handleGestureResult(_ result: GestureResult) {
+        let axPoint = currentAXMouseLocation()
+        let target = resolveTarget(at: axPoint)
+        let resolution = gestureRouter.routeGesture(
+            result,
+            at: axPoint,
+            target: target,
+            service: accessibilityService,
+            volumeService: volumeService,
+            isAutoEjectEnabled: config.isAutoEjectEnabled,
+            config: config,
+            activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
+        )
 
-            switch resolution {
-            case let .execute(feedbackMode, haptic, action):
-                if !self.missionControlService.isMissionControlActive, self.config.isDockActionsOutsideMCEnabled {
-                    self.dockSuppressor.isSuppressing = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
-                        self?.dockSuppressor.isSuppressing = false
-                    }
+        switch resolution {
+        case let .execute(feedbackMode, haptic, action):
+            if !missionControlService.isMissionControlActive, config.isDockActionsOutsideMCEnabled {
+                dockSuppressor.isSuppressing = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
+                    self?.dockSuppressor.isSuppressing = false
                 }
-                self.executeFeedbackThenAction(at: axPoint, feedbackMode: feedbackMode, haptic: haptic, action: action)
-            case .none:
-                break
             }
+            executeFeedbackThenAction(at: axPoint, feedbackMode: feedbackMode, haptic: haptic, action: action)
+        case .none:
+            break
         }
     }
 

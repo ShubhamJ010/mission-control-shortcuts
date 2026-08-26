@@ -163,10 +163,12 @@ final class SettingsPaneTests: XCTestCase {
                        "Expected 7 plain + 7 ⌘ action pop-ups in the view tree")
         XCTAssertEqual(switches.count, 7,
                        "Expected one enable switch per gesture row in the view tree")
-        XCTAssertGreaterThanOrEqual(buttons.count, 2,
-                                    "Expected the master checkbox and Restore Defaults button")
+        XCTAssertGreaterThanOrEqual(buttons.count, 3,
+                                    "Expected master checkbox, hold modifier checkbox, and Restore Defaults button")
         XCTAssertTrue(buttons.contains { $0.title == "Restore Defaults" },
                       "Restore Defaults button missing from the pane")
+        XCTAssertTrue(buttons.contains { $0.title == "Two-Finger Hold for Command (⌘)" },
+                      "Two-Finger Hold modifier checkbox missing from the pane")
     }
 
     // MARK: Row wiring
@@ -288,6 +290,24 @@ final class SettingsPaneTests: XCTestCase {
         sendAction(of: master)
         XCTAssertTrue(pane.viewModel.isGesturesEnabled)
         XCTAssertEqual(master.state, .on)
+    }
+
+    func testHoldModifierCheckboxActionTogglesViewModel() {
+        let pane = makeGesturePane()
+        pane.loadView()
+
+        guard let holdCheckbox = Mirror(reflecting: pane).descendant("holdModifierCheckbox") as? NSButton else {
+            return XCTFail("Hold modifier checkbox outlet missing")
+        }
+        XCTAssertTrue(pane.viewModel.isTwoFingerHoldEnabled, "Two-finger hold defaults to enabled")
+
+        sendAction(of: holdCheckbox)
+        XCTAssertFalse(pane.viewModel.isTwoFingerHoldEnabled, "Hold modifier checkbox must toggle the view model")
+        XCTAssertEqual(holdCheckbox.state, .off)
+
+        sendAction(of: holdCheckbox)
+        XCTAssertTrue(pane.viewModel.isTwoFingerHoldEnabled)
+        XCTAssertEqual(holdCheckbox.state, .on)
     }
 
     func testGestureSwitchActionUpdatesViewModel() {
