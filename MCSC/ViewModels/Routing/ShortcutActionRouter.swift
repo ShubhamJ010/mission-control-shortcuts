@@ -428,13 +428,6 @@ private extension ShortcutActionRouter {
         location _: CGPoint,
         app: NSRunningApplication?
     ) -> ResolvedShortcutAction? {
-        if matched.contains(.minimizeAll) {
-            return .consumeAndExecute(feedbackMode: .minimizeAll) { [weak self] in
-                guard let self,
-                      let owner = self.resolveOwnerApp(target: target, app: app, service: service) else { return }
-                self.actions.minimizeAllWindowsAction.perform(app: owner, service: service)
-            }
-        }
         if matched.contains(.unminimizeAll) {
             return .consumeAndExecute(feedbackMode: .unminimizeAll) { [weak self] in
                 guard let self,

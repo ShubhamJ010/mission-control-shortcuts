@@ -26,7 +26,6 @@ extension CursorFeedbackOverlay {
         case fullscreen
         case spaceRight
         case spaceLeft
-        case minimizeAll
         case unminimizeAll
         case command
 
@@ -49,7 +48,6 @@ extension CursorFeedbackOverlay {
             case .fullscreen: "arrow.down.left.and.arrow.up.right.circle.fill"
             case .spaceRight: "arrow.right.circle.fill"
             case .spaceLeft: "arrow.left.circle.fill"
-            case .minimizeAll: "minus.square.fill"
             case .unminimizeAll: "arrow.up.square.fill"
             case .command: "command.circle.fill"
             }
@@ -74,8 +72,7 @@ extension CursorFeedbackOverlay {
             case .fullscreen: "Toggle Fullscreen"
             case .spaceRight: "Move Window to Next Desktop"
             case .spaceLeft: "Move Window to Previous Desktop"
-            case .minimizeAll: "Minimize All"
-            case .unminimizeAll: "Unminimize All"
+            case .unminimizeAll: "Unminimize"
             case .command: "Command Modifier"
             }
         }
@@ -107,7 +104,7 @@ extension CursorFeedbackOverlay {
             case .command:
                 // White glyph on accent circle.fill
                 [.white, .controlAccentColor]
-            case .minimizeAll, .unminimizeAll:
+            case .unminimizeAll:
                 // Black glyph on yellow square, matching Minimize's palette.
                 [.black, .systemYellow]
             case .closeTab:
@@ -131,7 +128,7 @@ extension CursorFeedbackOverlay {
                 .bouncePop
             case .closeTab, .reopenTab, .newTab:
                 .wiggle
-            case .minimize, .hide, .makeSmaller, .minimizeAll:
+            case .minimize, .hide, .makeSmaller:
                 .shrinkDown
             case .maximize, .almost, .reasonable, .fullscreen, .unminimizeAll, .command:
                 .pulseExpand
@@ -149,7 +146,6 @@ extension CursorFeedbackOverlay {
             case .eject: "eject.circle"
             case .minimize: "minus.circle"
             case .hide: "eye.slash.circle"
-            case .minimizeAll: "minus.square"
             case .unminimizeAll: "arrow.up.square"
             case .spaceRight: "arrow.right.circle"
             case .spaceLeft: "arrow.left.circle"
@@ -177,7 +173,7 @@ extension CursorFeedbackOverlay {
             case .close, .quit, .newWindow: .bounceUpByLayer
             case .closeTab, .reopenTab, .newTab: .wiggleByLayer
             case .minimize, .hide, .eject, .almost, .reasonable, .makeSmaller, .maximize, .fullscreen, .spaceRight,
-                 .spaceLeft, .minimizeAll, .unminimizeAll, .command: nil
+                 .spaceLeft, .unminimizeAll, .command: nil
             }
         }
 
@@ -190,7 +186,7 @@ extension CursorFeedbackOverlay {
 
         var replaceTransition: ReplaceTransition? {
             switch self {
-            case .almost, .reasonable, .maximize, .minimize, .hide, .minimizeAll, .unminimizeAll, .command: .downUpReveal
+            case .almost, .reasonable, .maximize, .minimize, .hide, .unminimizeAll, .command: .downUpReveal
             case .eject: .magicDownUpReveal
             case .spaceRight, .spaceLeft, .newTab: .replace
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil

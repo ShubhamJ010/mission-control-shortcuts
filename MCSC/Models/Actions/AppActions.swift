@@ -16,27 +16,6 @@ struct MinimizeAppAction {
     }
 }
 
-/// Minimizes every on-screen window of `app`. Already-minimized windows are
-/// skipped so repeated invocations stay idempotent.
-struct MinimizeAllWindowsAction {
-    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
-
-        guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
-              !windows.isEmpty else { return }
-
-        for window in windows {
-            if let minimized: Bool = service.getAttributeValue(kAXMinimizedAttribute, for: window), minimized {
-                continue
-            }
-            if let minimizeButton: AXUIElement = service
-                .getAttributeValue(kAXMinimizeButtonAttribute, for: window) {
-                _ = service.performAction(kAXPressAction, on: minimizeButton)
-            }
-        }
-    }
-}
-
 /// Restores (unminimizes) every minimized window of `app`. Minimized windows
 /// remain listed under the app's AX windows with `kAXMinimizedAttribute` set,
 /// so restoring is an attribute write rather than a button press.

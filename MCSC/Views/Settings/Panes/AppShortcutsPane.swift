@@ -23,11 +23,8 @@ final class AppShortcutsPane: MCSCSettingsPane {
         recorders[.hide] = addShortcutRow(
             section: appShortcuts, mode: .hide, title: "Hide", action: .hide
         )
-        recorders[.minimizeAll] = addShortcutRow(
-            section: appShortcuts, mode: .minimizeAll, title: "Minimize All", action: .minimizeAll
-        )
         recorders[.unminimizeAll] = addShortcutRow(
-            section: appShortcuts, mode: .unminimizeAll, title: "Unminimize All", action: .unminimizeAll
+            section: appShortcuts, mode: .unminimizeAll, title: "Unminimize", action: .unminimizeAll
         )
         recorders[.newWindow] = addShortcutRow(
             section: appShortcuts, mode: .newWindow, title: "New Window", action: .newWindow
@@ -35,6 +32,18 @@ final class AppShortcutsPane: MCSCSettingsPane {
         appShortcuts.addDescriptionLabel(
             "Acts on the app owning the window / Dock icon under the cursor. Click a field and press ⌘+Key to " +
                 "assign or change a shortcut; Delete clears it and disables the action."
+        )
+
+        layoutView.addSeparatorSection()
+
+        // Dock — explains window gesture & shortcut translation over Dock
+        let dockSection = layoutView.addColumnSection(label: "Dock", itemColumnMaximumWidth: 340)
+        dockSection.addDescriptionLabel(
+            "When performed over a Dock icon, window gestures and shortcuts translate across the whole app:\n" +
+                "• Close / Minimize / Full Screen / Resize: Applies to all windows of the app.\n" +
+                "• Tab Actions (Close / Reopen): Targets the active tab on the app's frontmost window.\n" +
+                "• New Tab / New Window: Opens a new window for the app (⌘N).\n" +
+                "• Desktop Navigation: Moves the app's focused window across spaces."
         )
 
         layoutView.addSeparatorSection()

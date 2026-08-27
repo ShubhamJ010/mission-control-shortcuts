@@ -107,7 +107,6 @@ final class ShortcutConfigurationTests: XCTestCase {
         XCTAssertNil(config.binding(for: .reopenTab))
         XCTAssertNil(config.binding(for: .fillScreen))
         XCTAssertNil(config.binding(for: .moveNextDesktop))
-        XCTAssertNil(config.binding(for: .minimizeAll))
         XCTAssertNil(config.binding(for: .unminimizeAll))
         XCTAssertEqual(config.binding(for: .close)?.displayString, "⌘ W")
         XCTAssertEqual(ShortcutBinding(keyCode: 2, includesShift: true).displayString,

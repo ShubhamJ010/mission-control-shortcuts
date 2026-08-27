@@ -49,7 +49,6 @@ enum RoutedAction: String, Codable, CaseIterable {
     case makeSmaller
     case moveNextDesktop
     case movePreviousDesktop
-    case minimizeAll
     case unminimizeAll
 
     /// The canonical binding offered when the legacy boolean toggles flip on,
@@ -72,7 +71,6 @@ enum RoutedAction: String, Codable, CaseIterable {
         case .makeSmaller: ShortcutBinding(keyCode: 1, includesShift: true) // S
         case .moveNextDesktop: ShortcutBinding(keyCode: 124, includesShift: true) // →
         case .movePreviousDesktop: ShortcutBinding(keyCode: 123, includesShift: true) // ←
-        case .minimizeAll: ShortcutBinding(keyCode: 46, includesShift: true) // M
         case .unminimizeAll: ShortcutBinding(keyCode: 32, includesShift: true) // U
         }
     }
@@ -98,7 +96,7 @@ extension RoutedAction {
         .reopenTab,
         .fillScreen, .almostMaximize, .reasonableSize, .makeLarger, .makeSmaller,
         .moveNextDesktop, .movePreviousDesktop,
-        .minimizeAll, .unminimizeAll
+        .unminimizeAll
     ]
 }
 

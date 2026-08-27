@@ -567,31 +567,7 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    // MARK: - Minimize All / Unminimize All Windows
-
-    func testShortcutRouterRoutesShiftCmdMOnDockToMinimizeAllWindows() {
-        let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
-            .first ?? NSRunningApplication.current
-        var config = ShortcutConfiguration()
-        config.setBinding(ShortcutBinding(keyCode: ShortcutActionRouter.kKeyM, includesShift: true),
-                          for: .minimizeAll)
-
-        let result = shortcutRouter.routeShortcut(
-            keyCode: ShortcutActionRouter.kKeyM,
-            flags: [.maskCommand, .maskShift],
-            location: CGPoint(x: 100, y: 100),
-            config: config,
-            isMissionControlActive: true,
-            target: .dock(dockApp),
-            service: mockService,
-            activateApp: { _ in }
-        )
-
-        guard case let .consumeAndExecute(mode, _) = result else {
-            return XCTFail("Expected ⇧⌘M on a Dock icon to execute Minimize All Windows")
-        }
-        XCTAssertEqual(mode, .minimizeAll)
-    }
+    // MARK: - Unminimize Windows
 
     func testShortcutRouterRoutesShiftCmdUOnWindowToOwnerAppUnminimizeAllWindows() throws {
         var config = ShortcutConfiguration()
@@ -611,47 +587,9 @@ final class RouterTests: XCTestCase {
         )
 
         guard case let .consumeAndExecute(mode, _) = result else {
-            return XCTFail("Expected ⇧⌘U over a window to execute Unminimize All Windows via the owner app")
+            return XCTFail("Expected ⇧⌘U over a window to execute Unminimize Windows via the owner app")
         }
         XCTAssertEqual(mode, .unminimizeAll)
-    }
-
-    func testShortcutRouterIgnoresMinimizeAllWhenUnassigned() {
-        let config = ShortcutConfiguration() // starts unassigned → disabled
-        let result = shortcutRouter.routeShortcut(
-            keyCode: ShortcutActionRouter.kKeyM,
-            flags: [.maskCommand, .maskShift],
-            location: CGPoint(x: 100, y: 100),
-            config: config,
-            isMissionControlActive: true,
-            target: .none,
-            service: mockService,
-            activateApp: { _ in }
-        )
-
-        guard case .ignore = result else {
-            return XCTFail("⇧⌘M must stay inert while no binding is assigned")
-        }
-    }
-
-    func testMinimizeAllWindowsPressesOnlyVisibleWindowsButtons() {
-        // Distinct pids: separately-created system-wide elements all compare
-        // CFEqual, which would collapse the mock's per-element bookkeeping.
-        let visible = AXUIElementCreateApplication(101)
-        let minimized = AXUIElementCreateApplication(202)
-        let button = AXUIElementCreateApplication(303)
-        mockService.mockAppWindows = [visible, minimized]
-        mockService.mockMinimizedElements = [minimized]
-        mockService.mockMinimizeButton = button
-
-        ActionRegistry().minimizeAllWindowsAction.perform(
-            app: NSRunningApplication.current, service: mockService
-        )
-
-        XCTAssertEqual(mockService.performActionCalledWith?.action, kAXPressAction,
-                       "The visible window's minimize button must be pressed")
-        XCTAssertTrue(mockService.performActionCalledWith?.element == button,
-                      "The press must target the minimize button of the non-minimized window only")
     }
 
     func testUnminimizeAllWindowsRestoresOnlyMinimizedWindows() {
@@ -852,18 +790,7 @@ final class RouterTests: XCTestCase {
         XCTAssertEqual(mode, .spaceLeft)
     }
 
-    // MARK: - Minimize All / Unminimize All via swipe gestures
-
-    func testSwipeDownRoutesMinimizeAllOnDockTarget() {
-        let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.finder")
-            .first ?? NSRunningApplication.current
-        let result = routeGestureBound(.swipeDown(atNormalized: (0.5, 0.5)), kind: .swipeDown,
-                                       to: .minimizeAll, target: .dock(dockApp))
-        guard case let .execute(mode, _, _) = result else {
-            return XCTFail("Expected swipeDown→minimizeAll on dock to execute")
-        }
-        XCTAssertEqual(mode, .minimizeAll)
-    }
+    // MARK: - Unminimize via swipe gestures
 
     func testSwipeUpRoutesUnminimizeAllOnWindowTarget() throws {
         let result = try routeGestureBound(.swipeUp(atNormalized: (0.5, 0.5)), kind: .swipeUp,
@@ -875,13 +802,9 @@ final class RouterTests: XCTestCase {
         XCTAssertEqual(mode, .unminimizeAll)
     }
 
-    func testMinimizeAllDefaultsNeverAssignedByGestureDefaults() {
+    func testUnminimizeAllDefaultsNeverAssignedByGestureDefaults() {
         for kind in GestureKind.allCases {
             for isCmd in [false, true] {
-                XCTAssertNotEqual(
-                    GestureDefaults.action(for: kind, isCmd: isCmd), .minimizeAll,
-                    "\(kind) (cmd=\(isCmd)) must not be assigned by default — share vs exclusive"
-                )
                 XCTAssertNotEqual(
                     GestureDefaults.action(for: kind, isCmd: isCmd), .unminimizeAll,
                     "\(kind) (cmd=\(isCmd)) must not be assigned by default"
@@ -890,12 +813,9 @@ final class RouterTests: XCTestCase {
         }
     }
 
-    func testMinimizeAllAppearsOnlyInExpectedNaturalLists() {
-        XCTAssertTrue(GestureKind.swipeDown.naturalActions.contains(.minimizeAll),
-                      "Swipe Down must offer Minimize All (down → Dock)")
-        XCTAssertFalse(GestureKind.swipeUp.naturalActions.contains(.minimizeAll))
+    func testUnminimizeAllAppearsOnlyInExpectedNaturalLists() {
         XCTAssertTrue(GestureKind.swipeUp.naturalActions.contains(.unminimizeAll),
-                      "Swipe Up must offer Unminimize All (up from Dock)")
+                      "Swipe Up must offer Unminimize (up from Dock)")
         XCTAssertFalse(GestureKind.swipeDown.naturalActions.contains(.unminimizeAll))
     }
 
