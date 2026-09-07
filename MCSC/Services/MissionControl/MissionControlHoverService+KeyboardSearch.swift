@@ -47,7 +47,8 @@ extension MissionControlHoverService {
     func handleKeyDown(keyCode: Int64, characters: String?, flags: CGEventFlags) -> Bool {
         guard isTracking else { return false }
 
-        // Exit keys: F3 (99), Apple hardware MC key (160), Ctrl+Up (126 with control), Escape (53 with empty search query).
+        // Exit keys: F3 (99), Apple hardware MC key (160), Ctrl+Up (126 with control), Escape (53 with empty search
+        // query).
         let isCtrlUp = (keyCode == 126 && flags.contains(.maskControl))
         let isF3OrMCKey = (keyCode == 99 || keyCode == 160)
         let isEscapeEmptyQuery = (keyCode == 53 && searchSession.query.isEmpty)

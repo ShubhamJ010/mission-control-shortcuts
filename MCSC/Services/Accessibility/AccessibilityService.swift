@@ -121,14 +121,17 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     deinit {
-        if let screenObserver { NotificationCenter.default.removeObserver(screenObserver) }
+        if let screenObserver {
+            NotificationCenter.default.removeObserver(screenObserver)
+        }
     }
 
     /// Returns a cached `AXUIElement` for the Dock process, creating it on
     /// first use and re-creating it only if the Dock process was relaunched
     /// (detected via pid change). Caching avoids per-call element allocation.
     private func getDockAXElement() -> AXUIElement? {
-        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first else { return nil }
+        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
+        else { return nil }
         if cachedDockElement == nil || cachedDockPID != dockApp.processIdentifier {
             cachedDockElement = AXUIElementCreateApplication(dockApp.processIdentifier)
             cachedDockPID = dockApp.processIdentifier

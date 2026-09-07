@@ -105,7 +105,9 @@ struct ShortcutConfiguration {
 
     var isMovePreviousDesktopEnabled: Bool {
         get { shortcutBindings[.movePreviousDesktop] != nil }
-        set { shortcutBindings[.movePreviousDesktop] = newValue ? RoutedAction.movePreviousDesktop.canonicalBinding : nil }
+        set {
+            shortcutBindings[.movePreviousDesktop] = newValue ? RoutedAction.movePreviousDesktop.canonicalBinding : nil
+        }
     }
 
     var isGesturesEnabled = true {

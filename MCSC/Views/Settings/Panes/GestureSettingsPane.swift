@@ -77,12 +77,12 @@ final class GestureSettingsPane: MCSCSettingsPane {
         layoutView.addSeparatorSection(identifier: .init("Sep.Restore"))
 
         layoutView.addButtonSection(title: "Restore Defaults",
-                                     controlSize: .regular,
-                                     alignment: .trailing,
-                                     widthMode: .contentBlock,
-                                     identifier: .init("RestoreDefaults"),
-                                     target: self,
-                                     action: #selector(restoreDefaults(_:)))
+                                    controlSize: .regular,
+                                    alignment: .trailing,
+                                    widthMode: .contentBlock,
+                                    identifier: .init("RestoreDefaults"),
+                                    target: self,
+                                    action: #selector(restoreDefaults(_:)))
     }
 
     /// Builds one gesture row: primary-action popup + enable switch accessory,

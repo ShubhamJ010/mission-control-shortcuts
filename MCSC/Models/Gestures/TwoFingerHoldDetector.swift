@@ -57,7 +57,8 @@ struct TwoFingerHoldDetector {
     }
 
     /// Process a multitouch frame.
-    /// - Returns: `true` if the hold state *just* transitioned from pending to held in this frame (useful for haptic & visual feedback).
+    /// - Returns: `true` if the hold state *just* transitioned from pending to held in this frame (useful for haptic &
+    /// visual feedback).
     mutating func processFrame(_ touches: [TouchPoint], timestamp: Double) -> Bool {
         lastTimestamp = timestamp
         if case let .latched(releaseTime) = state, timestamp - releaseTime > config.latchDuration {
