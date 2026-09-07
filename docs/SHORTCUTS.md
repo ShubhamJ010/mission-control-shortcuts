@@ -127,7 +127,7 @@ the hovered window under `point` is resolved.
 
 | Action | Keyboard | Gesture default | Impl |
 | --- | --- | --- | --- |
-| `Move to Next Desktop` | — | `Cmd+Swipe Right` alt (`naturalActions`) | `MoveWindowToDesktopAction(.next)` hold title bar (`40,12`) → `System Events` `Ctrl+→` (`124`) via `osascript` (~1.7s) |
+| `Move to Next Desktop` | — | `Cmd+Swipe Right` alt (`naturalActions`) | `MoveWindowToDesktopAction(.next)` hold title bar (`5,12`) → `System Events` `Ctrl+→` (`124`) via `osascript` (~1.7s) |
 | `Move to Previous Desktop` | — | `Swipe Left` alt | `MoveWindowToDesktopAction(.previous)` `Ctrl+←` (`123`) |
 
 > **Summary:** 5 keyboard shortcuts ON by default (`W/Q/M/H/Space`), 5 extra OFF (`F/T/N/ShiftW/ShiftT`), 7 size/desktop actions are **gesture-only or unbound**. All 17 are re-mappable in **Settings → Gestures** (`GestureSettingsPane:338`, `naturalActions` filter `GestureAction.swift:63`); use `GestureAction.allCases` to allow any action on any gesture.

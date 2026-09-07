@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.7.1 (8 Sep 2026)
+
+- **Desktop Navigation Grab Point Refinement**: Adjusted the synthetic title-bar grab point for `MoveWindowToDesktopAction` (`origin.x + 5, origin.y + 12`) to sit closer to the left edge of the window, staying well clear of the traffic light cluster and preventing drag releases from landing on the red close button.
+- **Automated Safe Accessibility Reset**: Made Accessibility permission reset via `tccutil` a safe, automated step in `deploy.sh` without requiring an explicit flag.
+
 ## 0.7.0 (8 Sep 2026)
 
 - **Show Desktop Detection Fix**: Prevent `Show Desktop` (`com.apple.showdesktop.start` / `AXExposeShowDesktop`) from putting the app into a false Mission Control state or flashing preview overlays.

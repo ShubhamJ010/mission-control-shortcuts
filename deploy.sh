@@ -33,15 +33,17 @@ if [ ! -d "$BUILT_APP_PATH" ]; then
     exit 1
 fi
 
-# Optional: Reset accessibility permissions only if explicitly requested
-if [[ "$*" == *"--reset-permissions"* ]]; then
-    echo "\n--- Resetting Accessibility Permissions (--reset-permissions flag passed) ---"
+# 3. Reset accessibility permissions safely
+echo "\n--- 3. Resetting Accessibility Permissions ---"
+if command -v tccutil > /dev/null; then
     echo "Resetting Accessibility database for bundle ID '$BUNDLE_ID'..."
-    tccutil reset Accessibility "$BUNDLE_ID" || echo "Warning: tccutil reset failed or Accessibility permission was not previously granted."
+    tccutil reset Accessibility "$BUNDLE_ID" || echo "Notice: Accessibility permission reset skipped or was not previously granted."
+else
+    echo "Notice: tccutil not found; skipping Accessibility permission reset."
 fi
 
-# 3. Install into /Applications
-echo "\n--- 3. Installing to Applications Folder ---"
+# 4. Install into /Applications
+echo "\n--- 4. Installing to Applications Folder ---"
 if [ -d "$APP_PATH" ]; then
     echo "Removing previous installation at $APP_PATH..."
     rm -rf "$APP_PATH"
@@ -51,8 +53,8 @@ echo "Installing to $APP_PATH..."
 # Copy the built bundle to the target location
 cp -R "$BUILT_APP_PATH" "$APP_PATH"
 
-# 4. Open the newly installed app
-echo "\n--- 4. Launching the App ---"
+# 5. Open the newly installed app
+echo "\n--- 5. Launching the App ---"
 echo "Opening $APP_PATH..."
 open "$APP_PATH"
 
