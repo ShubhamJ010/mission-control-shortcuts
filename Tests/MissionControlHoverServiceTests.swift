@@ -225,6 +225,44 @@ final class MissionControlHoverServiceTests: XCTestCase {
         XCTAssertEqual(service._testWindowCount, 0)
     }
 
+    /// `AXExposeShowDesktop` must keep Mission Control inactive rather than
+    /// falsely treating it as an active Exposé session.
+    func testAxExposeShowDesktopDoesNotActivateMissionControl() {
+        let mcService = MockMissionControlService()
+        let overlay = PreviewCloseButtonOverlay()
+        let service = makeUnifiedService(overlay: overlay, mcService: mcService)
+        service.start()
+        defer { service.stop() }
+
+        service.handleDockNotification("AXExposeShowDesktop")
+
+        XCTAssertEqual(mcService.markActiveCalls, [false])
+        XCTAssertFalse(mcService.isMissionControlActive)
+        XCTAssertFalse(service.isMissionControlActive)
+        XCTAssertEqual(service._testWindowCount, 0)
+    }
+
+    /// `AXExposeShowDesktop` after `AXExposeShowAllWindows` must deactivate and
+    /// clear the tracked window list just like `AXExposeExit`.
+    func testAxExposeShowDesktopWhileActiveDeactivatesAndClearsSession() {
+        let mcService = MockMissionControlService()
+        let overlay = PreviewCloseButtonOverlay()
+        let service = makeUnifiedService(overlay: overlay, mcService: mcService)
+        service.start()
+        defer { service.stop() }
+
+        service.handleDockNotification("AXExposeShowAllWindows")
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 0, y: 0, width: 100, height: 100))])
+        XCTAssertEqual(service._testWindowCount, 1)
+
+        service.handleDockNotification("AXExposeShowDesktop")
+
+        XCTAssertEqual(mcService.markActiveCalls, [true, false])
+        XCTAssertFalse(mcService.isMissionControlActive)
+        XCTAssertFalse(service.isMissionControlActive)
+        XCTAssertEqual(service._testWindowCount, 0)
+    }
+
     /// Open → close → reopen must restore a working session: the overlay
     /// reappears on reopen and the window poll timer / keyboard tap are
     /// recreated. Verifies fix #4 (timer not restarted after reopen) and the

@@ -60,7 +60,8 @@ extension MissionControlHoverService {
     }
 
     func handleDockNotification(_ notification: String) {
-        if notification == "AXExposeExit" {
+        switch notification {
+        case "AXExposeExit", "AXExposeShowDesktop":
             isMissionControlActive = false
             missionControlService?.markActive(false)
             stopWindowFetchTimer()
@@ -69,7 +70,7 @@ extension MissionControlHoverService {
             // Drop the previous session's window list immediately so no stale
             // entries persist before the next open's `fetchWindows()` refresh.
             windows = []
-        } else {
+        case "AXExposeShowAllWindows", "AXExposeShowFrontWindows":
             isMissionControlActive = true
             // Push the authoritative open transition into the shared detector so
             // every consumer of `MissionControlService.isMissionControlActive`
@@ -89,6 +90,8 @@ extension MissionControlHoverService {
             if let mouseLocation = CGEvent(source: nil)?.location {
                 updateOverlay(at: mouseLocation)
             }
+        default:
+            break
         }
     }
 }

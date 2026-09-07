@@ -121,11 +121,10 @@ final class MissionControlService: MissionControlServiceProtocol {
                 .addObserver(forName: NSNotification.Name(event), object: nil,
                              queue: .main) { [weak self] _ in
                     Task { @MainActor [weak self] in
-                        if event.contains("start") {
-                            self?.markActive(true)
-                        }
-                        if event.contains("stop") {
+                        if event.hasPrefix("com.apple.showdesktop.") || event.contains("stop") {
                             self?.markActive(false)
+                        } else if event.contains("start") {
+                            self?.markActive(true)
                         }
                     }
                 }

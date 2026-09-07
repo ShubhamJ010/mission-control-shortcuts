@@ -151,4 +151,27 @@ final class MissionControlServiceTests: XCTestCase {
         XCTAssertFalse(service.isMissionControlActive)
         XCTAssertFalse(service.isMissionControlActive) // cached
     }
+
+    /// `com.apple.showdesktop.start` must deactivate Mission Control and not mark it active.
+    func testShowDesktopNotificationDoesNotActivateMissionControl() {
+        service.start()
+        service.markActive(true)
+        XCTAssertTrue(service.isMissionControlActive)
+
+        let exp = expectation(description: "ShowDesktop notification handled")
+
+        DistributedNotificationCenter.default().postNotificationName(
+            NSNotification.Name("com.apple.showdesktop.start"),
+            object: nil,
+            userInfo: nil,
+            deliverImmediately: true
+        )
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            XCTAssertFalse(self?.service.isMissionControlActive ?? true)
+            exp.fulfill()
+        }
+
+        wait(for: [exp], timeout: 1.0)
+    }
 }
