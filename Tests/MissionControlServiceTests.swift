@@ -159,6 +159,9 @@ final class MissionControlServiceTests: XCTestCase {
         XCTAssertTrue(service.isMissionControlActive)
 
         let exp = expectation(description: "ShowDesktop notification handled")
+        service.onDeactivated = {
+            exp.fulfill()
+        }
 
         DistributedNotificationCenter.default().postNotificationName(
             NSNotification.Name("com.apple.showdesktop.start"),
@@ -167,11 +170,7 @@ final class MissionControlServiceTests: XCTestCase {
             deliverImmediately: true
         )
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
-            XCTAssertFalse(self?.service.isMissionControlActive ?? true)
-            exp.fulfill()
-        }
-
-        wait(for: [exp], timeout: 1.0)
+        wait(for: [exp], timeout: 2.0)
+        XCTAssertFalse(service.isMissionControlActive)
     }
 }

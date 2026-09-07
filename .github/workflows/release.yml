@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*" # Triggers the workflow only when you push a version tag like v1.0.0
+  workflow_dispatch:
 
 jobs:
   release:
@@ -47,12 +48,12 @@ jobs:
             -sdk macosx \
             -destination "platform=macOS,arch=arm64" \
             -derivedDataPath ./build/DerivedData \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES
 
-      # Locates the compiled .app file, moves it to a staging folder, and compresses it
-      - name: Package App into ZIP
+      # Locates the compiled .app file, signs with ad-hoc signature, packages ZIP, DMG, and SHA256
+      - name: Package App into ZIP and DMG
         run: |
           APP_PATH=$(find ./build/DerivedData/Build/Products/Release -name "*.app" -type d -maxdepth 2 | head -n 1)
           if [ -z "$APP_PATH" ]; then
@@ -67,25 +68,47 @@ jobs:
           echo "Found app bundle at: $APP_PATH"
           APP_NAME=$(basename "$APP_PATH")
 
-          mkdir dist
+          # Explicit ad-hoc code sign for Apple Silicon execution
+          echo "Applying ad-hoc code signature..."
+          codesign --force --deep --sign - "$APP_PATH"
+          codesign -dv --verbose=4 "$APP_PATH"
+
+          mkdir -p dist
           cp -R "$APP_PATH" dist/
 
+          # 1. Package ZIP
           cd dist
           zip -r "../${{ env.SCHEME }}.zip" "$APP_NAME"
           cd ..
 
-      # Extracts the changelog section matching the pushed tag (e.g. v0.5.0-beta -> "## 0.5.0-beta")
-      # and falls back to the full changelog if no matching section exists
+          # 2. Package DMG with Applications symlink
+          mkdir -p dmg_root
+          cp -R "$APP_PATH" dmg_root/
+          ln -s /Applications dmg_root/Applications
+          hdiutil create -volname "${{ env.SCHEME }}" -srcfolder dmg_root -ov -format UDZO "${{ env.SCHEME }}.dmg"
+
+          # 3. Generate SHA256 checksums
+          shasum -a 256 "${{ env.SCHEME }}.zip" > "${{ env.SCHEME }}.zip.sha256"
+          shasum -a 256 "${{ env.SCHEME }}.dmg" > "${{ env.SCHEME }}.dmg.sha256"
+
+      # Extracts the changelog section matching the pushed tag (e.g. v0.7.0 -> "## 0.7.0")
+      # and falls back to the top section or full changelog if no matching section exists
       - name: Extract Changelog Section
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          awk -v ver="$VERSION" '
-            $0 ~ "^## " ver { flag=1; next }
-            /^## / && flag { exit }
-            flag' CHANGELOG.md > RELEASE_NOTES.md
+          if [[ "$GITHUB_REF_NAME" =~ ^v[0-9] ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+            awk -v ver="$VERSION" '
+              $0 ~ "^## " ver { flag=1; next }
+              /^## / && flag { exit }
+              flag' CHANGELOG.md > RELEASE_NOTES.md
+          else
+            awk '
+              /^## / { count++; if (count == 1) { flag=1; next } if (count == 2) { exit } }
+              flag' CHANGELOG.md > RELEASE_NOTES.md
+          fi
 
           if [ ! -s RELEASE_NOTES.md ]; then
-            echo "No changelog section found for $VERSION — falling back to full changelog"
+            echo "No changelog section found — falling back to full changelog"
             cp CHANGELOG.md RELEASE_NOTES.md
           fi
 
@@ -93,12 +116,15 @@ jobs:
           cat RELEASE_NOTES.md
 
       # Generates a GitHub Release with the changelog section as notes,
-      # attaching both the zipped app and the full changelog
+      # attaching zipped app, DMG, checksums, and full changelog
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             ${{ env.SCHEME }}.zip
+            ${{ env.SCHEME }}.zip.sha256
+            ${{ env.SCHEME }}.dmg
+            ${{ env.SCHEME }}.dmg.sha256
             CHANGELOG.md
           body_path: RELEASE_NOTES.md
           generate_release_notes: true

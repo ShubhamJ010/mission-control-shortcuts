@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0 (8 Sep 2026)
+
+- **Show Desktop Detection Fix**: Prevent `Show Desktop` (`com.apple.showdesktop.start` / `AXExposeShowDesktop`) from putting the app into a false Mission Control state or flashing preview overlays.
+- **Overlay Instant Dismissal & Multitouch Memory Optimization**: Close button overlay dismisses immediately on exit keys (F3, Mission Control key, Ctrl+Up, Escape), clicks outside, or 3-finger touches throttled to 30 Hz. Kept `MultitouchService` lazy until gestures are active to preserve the 12.6 MB memory ceiling.
+- **Background Window Title-Bar Gestures & App Activation**: Title-bar gestures now activate and raise background windows (`AccessibilityService.activate(app:window:)`) using `kAXRaiseAction` and window focusing. Deduplicated app activation logic across routing targets.
+- **Overlay Flicker & Animation Hardening**: Eliminated stale frame flicker on rapid successive triggers by canceling in-flight layer animations, resetting transforms before entry, suppressing implicit `CATransaction` animations on image swaps, and clearing images upon dismissal.
+- **Activation Routing & Rendering Optimizations**: Bring target applications frontmost for focus/sizing shortcuts and gestures, avoiding redundant AX hit-test IPC. Removed overlay layer shadows to eliminate offscreen GPU passes and reduce memory footprint.
+- **Shortcut & Gesture Enhancements**: Removed obsolete Minimize All shortcut and simplified Unminimize label; added two-finger hold detector for Command modifier.
+
 ## 0.6.3-beta (26 Aug 2026)
 
 - **Close All Tabs Removed**: The `Cmd+Shift+W` / `Cmd+swipe-left` "Close All Tabs" action is fully removed — `GestureAction.closeAllTabs`, `RoutedAction.closeAllTabs`, `CloseScope.allTabs`, and the `.closeAllTabs` cursor feedback mode (`rectangle.badge.xmark`) are gone. `Cmd+swipe-left` now defaults to **Close Window** (`.close` feedback), and the ⌘⇧W settings row, config key (`mcsc.shortcuts.cmdShiftW.enabled`), and its `WindowCloser` keystroke path are deleted.
