@@ -741,7 +741,8 @@ final class RouterTests: XCTestCase {
     /// persisted mapping afterwards so UserDefaults-backed defaults stay untouched.
     private func routeGestureBound(_ result: GestureResult, kind: GestureKind,
                                    to action: GestureAction,
-                                   target: TargetResolution) -> ResolvedGestureAction {
+                                   target: TargetResolution,
+                                   activateApp: @escaping (CGPoint) -> Void = { _ in }) -> ResolvedGestureAction {
         let key = "mcsc.gestures.actions"
         let original = UserDefaults.standard.dictionary(forKey: key)
         defer {
@@ -759,16 +760,17 @@ final class RouterTests: XCTestCase {
             at: CGPoint(x: 200, y: 200),
             target: target,
             service: mockService,
-            activateApp: { _ in }
+            activateApp: activateApp
         )
     }
 
     /// Binds `action` to pinch-in on a scratch config — convenience for the
     /// legacy desktop-move tests that share this binding style.
     private func routePinchInBound(to action: GestureAction,
-                                   target: TargetResolution) -> ResolvedGestureAction {
+                                   target: TargetResolution,
+                                   activateApp: @escaping (CGPoint) -> Void = { _ in }) -> ResolvedGestureAction {
         routeGestureBound(.pinchIn(atNormalized: (0.5, 0.5)), kind: .pinchIn,
-                          to: action, target: target)
+                          to: action, target: target, activateApp: activateApp)
     }
 
     func testMoveNextDesktopRoutesOnWindowTargetWithSpaceRightFeedback() throws {
@@ -828,7 +830,6 @@ final class RouterTests: XCTestCase {
             return XCTFail("Expected moveNextDesktop on dock to execute")
         }
         XCTAssertEqual(nextMode, .spaceRight)
-
         let previous = routePinchInBound(to: .movePreviousDesktop, target: .dock(dockApp))
         guard case let .execute(previousMode, _, _) = previous else {
             return XCTFail("Expected movePreviousDesktop on dock to execute")

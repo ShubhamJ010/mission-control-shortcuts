@@ -106,12 +106,6 @@ final class CursorFeedbackOverlay {
         let imageView = NSImageView(frame: contentRect)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.layer?.shadowColor = NSColor.black.withAlphaComponent(0.45).cgColor
-        imageView.layer?.shadowOpacity = 1.0
-        imageView.layer?.shadowOffset = CGSize(width: 0, height: -1.5)
-        imageView.layer?.shadowRadius = 4.5
-        let circleRect = CGRect(x: 3, y: 3, width: 28, height: 28)
-        imageView.layer?.shadowPath = CGPath(ellipseIn: circleRect, transform: nil)
         imageView.image = image(for: .close)
 
         panel.contentView = imageView

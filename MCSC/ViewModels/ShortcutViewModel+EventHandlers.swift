@@ -56,7 +56,7 @@ extension ShortcutViewModel {
                 service: self.accessibilityService,
                 volumeService: self.volumeService,
                 isTitleBarHover: isTitleBarHover,
-                activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
+                activateApp: { [weak self] loc in self?.activateApp(for: target, at: loc) }
             )
 
             switch resolution {
@@ -97,7 +97,7 @@ extension ShortcutViewModel {
             volumeService: volumeService,
             isAutoEjectEnabled: config.isAutoEjectEnabled,
             config: config,
-            activateApp: { [weak self] loc in self?.activateAppIfNeeded(at: loc) }
+            activateApp: { [weak self] loc in self?.activateApp(for: target, at: loc) }
         )
 
         switch resolution {

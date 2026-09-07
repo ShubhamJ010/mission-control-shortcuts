@@ -53,6 +53,25 @@ extension ShortcutViewModel {
 
     // MARK: - App Activation
 
+    /// Activates the application for an already-resolved target if available,
+    /// avoiding redundant AX hit-test IPC round-trips.
+    @discardableResult
+    func activateApp(for target: TargetResolution, at point: CGPoint) -> NSRunningApplication? {
+        switch target {
+        case let .dock(app):
+            app.activate()
+            return app
+        case let .window(window):
+            if let app = accessibilityService.getAppFromElement(window) {
+                app.activate()
+                return app
+            }
+            return activateAppIfNeeded(at: point)
+        case .none:
+            return activateAppIfNeeded(at: point)
+        }
+    }
+
     @discardableResult
     func activateAppIfNeeded(at point: CGPoint) -> NSRunningApplication? {
         let element = accessibilityService.getElement(at: point)
@@ -60,11 +79,7 @@ extension ShortcutViewModel {
         let app = isDock
             ? element.flatMap { accessibilityService.getAppFromDockItem($0) }
             : element.flatMap { accessibilityService.getAppFromElement($0) }
-        if #available(macOS 14.0, *) {
-            app?.activate()
-        } else {
-            app?.activate(options: .activateIgnoringOtherApps)
-        }
+        app?.activate()
         return app
     }
 }

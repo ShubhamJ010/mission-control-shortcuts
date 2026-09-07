@@ -40,12 +40,6 @@ enum GestureKind: String, CaseIterable {
         }
     }
 
-    /// Whether this kind triggers `activateApp` when fired on a window/dock target.
-    /// Mirrors legacy behaviour: only swipe-left auto-activates the target app.
-    var activatesApp: Bool {
-        self == .swipeLeft
-    }
-
     /// Haptic type for this kind; two-finger tap varies by modifier.
     func haptic(isCmd: Bool) -> HapticType {
         switch self {
@@ -130,6 +124,19 @@ enum GestureAction: String, CaseIterable {
     /// Short subtitle hint used only in docs/tests if needed.
     var shortDescription: String {
         menuTitle
+    }
+
+    /// Whether performing this action requires bringing the target application frontmost.
+    var requiresAppActivation: Bool {
+        switch self {
+        case .closeTab, .reopenTab, .newTab, .newWindow,
+             .toggleFullscreen, .fillScreen, .almostMaximize,
+             .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll:
+            true
+        case .closeWindow, .quitApp, .minimize, .hideApp,
+             .moveNextDesktop, .movePreviousDesktop:
+            false
+        }
     }
 }
 

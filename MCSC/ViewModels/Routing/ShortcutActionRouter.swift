@@ -81,12 +81,15 @@ final class ShortcutActionRouter {
                        config: config, isTitleBarHover: isTitleBarHover) else {
             return .ignore
         }
-        let app = resolveApp(from: target)
+        let context = Context(
+            location: location,
+            app: resolveApp(from: target),
+            config: config,
+            service: service,
+            activateApp: activateApp
+        )
         if includesShift {
-            if let action = routeShiftShortcut(
-                matched: matched, config: config, target: target,
-                service: service, location: location, app: app
-            ) {
+            if let action = routeShiftShortcut(matched: matched, target: target, context: context) {
                 return action
             }
         } else {
@@ -96,10 +99,7 @@ final class ShortcutActionRouter {
             ) {
                 return action
             }
-            if let action = routePureCmdShortcut(
-                matched: matched, config: config, service: service,
-                location: location, app: app, activateApp: activateApp
-            ) {
+            if let action = routePureCmdShortcut(matched: matched, context: context) {
                 return action
             }
         }
@@ -139,6 +139,27 @@ private extension ShortcutActionRouter {
         return nil
     }
 
+    struct Context {
+        let location: CGPoint
+        let app: NSRunningApplication?
+        let config: ShortcutConfiguration
+        let service: AccessibilityServiceProtocol
+        let activateApp: (CGPoint) -> Void
+
+        func execute(
+            feedbackMode: CursorFeedbackOverlay.Mode,
+            needsActivate: Bool = false,
+            action: @escaping () -> Void
+        ) -> ResolvedShortcutAction {
+            .consumeAndExecute(feedbackMode: feedbackMode) {
+                if needsActivate {
+                    activateApp(location)
+                }
+                action()
+            }
+        }
+    }
+
     private func routeEjectIfNeeded(
         matched: [RoutedAction],
         config: ShortcutConfiguration,
@@ -173,73 +194,58 @@ private extension ShortcutActionRouter {
     /// `RoutedAction.routeOrder` precedence.
     func routePureCmdShortcut(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?,
-        activateApp: @escaping (CGPoint) -> Void
+        context: Context
     ) -> ResolvedShortcutAction? {
-        if let action = routePureCmdCoreShortcuts(
-            matched: matched, config: config, service: service,
-            location: location, app: app, activateApp: activateApp
-        ) {
+        if let action = routePureCmdCoreShortcuts(matched: matched, context: context) {
             return action
         }
-        return routePureCmdWindowShortcuts(
-            matched: matched, config: config, service: service,
-            location: location, app: app
-        )
+        return routePureCmdWindowShortcuts(matched: matched, context: context)
     }
 
     func routePureCmdCoreShortcuts(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?,
-        activateApp: @escaping (CGPoint) -> Void
+        context: Context
     ) -> ResolvedShortcutAction? {
-        if matched.contains(.close) || (config.isTabShortcutsEnabled && matched.contains(.closeTab)) {
-            return .consumeAndExecute(feedbackMode: .close) { [weak self] in
+        if matched.contains(.close) || (context.config.isTabShortcutsEnabled && matched.contains(.closeTab)) {
+            return context.execute(feedbackMode: .close, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                activateApp(location)
-                let scope: CloseScope = config.isTabShortcutsEnabled ? .activeTab : .window
+                let scope: CloseScope = context.config.isTabShortcutsEnabled ? .activeTab : .window
                 self.actions.close.perform(
                     scope,
-                    at: location,
-                    fromApp: app,
-                    service: service,
-                    quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled
+                    at: context.location,
+                    fromApp: context.app,
+                    service: context.service,
+                    quitIfNoWindows: context.config.isQuitAppIfNoWindowsEnabled
                 )
             }
         }
         if matched.contains(.quit) {
-            return .consumeAndExecute(feedbackMode: .quit) { [weak self] in
+            return context.execute(feedbackMode: .quit) { [weak self] in
                 guard let self else { return }
-                if let app {
+                if let app = context.app {
                     self.actions.forceQuitAppAction.perform(app: app)
                 } else {
-                    self.actions.forceQuitAction.perform(at: location, service: service)
+                    self.actions.forceQuitAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.minimize) {
-            return .consumeAndExecute(feedbackMode: .minimize) { [weak self] in
+            return context.execute(feedbackMode: .minimize) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.minimizeAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.minimizeAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.minimizeAction.perform(at: location, service: service)
+                    self.actions.minimizeAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.hide) {
-            return .consumeAndExecute(feedbackMode: .hide) { [weak self] in
+            return context.execute(feedbackMode: .hide) { [weak self] in
                 guard let self else { return }
-                if let app {
+                if let app = context.app {
                     app.hide()
                 } else {
-                    self.actions.hideAction.perform(at: location, service: service)
+                    self.actions.hideAction.perform(at: context.location, service: context.service)
                 }
             }
         }
@@ -248,36 +254,33 @@ private extension ShortcutActionRouter {
 
     func routePureCmdWindowShortcuts(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.fullscreen) {
-            return .consumeAndExecute(feedbackMode: .fullscreen) { [weak self] in
+            return context.execute(feedbackMode: .fullscreen, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.toggleFullscreenAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.toggleFullscreenAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.toggleFullscreenAction.perform(at: location, service: service)
+                    self.actions.toggleFullscreenAction.perform(at: context.location, service: context.service)
                 }
             }
         }
-        if config.isTabShortcutsEnabled && matched.contains(.newTab) {
-            let mode: CursorFeedbackOverlay.Mode = (app != nil) ? .newWindow : .newTab
-            return .consumeAndExecute(feedbackMode: mode) { [weak self] in
+        if context.config.isTabShortcutsEnabled, matched.contains(.newTab) {
+            let mode: CursorFeedbackOverlay.Mode = (context.app != nil) ? .newWindow : .newTab
+            return context.execute(feedbackMode: mode, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if app != nil {
-                    self.actions.newWindowAction.perform(at: location, service: service)
+                if context.app != nil {
+                    self.actions.newWindowAction.perform(at: context.location, service: context.service)
                 } else {
-                    self.actions.newTabAction.perform(at: location, service: service)
+                    self.actions.newTabAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.newWindow) {
-            return .consumeAndExecute(feedbackMode: .newWindow) { [weak self] in
+            return context.execute(feedbackMode: .newWindow, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                self.actions.newWindowAction.perform(at: location, service: service)
+                self.actions.newWindowAction.perform(at: context.location, service: context.service)
             }
         }
         return nil
@@ -285,42 +288,36 @@ private extension ShortcutActionRouter {
 
     private func routeShiftShortcut(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
         target: TargetResolution,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
-        if let action = routeShiftTabActions(
-            matched: matched, config: config, service: service, location: location, app: app
-        ) { return action }
-        if let action = routeShiftAppGroupActions(
-            matched: matched, config: config, target: target, service: service, location: location, app: app
-        ) { return action }
-        if let action = routeShiftWindowSizeActions(
-            matched: matched, config: config, service: service, location: location, app: app
-        ) { return action }
-        if let action = routeShiftDesktopActions(
-            matched: matched, config: config, service: service, location: location, app: app
-        ) { return action }
+        if let action = routeShiftTabActions(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeShiftAppGroupActions(matched: matched, target: target, context: context) {
+            return action
+        }
+        if let action = routeShiftWindowSizeActions(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeShiftDesktopActions(matched: matched, context: context) {
+            return action
+        }
         return nil
     }
 
     private func routeShiftTabActions(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
-        guard config.isTabShortcutsEnabled else { return nil }
+        guard context.config.isTabShortcutsEnabled else { return nil }
         if matched.contains(.reopenTab) {
-            return .consumeAndExecute(feedbackMode: .reopenTab) { [weak self] in
+            return context.execute(feedbackMode: .reopenTab, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
+                if let app = context.app {
                     self.actions.reopenTabAppAction.perform(app: app)
                 } else {
-                    self.actions.reopenTabAction.perform(at: location, service: service)
+                    self.actions.reopenTabAction.perform(at: context.location, service: context.service)
                 }
             }
         }
@@ -332,45 +329,35 @@ private extension ShortcutActionRouter {
     /// function's cyclomatic complexity under the SwiftLint budget.
     func routeShiftWindowSizeActions(
         matched: [RoutedAction],
-        config: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
-        if let action = routeShiftFillActions(
-            matched: matched, config: config, service: service, location: location, app: app
-        ) {
+        if let action = routeShiftFillActions(matched: matched, context: context) {
             return action
         }
-        return routeShiftResizeActions(
-            matched: matched, config: config, service: service, location: location, app: app
-        )
+        return routeShiftResizeActions(matched: matched, context: context)
     }
 
     func routeShiftFillActions(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.fillScreen) {
-            return .consumeAndExecute(feedbackMode: .maximize) { [weak self] in
+            return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.fillScreenAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.fillScreenAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.fillScreenAction.perform(at: location, service: service)
+                    self.actions.fillScreenAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.almostMaximize) {
-            return .consumeAndExecute(feedbackMode: .almost) { [weak self] in
+            return context.execute(feedbackMode: .almost, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.almostMaximizeAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.almostMaximizeAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.almostMaximizeAction.perform(at: location, service: service)
+                    self.actions.almostMaximizeAction.perform(at: context.location, service: context.service)
                 }
             }
         }
@@ -379,38 +366,35 @@ private extension ShortcutActionRouter {
 
     func routeShiftResizeActions(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.reasonableSize) {
-            return .consumeAndExecute(feedbackMode: .reasonable) { [weak self] in
+            return context.execute(feedbackMode: .reasonable, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.reasonableSizeAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.reasonableSizeAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.reasonableSizeAction.perform(at: location, service: service)
+                    self.actions.reasonableSizeAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.makeLarger) {
-            return .consumeAndExecute(feedbackMode: .maximize) { [weak self] in
+            return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.makeLargerAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.makeLargerAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.makeLargerAction.perform(at: location, service: service)
+                    self.actions.makeLargerAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.makeSmaller) {
-            return .consumeAndExecute(feedbackMode: .makeSmaller) { [weak self] in
+            return context.execute(feedbackMode: .makeSmaller, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.makeSmallerAppAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.makeSmallerAppAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.makeSmallerAction.perform(at: location, service: service)
+                    self.actions.makeSmallerAction.perform(at: context.location, service: context.service)
                 }
             }
         }
@@ -422,17 +406,18 @@ private extension ShortcutActionRouter {
     /// application, since the effect is app-wide rather than per-window.
     private func routeShiftAppGroupActions(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
         target: TargetResolution,
-        service: AccessibilityServiceProtocol,
-        location _: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.unminimizeAll) {
-            return .consumeAndExecute(feedbackMode: .unminimizeAll) { [weak self] in
+            return context.execute(feedbackMode: .unminimizeAll, needsActivate: true) { [weak self] in
                 guard let self,
-                      let owner = self.resolveOwnerApp(target: target, app: app, service: service) else { return }
-                self.actions.unminimizeAllWindowsAction.perform(app: owner, service: service)
+                      let owner = self.resolveOwnerApp(
+                          target: target,
+                          app: context.app,
+                          service: context.service
+                      ) else { return }
+                self.actions.unminimizeAllWindowsAction.perform(app: owner, service: context.service)
             }
         }
         return nil
@@ -456,28 +441,25 @@ private extension ShortcutActionRouter {
 
     private func routeShiftDesktopActions(
         matched: [RoutedAction],
-        config _: ShortcutConfiguration,
-        service: AccessibilityServiceProtocol,
-        location: CGPoint,
-        app: NSRunningApplication?
+        context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.moveNextDesktop) {
-            return .consumeAndExecute(feedbackMode: .spaceRight) { [weak self] in
+            return context.execute(feedbackMode: .spaceRight) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.moveNextDesktopAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.moveNextDesktopAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.moveNextDesktopAction.perform(at: location, service: service)
+                    self.actions.moveNextDesktopAction.perform(at: context.location, service: context.service)
                 }
             }
         }
         if matched.contains(.movePreviousDesktop) {
-            return .consumeAndExecute(feedbackMode: .spaceLeft) { [weak self] in
+            return context.execute(feedbackMode: .spaceLeft) { [weak self] in
                 guard let self else { return }
-                if let app {
-                    self.actions.movePreviousDesktopAction.perform(app: app, service: service)
+                if let app = context.app {
+                    self.actions.movePreviousDesktopAction.perform(app: app, service: context.service)
                 } else {
-                    self.actions.movePreviousDesktopAction.perform(at: location, service: service)
+                    self.actions.movePreviousDesktopAction.perform(at: context.location, service: context.service)
                 }
             }
         }

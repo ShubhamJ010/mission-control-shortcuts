@@ -165,7 +165,6 @@ final class CloseButtonView: NSView {
         self.strategy = strategy
         super.init(frame: frameRect)
         wantsLayer = true
-        setupLayer()
         setupImageView()
     }
 
@@ -197,7 +196,6 @@ final class CloseButtonView: NSView {
         self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(frame: frameRect)
         wantsLayer = true
-        setupLayer()
         setupImageView()
     }
 
@@ -205,21 +203,7 @@ final class CloseButtonView: NSView {
         self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(coder: coder)
         wantsLayer = true
-        setupLayer()
         setupImageView()
-    }
-
-    private func setupLayer() {
-        guard let layer = self.layer else { return }
-        layer.masksToBounds = false
-        layer.shadowColor = NSColor.black.withAlphaComponent(0.45).cgColor
-        layer.shadowOpacity = 1.0
-        layer.shadowOffset = CGSize(width: 0, height: -1.5)
-        layer.shadowRadius = 4.5
-        // Explicit shadow path prevents CoreAnimation from performing an expensive
-        // offscreen pass and allocating separate GPU render targets for dynamic shadow.
-        let circleRect = CGRect(x: 2, y: 2, width: 28, height: 28)
-        layer.shadowPath = CGPath(ellipseIn: circleRect, transform: nil)
     }
 
     private func setupImageView() {

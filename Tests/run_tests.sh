@@ -103,6 +103,7 @@ swiftc \
   "${SCRIPT_DIR}/ShortcutConfigurationTests.swift" \
   "${SCRIPT_DIR}/TwoFingerHoldDetectorTests.swift" \
   "${SCRIPT_DIR}/RouterTests.swift" \
+  "${SCRIPT_DIR}/ActivationRoutingTests.swift" \
   "${SCRIPT_DIR}/DockInteractionSuppressorTests.swift" \
   "${SCRIPT_DIR}/PerformanceTests.swift" \
   "${SCRIPT_DIR}/OverlayAnimationStrategyTests.swift" \
