@@ -109,4 +109,21 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         frontmostWindowCheckedWith = window
         return isFrontmostWindowValue
     }
+
+    var raiseWindowCalledWith: AXUIElement?
+    var raiseWindowReturnValue: Bool = true
+    func raiseWindow(_ window: AXUIElement) -> Bool {
+        raiseWindowCalledWith = window
+        return raiseWindowReturnValue
+    }
+
+    var activateCalledWithApp: NSRunningApplication?
+    var activateCalledWithWindow: AXUIElement?
+    var activateReturnValue: Bool = true
+    @discardableResult
+    func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool {
+        activateCalledWithApp = app
+        activateCalledWithWindow = window
+        return activateReturnValue
+    }
 }

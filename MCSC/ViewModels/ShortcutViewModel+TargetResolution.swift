@@ -21,7 +21,7 @@ extension ShortcutViewModel {
     /// Standard macOS title-bar height (pt) used for the outside-MC hover strip.
     static let titleBarHeight: CGFloat = 28
 
-    /// `true` when the cursor sits on the title-bar strip of the frontmost
+    /// `true` when the cursor sits on the title-bar strip of a target
     /// window. Only invoked when the feature is enabled and Mission Control is
     /// closed; rides the existing 30 Hz frame throttle.
     func isTitleBarHovered(at point: CGPoint) -> Bool {
@@ -29,10 +29,9 @@ extension ShortcutViewModel {
         return isTitleBarHover(window: window, at: point)
     }
 
-    /// Core geometry + frontmost check for an already-resolved window target.
+    /// Core geometry check for an already-resolved window target.
     func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
-        guard accessibilityService.isFrontmostWindow(window),
-              let frame = accessibilityService.getFrame(for: window),
+        guard let frame = accessibilityService.getFrame(for: window),
               frame.contains(point) else { return false }
         return point.y - frame.minY <= Self.titleBarHeight
     }
@@ -59,11 +58,11 @@ extension ShortcutViewModel {
     func activateApp(for target: TargetResolution, at point: CGPoint) -> NSRunningApplication? {
         switch target {
         case let .dock(app):
-            app.activate()
+            accessibilityService.activate(app: app, window: nil)
             return app
         case let .window(window):
             if let app = accessibilityService.getAppFromElement(window) {
-                app.activate()
+                accessibilityService.activate(app: app, window: window)
                 return app
             }
             return activateAppIfNeeded(at: point)
@@ -74,12 +73,14 @@ extension ShortcutViewModel {
 
     @discardableResult
     func activateAppIfNeeded(at point: CGPoint) -> NSRunningApplication? {
-        let element = accessibilityService.getElement(at: point)
-        let isDock = element.map { accessibilityService.isDockItem($0) } ?? false
+        guard let element = accessibilityService.getElement(at: point) else { return nil }
+        let isDock = accessibilityService.isDockItem(element)
         let app = isDock
-            ? element.flatMap { accessibilityService.getAppFromDockItem($0) }
-            : element.flatMap { accessibilityService.getAppFromElement($0) }
-        app?.activate()
+            ? accessibilityService.getAppFromDockItem(element)
+            : accessibilityService.getAppFromElement(element)
+        guard let app else { return nil }
+        let window = isDock ? nil : accessibilityService.getWindow(for: element)
+        accessibilityService.activate(app: app, window: window)
         return app
     }
 }

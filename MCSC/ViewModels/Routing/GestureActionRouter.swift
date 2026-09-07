@@ -22,6 +22,7 @@ final class GestureActionRouter {
         volumeService: MountedVolumeServiceProtocol? = nil,
         isAutoEjectEnabled: Bool = true,
         config: ShortcutConfiguration = ShortcutConfiguration(),
+        isTitleBarHover: Bool = false,
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedGestureAction {
         let (kind, isCmd) = result.kindAndModifier
@@ -60,7 +61,7 @@ final class GestureActionRouter {
             service: service,
             feedbackMode: feedbackMode(for: action),
             haptic: haptic,
-            needsActivate: action.requiresAppActivation,
+            needsActivate: action.requiresAppActivation || isTitleBarHover,
             quitIfNoWindows: config.isQuitAppIfNoWindowsEnabled,
             activateApp: activateApp
         )

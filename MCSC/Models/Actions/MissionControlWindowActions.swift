@@ -56,11 +56,7 @@ enum MissionControlWindowActions {
 
         // Fallback: activate application and trigger close action
         if let app = NSRunningApplication(processIdentifier: pid) {
-            if #available(macOS 14.0, *) {
-                app.activate()
-            } else {
-                app.activate(options: .activateIgnoringOtherApps)
-            }
+            _ = accessibilityService.activate(app: app, window: nil)
         }
 
         if let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] {
@@ -81,11 +77,7 @@ enum MissionControlWindowActions {
 
         // Fallback: activate application and trigger minimize action
         if let app = NSRunningApplication(processIdentifier: pid) {
-            if #available(macOS 14.0, *) {
-                app.activate()
-            } else {
-                app.activate(options: .activateIgnoringOtherApps)
-            }
+            _ = accessibilityService.activate(app: app, window: nil)
         }
 
         if let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat] {

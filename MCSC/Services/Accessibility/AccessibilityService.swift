@@ -65,6 +65,13 @@ protocol AccessibilityServiceProtocol {
 
     /// `true` when `window` is the focused window of the frontmost application.
     func isFrontmostWindow(_ window: AXUIElement) -> Bool
+
+    /// Raises `window` to the front of the window hierarchy via `kAXRaiseAction`.
+    func raiseWindow(_ window: AXUIElement) -> Bool
+
+    /// Activates `app`, optionally raising and focusing `window`.
+    @discardableResult
+    func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool
 }
 
 final class AccessibilityService: AccessibilityServiceProtocol {
@@ -363,6 +370,24 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     func focusWindow(_ window: AXUIElement) -> Bool {
         let result = AXUIElementSetAttributeValue(window, kAXFocusedAttribute as CFString, kCFBooleanTrue)
         return result == .success
+    }
+
+    func raiseWindow(_ window: AXUIElement) -> Bool {
+        performAction(kAXRaiseAction as String, on: window)
+    }
+
+    @discardableResult
+    func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool {
+        if let window {
+            _ = raiseWindow(window)
+            _ = focusWindow(window)
+        }
+        if #available(macOS 14.0, *) {
+            app.activate()
+        } else {
+            app.activate(options: .activateIgnoringOtherApps)
+        }
+        return true
     }
 
     /// Retrieves the current frame (origin and size in Quartz AX coordinates) for an accessibility element.

@@ -89,6 +89,10 @@ extension ShortcutViewModel {
     func handleGestureResult(_ result: GestureResult) {
         let axPoint = currentAXMouseLocation()
         let target = resolveTarget(at: axPoint)
+        var isTitleBarHover = false
+        if case let .window(window) = target, !missionControlService.isMissionControlActive {
+            isTitleBarHover = self.isTitleBarHover(window: window, at: axPoint)
+        }
         let resolution = gestureRouter.routeGesture(
             result,
             at: axPoint,
@@ -97,6 +101,7 @@ extension ShortcutViewModel {
             volumeService: volumeService,
             isAutoEjectEnabled: config.isAutoEjectEnabled,
             config: config,
+            isTitleBarHover: isTitleBarHover,
             activateApp: { [weak self] loc in self?.activateApp(for: target, at: loc) }
         )
 
