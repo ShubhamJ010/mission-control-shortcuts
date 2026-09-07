@@ -81,6 +81,15 @@ System Settings → Privacy & Security → Accessibility
 The first launch prompts for it, and the app boots the moment you grant it.
 Without it MCSC runs but cannot act on windows.
 
+### Homebrew (Recommended)
+
+```bash
+brew tap --trust ShubhamJ010/tap
+brew install --cask mcsc
+```
+
+*The cask automatically strips quarantine attributes during install.*
+
 ### Build from source
 
 ```bash
