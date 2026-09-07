@@ -84,7 +84,8 @@ Without it MCSC runs but cannot act on windows.
 ### Homebrew (Recommended)
 
 ```bash
-brew tap --trust ShubhamJ010/tap
+brew tap ShubhamJ010/tap
+brew trust ShubhamJ010/tap # on Homebrew 6+
 brew install --cask mcsc
 ```
 
