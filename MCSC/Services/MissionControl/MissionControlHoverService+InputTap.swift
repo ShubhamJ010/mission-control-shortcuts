@@ -71,6 +71,17 @@ extension MissionControlHoverService {
                     if intercepted {
                         return nil // Swallow the click so Mission Control does not dismiss prematurely
                     }
+
+                    // User clicked outside the close button (e.g. activating a window or dismissing MC).
+                    // Hide overlay immediately rather than waiting for lagging exit notification.
+                    if Thread.isMainThread {
+                        service.hideOverlay()
+                    } else {
+                        DispatchQueue.main.async {
+                            service.hideOverlay()
+                        }
+                    }
+
                     return Unmanaged.passUnretained(event)
                 }
 

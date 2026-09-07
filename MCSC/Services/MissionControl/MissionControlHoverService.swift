@@ -12,6 +12,7 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
 
     func start()
     func stop()
+    func hideOverlay()
 }
 
 @MainActor

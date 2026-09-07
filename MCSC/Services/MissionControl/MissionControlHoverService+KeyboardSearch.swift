@@ -42,11 +42,21 @@ extension MissionControlHoverService {
     }
 
     /// Handles a raw `keyDown` from the HID tap while Mission Control is open.
-    /// All Tab / Return / typing navigation is gated by the single "Keyboard
-    /// Navigation" toggle. Returns `true` to swallow the event (handled) or
-    /// `false` to let it pass through to the system.
-    private func handleKeyDown(keyCode: Int64, characters: String?, flags: CGEventFlags) -> Bool {
+    /// Returns `true` to swallow the event (handled) or `false` to let it
+    /// pass through to the system.
+    func handleKeyDown(keyCode: Int64, characters: String?, flags: CGEventFlags) -> Bool {
         guard isTracking else { return false }
+
+        // Exit keys: F3 (99), Apple hardware MC key (160), Ctrl+Up (126 with control), Escape (53 with empty search query).
+        let isCtrlUp = (keyCode == 126 && flags.contains(.maskControl))
+        let isF3OrMCKey = (keyCode == 99 || keyCode == 160)
+        let isEscapeEmptyQuery = (keyCode == 53 && searchSession.query.isEmpty)
+
+        if isCtrlUp || isF3OrMCKey || isEscapeEmptyQuery {
+            hideOverlay()
+            return false // Pass through so WindowServer exits Mission Control
+        }
+
         guard isKeyboardNavigationEnabledProvider() else { return false }
 
         let effect = searchSession.handleKey(

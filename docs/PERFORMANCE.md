@@ -158,11 +158,23 @@ vmmap --summary $PID       # -> TOTAL 305 MB RESIDENT, DIRTY 7-12 MB at launch
 sample $PID 5 -file /tmp/mcsc_idle_fixed.txt  # -> 7-9 SLWindowListCopyWindowInfo in 5s (75% reduction)
 ```
 
+**Post-fix** — `0.6.3-beta (11)`, pid `8885` / `8913` (2026-09-08, audit fix):
+
+```bash
+PID=$(pgrep -x MCSC)
+footprint -p $PID          # -> 11.0 MB at launch, 28-30 MB post-interaction (peak 35 MB with CoreUI/NSPanel)
+heap $PID                  # -> 19210 nodes, 2.2 MB at launch; 60668 nodes, 8.5 MB post-interaction; 0 leaks
+leaks $PID                 # -> 0 leaks for 0 total leaked bytes
+vmmap --summary $PID       # -> TOTAL 2.4G VIRTUAL, 432 MB RESIDENT, DIRTY 11.0 MB at launch (written 7.0 MB)
+sample $PID 5 -file /tmp/sample_8913.txt  # -> 0 SLWindowListCopyWindowInfo at idle; 0.0% CPU; 3 threads parked
+```
+
 What the traces showed:
 
 - **No memory leak (both builds).** `leaks` 0 bytes; `heap` stable; `footprint` oscillation is `CoreAnimation`/`IOSurface`/`IOAccelerator` paging (post-fix 11 -> 21-68 MB vs pre-fix 44 -> 88 MB) — graphics memory, not growth. `lsof -p $PID` 44 fds stable. Post-fix heap dropped 13.0 MB -> 2.7 MB (fewer cached window dictionaries).
 - **CPU at idle ~0%.** `top POWER 0.0`, `CSW ~100k`. Pre-fix HID transient 3-8% / spike 19.6% (`ps %CPU`) all in `multitouchCallback` → `ShortcutViewModel.setupCallbacks` (`ShortcutViewModel.swift:329`) → `checkMissionControlActive()` (`MissionControlService.swift:119`) → `SLWindowListCopyWindowInfo` → `mach_msg2_trap` + `CFPropertyListCreateWithData`. Post-fix same path throttled to 30 Hz + 350 ms cache + coalescing → 7-9 IPCs per 5s, CPU still 2-5% during active HID but idle `sample` shows `WindowList` near 0 when no touch (7 calls in the active-touch sample, 0 in the no-touch 3s sample `/tmp/mcsc_fixed.txt`). No high-frequency timer at idle; `windowFetchTimer` (0.5 s, `MissionControlHoverService.swift:73`) only while MC open, `queryIdleTimer` (2.0 s) only while query active.
 - **Battery idle cost negligible.** `accessibilityPollTimer` (`AppDelegate.swift:57`, 1.0 s `[weak self]`) invalidated once `AXIsProcessTrusted()` true; sleep/wake observers (`AppDelegate.swift:56-80`) + deferred `deviceStop` (`MultitouchService.swift:49-121`) prevent wake leaks. `powermetrics` needs `sudo`; `top POWER` + `footprint` are practical proxies.
+- **Lazy Multitouch + Keyboard Tap Gating (2026-09-08 audit).** Fixed eager `needsMultitouch` startup when gestures disabled (prevented 4-6 MB framework RAM hit). Restored `isKeyboardNavigationEnabledProvider` gate on `MCKeyboardTapService` so keyboard HID tap is skipped when nav disabled. Gated 3-finger overlay dismiss behind `isTracking` inside 30 Hz throttle. Launch footprint settled at **11.0 MB** (`phys_footprint`, 19k nodes, 0 leaks), well within the 13 MB ceiling.
 
 Re-measure after any change that touches `CGWindowListCopyWindowInfo`, `AXUIElement`, `CFRunLoopSource`, or overlay (`NSPanel`) lifecycle — the `__CFRunLoopServiceMachPort` + `SLWindowListCopyWindowInfo` slice is the first regression signal. Verify with `./deploy.sh` then `footprint` at launch vs after 10s HID.
 

@@ -259,4 +259,86 @@ final class MissionControlHoverServiceTests: XCTestCase {
         service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
         XCTAssertTrue(overlay.isVisible)
     }
+
+    // MARK: - Instant Exit Key Triggers
+
+    func testF3KeyDownHidesOverlayAndPassesThrough() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { true },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+        XCTAssertTrue(overlay.isVisible)
+
+        // F3 (keyCode 99)
+        let handled = service.handleKeyDown(keyCode: 99, characters: nil, flags: [])
+        XCTAssertFalse(handled, "Exit key must pass through to macOS WindowServer")
+        XCTAssertFalse(overlay.isVisible, "Overlay must be hidden immediately")
+    }
+
+    func testHardwareMCKey160HidesOverlayAndPassesThrough() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { true },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+        XCTAssertTrue(overlay.isVisible)
+
+        // Hardware MC Key (keyCode 160)
+        let handled = service.handleKeyDown(keyCode: 160, characters: nil, flags: [])
+        XCTAssertFalse(handled, "Exit key must pass through to macOS WindowServer")
+        XCTAssertFalse(overlay.isVisible, "Overlay must be hidden immediately")
+    }
+
+    func testControlUpArrowHidesOverlayAndPassesThrough() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { true },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+        XCTAssertTrue(overlay.isVisible)
+
+        // Ctrl + Up Arrow (keyCode 126 + maskControl)
+        let handled = service.handleKeyDown(keyCode: 126, characters: nil, flags: [.maskControl])
+        XCTAssertFalse(handled, "Ctrl+Up must pass through to macOS WindowServer")
+        XCTAssertFalse(overlay.isVisible, "Overlay must be hidden immediately")
+    }
+
+    func testEscapeWithEmptyQueryHidesOverlayAndPassesThrough() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { true },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+        service.handleSpaceChange(at: CGPoint(x: 250, y: 250))
+        XCTAssertTrue(overlay.isVisible)
+
+        // Escape (keyCode 53) with empty search query
+        let handled = service.handleKeyDown(keyCode: 53, characters: nil, flags: [])
+        XCTAssertFalse(handled, "Escape on empty query must pass through to dismiss MC")
+        XCTAssertFalse(overlay.isVisible, "Overlay must be hidden immediately")
+    }
 }

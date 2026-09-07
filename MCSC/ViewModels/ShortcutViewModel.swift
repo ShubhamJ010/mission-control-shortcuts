@@ -369,6 +369,11 @@ final class ShortcutViewModel {
             guard now - self.lastGestureFrameTime >= self.gestureFrameInterval else { return }
             self.lastGestureFrameTime = now
 
+            // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
+            if touches.count >= 3 && self.hoverService.isTracking {
+                self.hoverService.hideOverlay()
+            }
+
             let mcActive = self.missionControlService.isMissionControlActive
             let axPoint = self.currentAXMouseLocation()
             let dockHovered = !mcActive
