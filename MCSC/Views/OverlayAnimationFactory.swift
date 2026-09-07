@@ -148,6 +148,7 @@ enum OverlayAnimationFactory {
                 panel.orderOut(nil)
                 imageView.layer?.transform = CATransform3DIdentity
                 imageView.layer?.removeAllAnimations()
+                imageView.image = nil
                 completion()
             }
         }

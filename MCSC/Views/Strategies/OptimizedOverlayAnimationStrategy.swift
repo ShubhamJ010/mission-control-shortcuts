@@ -9,23 +9,36 @@ final class OptimizedOverlayAnimationStrategy: OverlayAnimationStrategy {
         imageView: NSImageView,
         feedbackImage: NSImage
     ) {
+        guard let layer = imageView.layer else {
+            imageView.image = feedbackImage
+            return
+        }
+
+        layer.removeAllAnimations()
+        layer.transform = CATransform3DIdentity
+
         if let baseSymbol = mode.baseSymbol,
            let baseImage = SymbolImageFactory.make(
                symbolName: baseSymbol,
                description: mode.accessibilityDescription,
                paletteColors: mode.basePaletteColors ?? mode.paletteColors
-           ),
-           let layer = imageView.layer {
+           ) {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             imageView.image = baseImage
+            CATransaction.commit()
+            CATransaction.flush()
+
             OverlayAnimationFactory.applyMorphTransition(on: layer)
             imageView.image = feedbackImage
         } else {
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
             imageView.image = feedbackImage
+            CATransaction.commit()
         }
 
-        if let layer = imageView.layer {
-            OverlayAnimationFactory.applyEntryAnimation(style: mode.animationStyle, on: layer)
-        }
+        OverlayAnimationFactory.applyEntryAnimation(style: mode.animationStyle, on: layer)
     }
 
     func applyAppear(on view: NSView, imageView _: NSImageView) {

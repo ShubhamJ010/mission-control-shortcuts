@@ -57,6 +57,18 @@ final class OverlayAnimationStrategyTests: XCTestCase {
         overlay.hide()
     }
 
+    func testCursorFeedbackOverlayRapidSuccessiveTriggersWithOptimizedStrategy() {
+        let strategy = OptimizedOverlayAnimationStrategy()
+        let overlay = CursorFeedbackOverlay(strategy: strategy)
+        let point = CGPoint(x: 150, y: 150)
+
+        // Rapidly trigger Next Desktop, then Maximize, then Close
+        overlay.show(at: point, mode: .spaceRight)
+        overlay.show(at: point, mode: .maximize)
+        overlay.show(at: point, mode: .close)
+        overlay.hide()
+    }
+
     func testPreviewCloseButtonOverlayStrategyInitialization() {
         let optimizedOverlay = PreviewCloseButtonOverlay(strategy: OptimizedOverlayAnimationStrategy())
         XCTAssertTrue(optimizedOverlay.strategy is OptimizedOverlayAnimationStrategy)

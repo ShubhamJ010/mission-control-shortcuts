@@ -106,7 +106,7 @@ final class CursorFeedbackOverlay {
         let imageView = NSImageView(frame: contentRect)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.image = image(for: .close)
+        imageView.image = nil
 
         panel.contentView = imageView
         self.imageView = imageView
@@ -131,12 +131,21 @@ final class CursorFeedbackOverlay {
 
         guard let feedbackImage = image(for: mode) else { return }
 
+        // Immediately cancel any in-flight animations or transforms from previous retracts
+        imageView.layer?.removeAllAnimations()
+        imageView.layer?.transform = CATransform3DIdentity
+
+        // Apply symbol entry before making panel visible to eliminate stale frame flicker
+        strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
+
         if !panel.isVisible {
             panel.orderFrontRegardless()
         }
+        NSAnimationContext.beginGrouping()
+        NSAnimationContext.current.duration = 0
+        panel.animator().alphaValue = 1.0
+        NSAnimationContext.endGrouping()
         panel.alphaValue = 1.0
-
-        strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
 
         scheduleDismiss()
     }
@@ -147,6 +156,7 @@ final class CursorFeedbackOverlay {
         dismissWork = nil
         panel?.orderOut(nil)
         panel?.alphaValue = 0.0
+        imageView?.image = nil
         imageView?.layer?.transform = CATransform3DIdentity
         imageView?.layer?.removeAllAnimations()
         if #available(macOS 14.0, *) {

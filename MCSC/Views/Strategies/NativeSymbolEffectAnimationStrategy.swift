@@ -22,7 +22,10 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
             )
         }
 
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         imageView.image = baseImage ?? feedbackImage
+        CATransaction.commit()
         CATransaction.flush()
 
         // Morph transition via setSymbolImage
