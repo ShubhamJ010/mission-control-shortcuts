@@ -2,7 +2,7 @@
 
 <img src="./docs/assets/icon.png" width="96" alt="MCSC app icon">
 
-# MCSC — Mission Control Shortcuts
+# MCSC: Mission Control Shortcuts
 
 ### Keyboard shortcuts and trackpad gestures for Mission Control
 
@@ -11,8 +11,8 @@
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 
 A free, open-source menu bar app that turns Mission Control previews into
-windows you can actually act on. Type to find one, swipe or press to close,
-minimize, tile, quit or eject it.
+windows you can act on. Type to find one, swipe or press to close,
+minimize, tile, quit, or eject it.
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Tests](#tests)
 
@@ -23,63 +23,39 @@ minimize, tile, quit or eject it.
 ---
 
 Mission Control already shows you every open window. MCSC makes those previews
-do things. Point at one, type its app name, or flick two fingers, and the
+actionable: point at one, type its app name, or flick two fingers, and the
 window closes, minimizes, tiles, quits, or ejects its disk image.
 
 It listens only while Mission Control is open. On the desktop, in Launchpad,
 and inside Finder folder stacks it stays completely silent, so your normal
-shortcuts never change — and a keystroke pre-filter means typing in other apps
-costs MCSC **zero** Accessibility IPC. All of this runs event-driven in a
-single AppKit process that idles around 12 MB of RAM with 0% CPU; measured on
-macOS 15.7.3 with Mission Control open and closed (see
+shortcuts never change. A keystroke pre-filter ensures typing in other apps
+costs MCSC zero Accessibility IPC. Everything runs event-driven in a
+single AppKit process that idles around 12 MB of RAM with 0% CPU (measured on
+macOS 15.7.3 with Mission Control open and closed; see
 [PERFORMANCE.md](./docs/PERFORMANCE.md)).
 
 ## Features
 
-**Find any window by typing.** Open Mission Control and start typing an app
-name. Fuzzy matching ranks every open window instantly, draws a native
-highlight on the best match, and shows a Dock-style query pill. `Tab` cycles
-matches, `Enter` jumps straight to the window.
-
-**Fourteen trackpad gestures, right inside Mission Control.** Pinch to close
-or force quit, swipe up to fill the screen, swipe down to minimize, double-tap
-to resize. Each gesture has a `Cmd` variant, so fourteen actions sit under two
-fingers. Gestures fire once per finger lift, so holding your hand still never
-repeats them by accident.
-
-**Tile and resize without leaving Mission Control.** Fill screen, make larger
-(+33%), reasonable size (60%), almost maximize (90%), plus Make Smaller as a
-bindable action that round-trips back to the original size.
-
-**Eject disk images from the overview.** Hover a Finder window showing a
-mounted DMG, pinch in or press `Cmd+W`, and MCSC closes it and ejects the
-volume. No trip to the Finder sidebar afterwards.
-
-**Feedback you can feel.** Every action flashes its own SF Symbol at the
-cursor and pairs it with a haptic tick. You know what happened without looking
-twice.
-
-**The Dock answers too.** Hover Dock icons on the desktop and the same
-shortcuts and gestures apply at app level. Point at a window preview and you
-get window actions; point at the Dock and you get app actions. App Exposé
-stays suppressed mid-gesture so it never photobombs the animation.
-
-**Strictly scoped.** Nothing is intercepted outside Mission Control. Ever.
-
-**Configurable.** Toggle each shortcut and gesture individually from the menu
-bar, plus launch at login.
+- **Type to find any window**: Start typing an app name inside Mission Control. Fuzzy matching ranks open windows instantly, marks the best match with a native highlight, and displays a Dock-style query pill. `Tab` cycles matches, and `Enter` focuses the window.
+- **14 trackpad gestures**: Pinch to close or force quit, swipe up to fill the screen, swipe down to minimize, and double-tap to resize. Each gesture includes a `Cmd` modifier variant for fourteen distinct actions under two fingers. Gestures fire once per finger lift to avoid accidental repeats.
+- **Tile and resize directly**: Fill the screen, expand by 33%, snap to 60%, or almost maximize to 90%, plus a reversible Make Smaller action that returns windows to their original size.
+- **Eject disk images from the overview**: Hover over a Finder window showing a mounted DMG, pinch in or press `Cmd+W`, and MCSC closes the window and unmounts the volume. No manual trip to the Finder sidebar.
+- **Feedback you can feel**: Every action flashes its corresponding SF Symbol at the cursor paired with a tactile click, confirming the action immediately.
+- **The Dock answers too**: Hover over Dock icons on the desktop to trigger app-level shortcuts and gestures. Point at a window preview for window actions, or point at the Dock for app actions. App Exposé stays suppressed mid-gesture.
+- **Strictly scoped**: Nothing is intercepted outside Mission Control.
+- **Configurable**: Toggle individual shortcuts and gestures from the menu bar, or enable launch at login.
 
 ## Installation
 
-MCSC needs the **Accessibility** permission to inspect windows and intercept
+MCSC needs the Accessibility permission to inspect windows and intercept
 input while Mission Control is open:
 
 ```text
 System Settings → Privacy & Security → Accessibility
 ```
 
-The first launch prompts for it, and the app boots the moment you grant it.
-Without it MCSC runs but cannot act on windows.
+The first launch prompts for it, and the app starts as soon as permission is granted.
+Without it, MCSC runs but cannot act on windows.
 
 ### Homebrew (Recommended)
 
@@ -90,16 +66,6 @@ brew install --cask mcsc
 ```
 
 *The cask automatically strips quarantine attributes during install.*
-
-### Build from source
-
-```bash
-git clone https://github.com/ShubhamJ010/mission-control-shortcuts.git
-cd mission-control-shortcuts
-open MCSC.xcodeproj
-```
-
-Build the `MCSC` scheme and run.
 
 ### Downloaded release builds
 
@@ -119,6 +85,16 @@ sentinel sign --app MCSC.app --identity "Developer ID Application: Your Name (Te
 codesign -dv --verbose=4 MCSC.app
 ```
 
+### Build from source
+
+```bash
+git clone https://github.com/ShubhamJ010/mission-control-shortcuts.git
+cd mission-control-shortcuts
+open MCSC.xcodeproj
+```
+
+Build the `MCSC` scheme and run.
+
 ## Usage
 
 MCSC lives in the menu bar with no Dock icon. Use its menu to toggle individual
@@ -126,7 +102,7 @@ shortcuts and gestures, enable launch at login, or quit.
 
 Once Mission Control is open, point at any preview or just start typing.
 
-**Type-to-select**
+### Type-to-select
 
 | Input | Action |
 | --- | --- |
@@ -136,7 +112,7 @@ Once Mission Control is open, point at any preview or just start typing.
 | `Up` | Cycle backward through matches |
 | `Esc` / `Backspace` | Clear query / delete last character |
 
-**Keyboard shortcuts**
+### Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
@@ -146,7 +122,7 @@ Once Mission Control is open, point at any preview or just start typing.
 | `Cmd + H` | Hide app |
 | `Cmd + Space` | Recover a stuck Mission Control / Spotlight state |
 
-**Trackpad gestures**
+### Trackpad gestures
 
 | Gesture | Action | With `Cmd` |
 | --- | --- | --- |
@@ -158,24 +134,24 @@ Once Mission Control is open, point at any preview or just start typing.
 | Double tap | Reasonable size (60%) | Almost maximize (90%) |
 
 On windows showing an ejectable volume, pinch-in and swipe-left eject instead
-of closing. Hover buttons on each preview offer Close, Minimize (`Option`) and
+of closing. Hover buttons on each preview offer Close, Minimize (`Option`), and
 Force Quit (`Command`) without touching the keyboard.
 
 ## Documentation
 
-- [SHORTCUTS.md](./docs/SHORTCUTS.md) — every shortcut, fuzzy finding details, hover buttons.
-- [GESTURES.md](./docs/GESTURES.md) — every gesture and how recognition works.
-- [MISSION_CONTROL.md](./docs/MISSION_CONTROL.md) — how MCSC detects and scopes to Mission Control.
-- [MOVE_WINDOW_TO_DESKTOP.md](./docs/MOVE_WINDOW_TO_DESKTOP.md) — moving windows across Spaces.
-- [SYMBOLS.md](./docs/SYMBOLS.md) — the SF Symbol map behind feedback overlays.
-- [PERFORMANCE.md](./docs/PERFORMANCE.md) — the memory and CPU budget, profiling recipes, and measured open/close numbers.
-- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) — MVVM design, event taps, low-level choices.
+- [SHORTCUTS.md](./docs/SHORTCUTS.md) - Every shortcut, fuzzy finding details, and hover buttons.
+- [GESTURES.md](./docs/GESTURES.md) - Every gesture and how recognition works.
+- [MISSION_CONTROL.md](./docs/MISSION_CONTROL.md) - How MCSC detects and scopes to Mission Control.
+- [MOVE_WINDOW_TO_DESKTOP.md](./docs/MOVE_WINDOW_TO_DESKTOP.md) - Moving windows across Spaces.
+- [SYMBOLS.md](./docs/SYMBOLS.md) - The SF Symbol map behind feedback overlays.
+- [PERFORMANCE.md](./docs/PERFORMANCE.md) - The memory and CPU budget, profiling recipes, and measured numbers.
+- [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - MVVM design, event taps, and low-level choices.
 
 ## Tests
 
-127 unit and performance tests, including wall-clock **budget tests** that fail
+127 unit and performance tests, including wall-clock budget tests that fail
 on hot-path regressions (frame-throttle rate, keystroke pre-filter cost,
-detection-cache short-circuit, window-list matching):
+detection-cache short-circuit, and window-list matching):
 
 ```bash
 ./Tests/run_tests.sh
