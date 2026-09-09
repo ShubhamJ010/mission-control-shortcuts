@@ -98,6 +98,8 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         mockWindowTitle
     }
 
+    var isDockAutoHideEnabled: Bool = false
+
     var isDockRegionValue: Bool = false
     func isDockRegion(at _: CGPoint) -> Bool {
         isDockRegionValue

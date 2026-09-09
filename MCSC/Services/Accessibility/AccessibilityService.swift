@@ -59,6 +59,9 @@ protocol AccessibilityServiceProtocol {
     /// Reads the window title if exposed via `kAXTitleAttribute`.
     func getWindowTitle(for window: AXUIElement) -> String?
 
+    /// Whether Dock auto-hide is enabled in user defaults.
+    var isDockAutoHideEnabled: Bool { get }
+
     /// Fast check: is the given Quartz point inside the Dock's AX list frame?
     /// Uses a cached Dock frame (refreshed on screen changes) to avoid per-frame AX queries.
     func isDockRegion(at point: CGPoint) -> Bool
@@ -94,6 +97,12 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// screen-configuration changes to avoid per-frame AX queries.
     private var cachedDockFrame: CGRect?
     private var screenObserver: NSObjectProtocol?
+
+    private let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
+
+    var isDockAutoHideEnabled: Bool {
+        dockDefaults?.bool(forKey: "autohide") ?? false
+    }
 
     /// Extra padding (pt) around the cached Dock frame treated as "hovering
     /// the Dock". Covers magnification growth and hover-bounce overflow.
@@ -481,17 +490,20 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let paddedFrame = cachedDockFrame?.insetBy(dx: -Self.dockFramePadding, dy: -Self.dockFramePadding)
         if let paddedFrame {
             if paddedFrame.contains(point) {
-                return true
-            }
-            // Point is outside the cached frame; only pay for the AX fallback
-            // if it could still be over a magnified / auto-hidden Dock.
-            guard paddedFrame.insetBy(dx: -Self.dockFallbackRadius, dy: -Self.dockFallbackRadius).contains(point) else {
-                return false
+                if !isDockAutoHideEnabled {
+                    return true
+                }
+            } else {
+                let fallbackFrame = paddedFrame.insetBy(dx: -Self.dockFallbackRadius, dy: -Self.dockFallbackRadius)
+                guard fallbackFrame.contains(point) else {
+                    return false
+                }
             }
         } else {
             refreshDockFrame()
             if let frame = cachedDockFrame,
-               frame.insetBy(dx: -Self.dockFramePadding, dy: -Self.dockFramePadding).contains(point) {
+               frame.insetBy(dx: -Self.dockFramePadding, dy: -Self.dockFramePadding).contains(point),
+               !isDockAutoHideEnabled {
                 return true
             }
         }

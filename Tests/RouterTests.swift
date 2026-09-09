@@ -836,6 +836,130 @@ final class RouterTests: XCTestCase {
         }
         XCTAssertEqual(previousMode, .spaceLeft)
     }
+
+    func testGestureRouterRejectsWindowOutsideMCOutsideTitleBar() throws {
+        let element = try XCTUnwrap(mockService.mockElement)
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .window(element),
+            isMissionControlActive: false,
+            service: mockService,
+            isTitleBarHover: false,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .none:
+            break
+        case .execute:
+            XCTFail("Window gestures outside Mission Control must be rejected outside title bar")
+        }
+    }
+
+    func testGestureRouterAdmitsWindowOutsideMCInsideTitleBar() throws {
+        let element = try XCTUnwrap(mockService.mockElement)
+        var config = ShortcutConfiguration()
+        config.isTitleBarActionsOutsideMCEnabled = true
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .window(element),
+            isMissionControlActive: false,
+            service: mockService,
+            config: config,
+            isTitleBarHover: true,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .execute:
+            break
+        case .none:
+            XCTFail("Window gestures outside Mission Control must be admitted over title bar when enabled")
+        }
+    }
+
+    func testGestureRouterRejectsWindowOutsideMCWhenTitleBarToggleOff() throws {
+        let element = try XCTUnwrap(mockService.mockElement)
+        var config = ShortcutConfiguration()
+        config.isTitleBarActionsOutsideMCEnabled = false
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .window(element),
+            isMissionControlActive: false,
+            service: mockService,
+            config: config,
+            isTitleBarHover: true,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .none:
+            break
+        case .execute:
+            XCTFail("Window gestures outside Mission Control must be rejected when title bar toggle is disabled")
+        }
+    }
+
+    func testGestureRouterRejectsDockOutsideMCWhenDockActionsOff() {
+        let app = NSRunningApplication.current
+        var config = ShortcutConfiguration()
+        config.isDockActionsOutsideMCEnabled = false
+        let result = gestureRouter.routeGesture(
+            .pinchOut(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .dock(app),
+            isMissionControlActive: false,
+            service: mockService,
+            config: config,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .none:
+            break
+        case .execute:
+            XCTFail("Dock gestures outside Mission Control must be rejected when dock actions toggle is disabled")
+        }
+    }
+
+    func testGestureRouterAdmitsDockOutsideMCWhenDockActionsOn() {
+        let app = NSRunningApplication.current
+        var config = ShortcutConfiguration()
+        config.isDockActionsOutsideMCEnabled = true
+        let result = gestureRouter.routeGesture(
+            .pinchOut(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .dock(app),
+            isMissionControlActive: false,
+            service: mockService,
+            config: config,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .execute:
+            break
+        case .none:
+            XCTFail("Dock gestures outside Mission Control must be admitted when dock actions toggle is enabled")
+        }
+    }
+
+    func testGestureRouterAdmitsWindowInsideMC() throws {
+        let element = try XCTUnwrap(mockService.mockElement)
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: .window(element),
+            isMissionControlActive: true,
+            service: mockService,
+            isTitleBarHover: false,
+            activateApp: { _ in }
+        )
+        switch result {
+        case .execute:
+            break
+        case .none:
+            XCTFail("Window gestures inside Mission Control must be admitted regardless of title bar")
+        }
+    }
 }
 
 final class DesktopNavigationActionTests: XCTestCase {

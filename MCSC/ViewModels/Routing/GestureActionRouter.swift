@@ -18,6 +18,7 @@ final class GestureActionRouter {
         _ result: GestureResult,
         at point: CGPoint,
         target: TargetResolution,
+        isMissionControlActive: Bool = true,
         service: AccessibilityServiceProtocol,
         volumeService: MountedVolumeServiceProtocol? = nil,
         isAutoEjectEnabled: Bool = true,
@@ -25,6 +26,17 @@ final class GestureActionRouter {
         isTitleBarHover: Bool = false,
         activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedGestureAction {
+        if !isMissionControlActive {
+            switch target {
+            case .none:
+                return .none
+            case .dock:
+                guard config.isDockActionsOutsideMCEnabled else { return .none }
+            case .window:
+                guard isTitleBarHover, config.isTitleBarActionsOutsideMCEnabled else { return .none }
+            }
+        }
+
         let (kind, isCmd) = result.kindAndModifier
         let haptic = kind.haptic(isCmd: isCmd)
 

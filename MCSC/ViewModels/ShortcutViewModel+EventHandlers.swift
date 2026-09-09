@@ -97,6 +97,7 @@ extension ShortcutViewModel {
             result,
             at: axPoint,
             target: target,
+            isMissionControlActive: missionControlService.isMissionControlActive,
             service: accessibilityService,
             volumeService: volumeService,
             isAutoEjectEnabled: config.isAutoEjectEnabled,
