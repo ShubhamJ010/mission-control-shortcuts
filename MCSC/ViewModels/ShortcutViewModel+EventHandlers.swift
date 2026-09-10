@@ -61,6 +61,7 @@ extension ShortcutViewModel {
 
             switch resolution {
             case let .consumeAndExecute(feedbackMode, action):
+                AppLogger.eventTap.info("Shortcut matched and consumed: keyCode=\(keyCode, privacy: .public)")
                 self.executeFeedbackThenAction(
                     at: effectiveLocation,
                     feedbackMode: feedbackMode,
@@ -87,6 +88,10 @@ extension ShortcutViewModel {
     }
 
     func handleGestureResult(_ result: GestureResult) {
+        let km = result.kindAndModifier
+        AppLogger.gesture.info(
+            "Gesture recognized: \(String(describing: km.kind), privacy: .public), isCmd=\(km.isCmd, privacy: .public)"
+        )
         let axPoint = currentAXMouseLocation()
         let target = resolveTarget(at: axPoint)
         var isTitleBarHover = false
@@ -108,6 +113,9 @@ extension ShortcutViewModel {
 
         switch resolution {
         case let .execute(feedbackMode, haptic, action):
+            AppLogger.gesture.info(
+                "Executing gesture action for target: \(String(describing: target), privacy: .public)"
+            )
             if !missionControlService.isMissionControlActive, config.isDockActionsOutsideMCEnabled {
                 dockSuppressor.isSuppressing = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { [weak self] in
@@ -116,7 +124,7 @@ extension ShortcutViewModel {
             }
             executeFeedbackThenAction(at: axPoint, feedbackMode: feedbackMode, haptic: haptic, action: action)
         case .none:
-            break
+            AppLogger.gesture.debug("Gesture ignored (no routed action)")
         }
     }
 

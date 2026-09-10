@@ -30,9 +30,20 @@ We follow a strict Model-View-ViewModel pattern to ensure testability and separa
 - **CF Object Management:** Be extremely careful with `AXUIElement` and `CGEvent` objects. Ensure they are released or handled by Swift's ARC correctly.
 - **Polling:** Avoid high-frequency timers. Prefer event-driven architecture (Event Taps, Notifications).
 
+## Diagnostics & AI Agent Auditing
+- **Zero-Footprint Logging:** Use Apple Unified Logging (`AppLogger.*`). Never use `print()` or heavy third-party crash reporters (Sentry, Firebase).
+- **Background Only:** Do not add diagnostic UI/export dialogs. Logging and crash dumps run headlessly in the background for AI agents.
+- **Audit Locations:**
+  - `~/Library/Logs/MCSC/diagnostic_report.jsonl` (structured JSON lines via `OSLogStore`)
+  - `~/Library/Logs/MCSC/crash.log` (fatal exception / signal stack traces)
+  - `~/Library/Logs/DiagnosticReports/MCSC-*.ips` (macOS system crash reports)
+- **Log Query Command:** `log show --predicate 'subsystem == "sj010.MCSC"' --info --debug --last 10m`
+- See [docs/DIAGNOSTICS.md](docs/DIAGNOSTICS.md) for full audit guide and troubleshooting patterns.
+
 ## PR Checklist for Future Devs
 - [ ] Memory usage verified to be under 13 MB.
 - [ ] No new large dependencies added.
 - [ ] Services include explicit cleanup logic.
 - [ ] MVVM pattern is strictly followed.
 - [ ] No retain cycles introduced (check `[weak self]` in closures).
+- [ ] Key events instrumented via `AppLogger` with appropriate category and privacy flags.

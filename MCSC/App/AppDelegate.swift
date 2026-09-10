@@ -28,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Hide dock icon (menu bar utility, no Dock presence).
         NSApp.setActivationPolicy(.accessory)
 
+        // Boot headless background diagnostics
+        DiagnosticService.shared.start()
+
         let eventTap = EventTapService()
         let accessibility = AccessibilityService()
         let missionControl = MissionControlService()

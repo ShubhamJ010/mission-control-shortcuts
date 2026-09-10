@@ -71,6 +71,7 @@ final class EventTapService: EventTapServiceProtocol {
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        AppLogger.eventTap.info("Event tap created and attached to run loop.")
     }
 
     /// Re-enables the event tap when the system disables it (timeout or user
@@ -80,7 +81,8 @@ final class EventTapService: EventTapServiceProtocol {
         guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
         guard let eventTap else { return }
         CGEvent.tapEnable(tap: eventTap, enable: true)
-        AppLogger.eventTap.info("Event tap was disabled by the system; re-enabled.")
+        let reason = type == .tapDisabledByTimeout ? "timeout" : "user input"
+        AppLogger.eventTap.warning("Event tap disabled by system (\(reason, privacy: .public)); re-enabled.")
     }
 
     /// Disables the tap, invalidates its run-loop source, and releases the
@@ -96,5 +98,6 @@ final class EventTapService: EventTapServiceProtocol {
         }
         eventTap = nil
         runLoopSource = nil
+        AppLogger.eventTap.info("Event tap stopped.")
     }
 }

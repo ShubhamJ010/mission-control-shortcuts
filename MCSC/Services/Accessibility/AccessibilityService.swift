@@ -190,6 +190,11 @@ final class AccessibilityService: AccessibilityServiceProtocol {
 
     func performAction(_ action: String, on element: AXUIElement) -> Bool {
         let result = AXUIElementPerformAction(element, action as CFString)
+        if result != .success {
+            AppLogger.accessibility.warning(
+                "performAction '\(action, privacy: .public)' failed with code \(result.rawValue, privacy: .public)"
+            )
+        }
         return result == .success
     }
 
@@ -432,7 +437,13 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         guard let sizeValue = AXValueCreate(.cgSize, &size) else { return false }
         let sizeResult = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
 
-        return posResult == .success && sizeResult == .success
+        let success = posResult == .success && sizeResult == .success
+        if !success {
+            AppLogger.accessibility.warning(
+                "setFrame failed (pos=\(posResult.rawValue, privacy: .public), size=\(sizeResult.rawValue, privacy: .public))"
+            )
+        }
+        return success
     }
 
     func getDocumentPath(for window: AXUIElement) -> String? {

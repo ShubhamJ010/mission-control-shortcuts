@@ -22,7 +22,8 @@ struct TestRunner {
             TwoFingerHoldDetectorTests.defaultTestSuite,
             PerformanceTests.defaultTestSuite,
             OverlayAnimationStrategyTests.defaultTestSuite,
-            SettingsPaneTests.defaultTestSuite
+            SettingsPaneTests.defaultTestSuite,
+            DiagnosticServiceTests.defaultTestSuite
         ]
 
         var totalFailed = 0

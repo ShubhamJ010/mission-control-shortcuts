@@ -154,6 +154,7 @@ final class MissionControlService: MissionControlServiceProtocol {
         _isMissionControlActive = active
         cachedIsActive = active
         lastDetectionTime = CACurrentMediaTime()
+        AppLogger.missionControl.info("Mission Control active state changed: \(active, privacy: .public)")
         if active {
             onActivated?()
         } else {
@@ -230,6 +231,7 @@ final class MissionControlService: MissionControlServiceProtocol {
     }
 
     func executeFixSequence() {
+        AppLogger.missionControl.info("Executing Mission Control Spotlight fix sequence (Escape -> Cmd+Space)")
         isSimulating = true
 
         // Step 1: Simulating Escape (Key code 53)

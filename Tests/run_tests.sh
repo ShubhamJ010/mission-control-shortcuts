@@ -18,6 +18,7 @@ swiftc \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks \
   -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
   -o "${SCRIPT_DIR}/bin_test_runner" \
+  "${ROOT_DIR}/MCSC/Services/Diagnostics/DiagnosticService.swift" \
   "${ROOT_DIR}/MCSC/Services/Multitouch/MultitouchService.swift" \
   "${ROOT_DIR}/MCSC/Services/Multitouch/MultitouchBridge.swift" \
   "${ROOT_DIR}/MCSC/Services/Accessibility/AccessibilityService.swift" \
@@ -108,6 +109,7 @@ swiftc \
   "${SCRIPT_DIR}/PerformanceTests.swift" \
   "${SCRIPT_DIR}/OverlayAnimationStrategyTests.swift" \
   "${SCRIPT_DIR}/SettingsPaneTests.swift" \
+  "${SCRIPT_DIR}/DiagnosticServiceTests.swift" \
   "${SCRIPT_DIR}/TestRunner.swift"
 
 trap 'rm -f "${SCRIPT_DIR}/bin_test_runner"' EXIT
