@@ -207,6 +207,22 @@ private extension GestureActionRouter {
             context.execute { [weak self] in
                 self?.actions.reasonableSizeAppAction.perform(app: app, service: context.service)
             }
+        case .leftHalfSnap:
+            context.execute { [weak self] in
+                self?.actions.leftHalfSnapAppAction.perform(app: app, service: context.service)
+            }
+        case .rightHalfSnap:
+            context.execute { [weak self] in
+                self?.actions.rightHalfSnapAppAction.perform(app: app, service: context.service)
+            }
+        case .leftThirdSnap:
+            context.execute { [weak self] in
+                self?.actions.leftThirdSnapAppAction.perform(app: app, service: context.service)
+            }
+        case .rightThirdSnap:
+            context.execute { [weak self] in
+                self?.actions.rightThirdSnapAppAction.perform(app: app, service: context.service)
+            }
         case .moveNextDesktop:
             context.execute { [weak self] in
                 self?.actions.moveNextDesktopAction.perform(app: app, service: context.service)
@@ -310,6 +326,22 @@ private extension GestureActionRouter {
             context.execute { [weak self] in
                 self?.actions.reasonableSizeAction.perform(at: context.point, service: context.service)
             }
+        case .leftHalfSnap:
+            context.execute { [weak self] in
+                self?.actions.leftHalfSnapAction.perform(at: context.point, service: context.service)
+            }
+        case .rightHalfSnap:
+            context.execute { [weak self] in
+                self?.actions.rightHalfSnapAction.perform(at: context.point, service: context.service)
+            }
+        case .leftThirdSnap:
+            context.execute { [weak self] in
+                self?.actions.leftThirdSnapAction.perform(at: context.point, service: context.service)
+            }
+        case .rightThirdSnap:
+            context.execute { [weak self] in
+                self?.actions.rightThirdSnapAction.perform(at: context.point, service: context.service)
+            }
         case .moveNextDesktop:
             context.execute { [weak self] in
                 self?.actions.moveNextDesktopAction.perform(at: context.point, service: context.service)
@@ -341,6 +373,10 @@ private extension GestureActionRouter {
         case .moveNextDesktop: .spaceRight
         case .movePreviousDesktop: .spaceLeft
         case .unminimizeAll: .unminimizeAll
+        case .leftHalfSnap: .leftHalf
+        case .rightHalfSnap: .rightHalf
+        case .leftThirdSnap: .leftThird
+        case .rightThirdSnap: .rightThird
         }
     }
 }

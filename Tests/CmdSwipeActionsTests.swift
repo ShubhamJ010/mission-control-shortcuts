@@ -50,6 +50,39 @@ final class CmdSwipeActionsTests: XCTestCase {
         XCTAssertNil(mockService.setFrameCalledWith)
     }
 
+    func testSnapActionsWithNilElementDoNotCrash() {
+        mockService.mockElement = nil
+        let point = CGPoint(x: 150, y: 250)
+
+        LeftHalfSnapAction().perform(at: point, service: mockService)
+        XCTAssertNil(mockService.setFrameCalledWith)
+
+        RightHalfSnapAction().perform(at: point, service: mockService)
+        XCTAssertNil(mockService.setFrameCalledWith)
+
+        LeftThirdSnapAction().perform(at: point, service: mockService)
+        XCTAssertNil(mockService.setFrameCalledWith)
+
+        RightThirdSnapAction().perform(at: point, service: mockService)
+        XCTAssertNil(mockService.setFrameCalledWith)
+    }
+
+    func testSnapPositionFrameCalculations() {
+        let visible = CGRect(x: 0, y: 25, width: 1440, height: 875)
+
+        let leftHalf = SnapPosition.leftHalf.frame(for: visible)
+        XCTAssertEqual(leftHalf, CGRect(x: 0, y: 25, width: 720, height: 875))
+
+        let rightHalf = SnapPosition.rightHalf.frame(for: visible)
+        XCTAssertEqual(rightHalf, CGRect(x: 720, y: 25, width: 720, height: 875))
+
+        let leftThird = SnapPosition.leftThird.frame(for: visible)
+        XCTAssertEqual(leftThird, CGRect(x: 0, y: 25, width: 480, height: 875))
+
+        let rightThird = SnapPosition.rightThird.frame(for: visible)
+        XCTAssertEqual(rightThird, CGRect(x: 960, y: 25, width: 480, height: 875))
+    }
+
     // MARK: - CloseScope.activeTab (cursor trigger)
 
     func testCloseActiveTabFocusesResolvedWindowBeforeCmdWFallback() {

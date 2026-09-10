@@ -43,7 +43,8 @@ final class ActivationRoutingTests: XCTestCase {
         let focusActions: [GestureAction] = [
             .closeTab, .reopenTab, .newTab, .newWindow,
             .toggleFullscreen, .fillScreen, .almostMaximize,
-            .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll
+            .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll,
+            .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap
         ]
 
         for action in focusActions {

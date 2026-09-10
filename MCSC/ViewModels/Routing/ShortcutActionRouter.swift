@@ -334,7 +334,58 @@ private extension ShortcutActionRouter {
         if let action = routeShiftFillActions(matched: matched, context: context) {
             return action
         }
+        if let action = routeShiftSnapActions(matched: matched, context: context) {
+            return action
+        }
         return routeShiftResizeActions(matched: matched, context: context)
+    }
+
+    func routeShiftSnapActions(
+        matched: [RoutedAction],
+        context: Context
+    ) -> ResolvedShortcutAction? {
+        let snapConfigs: [(
+            RoutedAction,
+            CursorFeedbackOverlay.Mode,
+            (ActionRegistry, NSRunningApplication?, CGPoint, AccessibilityServiceProtocol) -> Void
+        )] = [
+            (.leftHalfSnap, .leftHalf, { actions, app, loc, svc in
+                if let app {
+                    actions.leftHalfSnapAppAction.perform(app: app, service: svc)
+                } else {
+                    actions.leftHalfSnapAction.perform(at: loc, service: svc)
+                }
+            }),
+            (.rightHalfSnap, .rightHalf, { actions, app, loc, svc in
+                if let app {
+                    actions.rightHalfSnapAppAction.perform(app: app, service: svc)
+                } else {
+                    actions.rightHalfSnapAction.perform(at: loc, service: svc)
+                }
+            }),
+            (.leftThirdSnap, .leftThird, { actions, app, loc, svc in
+                if let app {
+                    actions.leftThirdSnapAppAction.perform(app: app, service: svc)
+                } else {
+                    actions.leftThirdSnapAction.perform(at: loc, service: svc)
+                }
+            }),
+            (.rightThirdSnap, .rightThird, { actions, app, loc, svc in
+                if let app {
+                    actions.rightThirdSnapAppAction.perform(app: app, service: svc)
+                } else {
+                    actions.rightThirdSnapAction.perform(at: loc, service: svc)
+                }
+            })
+        ]
+
+        for (action, mode, handler) in snapConfigs where matched.contains(action) {
+            return context.execute(feedbackMode: mode, needsActivate: true) { [weak self] in
+                guard let self else { return }
+                handler(self.actions, context.app, context.location, context.service)
+            }
+        }
+        return nil
     }
 
     func routeShiftFillActions(

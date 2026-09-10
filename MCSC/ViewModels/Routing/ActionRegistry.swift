@@ -27,6 +27,14 @@ final class ActionRegistry {
     let makeSmallerAppAction = MakeSmallerAppAction()
     let reasonableSizeAppAction = ReasonableSizeAppAction()
     let almostMaximizeAppAction = AlmostMaximizeAppAction()
+    let leftHalfSnapAction = LeftHalfSnapAction()
+    let rightHalfSnapAction = RightHalfSnapAction()
+    let leftThirdSnapAction = LeftThirdSnapAction()
+    let rightThirdSnapAction = RightThirdSnapAction()
+    let leftHalfSnapAppAction = LeftHalfSnapAppAction()
+    let rightHalfSnapAppAction = RightHalfSnapAppAction()
+    let leftThirdSnapAppAction = LeftThirdSnapAppAction()
+    let rightThirdSnapAppAction = RightThirdSnapAppAction()
     let ejectVolumeAction = EjectVolumeAction()
 
     /// - Parameter isMissionControlActiveProvider: lets desktop-navigation

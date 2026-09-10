@@ -192,3 +192,44 @@ struct ToggleFullscreenAppAction {
         }
     }
 }
+
+private func performSnapAppAction(
+    _ position: SnapPosition,
+    app: NSRunningApplication,
+    service: AccessibilityServiceProtocol
+) {
+    let appElement = AXUIElementCreateApplication(app.processIdentifier)
+    guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+          !windows.isEmpty else { return }
+    for window in windows {
+        guard let frame = service.getFrame(for: window) else { continue }
+        let anchor = CGPoint(x: frame.midX, y: frame.midY)
+        guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
+        let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        _ = service.setFrame(position.frame(for: visibleBounds), for: window)
+    }
+}
+
+struct LeftHalfSnapAppAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        performSnapAppAction(.leftHalf, app: app, service: service)
+    }
+}
+
+struct RightHalfSnapAppAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        performSnapAppAction(.rightHalf, app: app, service: service)
+    }
+}
+
+struct LeftThirdSnapAppAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        performSnapAppAction(.leftThird, app: app, service: service)
+    }
+}
+
+struct RightThirdSnapAppAction {
+    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
+        performSnapAppAction(.rightThird, app: app, service: service)
+    }
+}

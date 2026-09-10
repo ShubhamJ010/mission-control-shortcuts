@@ -139,6 +139,22 @@ final class ShortcutViewModel {
         get { config.isMakeSmallerEnabled } set { config.isMakeSmallerEnabled = newValue }
     }
 
+    var isLeftHalfSnapEnabled: Bool {
+        get { config.isLeftHalfSnapEnabled } set { config.isLeftHalfSnapEnabled = newValue }
+    }
+
+    var isRightHalfSnapEnabled: Bool {
+        get { config.isRightHalfSnapEnabled } set { config.isRightHalfSnapEnabled = newValue }
+    }
+
+    var isLeftThirdSnapEnabled: Bool {
+        get { config.isLeftThirdSnapEnabled } set { config.isLeftThirdSnapEnabled = newValue }
+    }
+
+    var isRightThirdSnapEnabled: Bool {
+        get { config.isRightThirdSnapEnabled } set { config.isRightThirdSnapEnabled = newValue }
+    }
+
     var isMoveNextDesktopEnabled: Bool {
         get { config.isMoveNextDesktopEnabled } set { config.isMoveNextDesktopEnabled = newValue }
     }

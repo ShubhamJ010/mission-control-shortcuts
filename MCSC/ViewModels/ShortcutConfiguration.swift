@@ -98,6 +98,26 @@ struct ShortcutConfiguration {
         set { shortcutBindings[.makeSmaller] = newValue ? RoutedAction.makeSmaller.canonicalBinding : nil }
     }
 
+    var isLeftHalfSnapEnabled: Bool {
+        get { shortcutBindings[.leftHalfSnap] != nil }
+        set { shortcutBindings[.leftHalfSnap] = newValue ? RoutedAction.leftHalfSnap.canonicalBinding : nil }
+    }
+
+    var isRightHalfSnapEnabled: Bool {
+        get { shortcutBindings[.rightHalfSnap] != nil }
+        set { shortcutBindings[.rightHalfSnap] = newValue ? RoutedAction.rightHalfSnap.canonicalBinding : nil }
+    }
+
+    var isLeftThirdSnapEnabled: Bool {
+        get { shortcutBindings[.leftThirdSnap] != nil }
+        set { shortcutBindings[.leftThirdSnap] = newValue ? RoutedAction.leftThirdSnap.canonicalBinding : nil }
+    }
+
+    var isRightThirdSnapEnabled: Bool {
+        get { shortcutBindings[.rightThirdSnap] != nil }
+        set { shortcutBindings[.rightThirdSnap] = newValue ? RoutedAction.rightThirdSnap.canonicalBinding : nil }
+    }
+
     var isMoveNextDesktopEnabled: Bool {
         get { shortcutBindings[.moveNextDesktop] != nil }
         set { shortcutBindings[.moveNextDesktop] = newValue ? RoutedAction.moveNextDesktop.canonicalBinding : nil }
@@ -457,43 +477,47 @@ private extension ShortcutConfiguration {
 
     enum Keys {
         static let shortcutBindings = "mcsc.shortcuts.bindings"
-        static let closingEnabled = "mcsc.shortcuts.closing.enabled"
-        static let cmdWEnabled = "mcsc.shortcuts.cmdW.enabled"
-        static let cmdQEnabled = "mcsc.shortcuts.cmdQ.enabled"
-        static let cmdMEnabled = "mcsc.shortcuts.cmdM.enabled"
-        static let cmdHEnabled = "mcsc.shortcuts.cmdH.enabled"
-        static let cmdFEnabled = "mcsc.shortcuts.cmdF.enabled"
-        static let cmdSpaceEnabled = "mcsc.shortcuts.cmdSpace.enabled"
-        static let cmdTEnabled = "mcsc.shortcuts.cmdT.enabled"
-        static let cmdNEnabled = "mcsc.shortcuts.cmdN.enabled"
-        static let cmdShiftTEnabled = "mcsc.shortcuts.cmdShiftT.enabled"
-        static let fillScreenEnabled = "mcsc.shortcuts.fillScreen.enabled"
-        static let almostMaximizeEnabled = "mcsc.shortcuts.almostMaximize.enabled"
-        static let reasonableSizeEnabled = "mcsc.shortcuts.reasonableSize.enabled"
-        static let makeLargerEnabled = "mcsc.shortcuts.makeLarger.enabled"
-        static let makeSmallerEnabled = "mcsc.shortcuts.makeSmaller.enabled"
-        static let moveNextDesktopEnabled = "mcsc.shortcuts.moveNextDesktop.enabled"
-        static let movePreviousDesktopEnabled = "mcsc.shortcuts.movePreviousDesktop.enabled"
-        static let keyboardNavigation = "mcsc.keyboardNavigation.enabled"
-        static let tabShortcutsEnabled = "mcsc.tabShortcuts.enabled"
-        static let dockActionsOutsideMC = "mcsc.dockActionsOutsideMC.enabled"
-        static let titleBarActionsOutsideMC = "mcsc.titleBarActionsOutsideMC.enabled"
-        static let gesturesEnabled = "mcsc.gestures.enabled"
-        static let pinchInEnabled = "mcsc.gestures.pinchIn.enabled"
-        static let pinchOutEnabled = "mcsc.gestures.pinchOut.enabled"
-        static let swipeLeftEnabled = "mcsc.gestures.swipeLeft.enabled"
-        static let swipeRightEnabled = "mcsc.gestures.swipeRight.enabled"
-        static let swipeDownEnabled = "mcsc.gestures.swipeDown.enabled"
-        static let swipeUpEnabled = "mcsc.gestures.swipeUp.enabled"
-        static let twoFingerDoubleTapEnabled = "mcsc.gestures.twoFingerDoubleTap.enabled"
-        static let twoFingerHoldEnabled = "mcsc.gestures.twoFingerHold.enabled"
-        static let twoFingerHoldDuration = "mcsc.gestures.twoFingerHold.duration"
-        static let autoEjectEnabled = "mcsc.autoEject.enabled"
-        static let quitAppIfNoWindowsEnabled = "mcsc.quitAppIfNoWindows.enabled"
-        static let hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled"
-        static let cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled"
-        static let optimizedAnimationsEnabled = "mcsc.feedback.optimizedAnimations.enabled"
-        static let gestureActions = "mcsc.gestures.actions"
-        static let cmdGestureActions = "mcsc.gestures.cmdActions"
+        /// Legacy shortcut keys
+        static let closingEnabled = "mcsc.shortcuts.closing.enabled",
+                   cmdWEnabled = "mcsc.shortcuts.cmdW.enabled",
+                   cmdQEnabled = "mcsc.shortcuts.cmdQ.enabled",
+                   cmdMEnabled = "mcsc.shortcuts.cmdM.enabled",
+                   cmdHEnabled = "mcsc.shortcuts.cmdH.enabled",
+                   cmdFEnabled = "mcsc.shortcuts.cmdF.enabled",
+                   cmdSpaceEnabled = "mcsc.shortcuts.cmdSpace.enabled",
+                   cmdTEnabled = "mcsc.shortcuts.cmdT.enabled",
+                   cmdNEnabled = "mcsc.shortcuts.cmdN.enabled",
+                   cmdShiftTEnabled = "mcsc.shortcuts.cmdShiftT.enabled",
+                   fillScreenEnabled = "mcsc.shortcuts.fillScreen.enabled",
+                   almostMaximizeEnabled = "mcsc.shortcuts.almostMaximize.enabled",
+                   reasonableSizeEnabled = "mcsc.shortcuts.reasonableSize.enabled",
+                   makeLargerEnabled = "mcsc.shortcuts.makeLarger.enabled",
+                   makeSmallerEnabled = "mcsc.shortcuts.makeSmaller.enabled",
+                   moveNextDesktopEnabled = "mcsc.shortcuts.moveNextDesktop.enabled",
+                   movePreviousDesktopEnabled = "mcsc.shortcuts.movePreviousDesktop.enabled"
+        /// Feature toggles
+        static let keyboardNavigation = "mcsc.keyboardNavigation.enabled",
+                   tabShortcutsEnabled = "mcsc.tabShortcuts.enabled",
+                   dockActionsOutsideMC = "mcsc.dockActionsOutsideMC.enabled",
+                   titleBarActionsOutsideMC = "mcsc.titleBarActionsOutsideMC.enabled"
+        /// Gestures
+        static let gesturesEnabled = "mcsc.gestures.enabled",
+                   pinchInEnabled = "mcsc.gestures.pinchIn.enabled",
+                   pinchOutEnabled = "mcsc.gestures.pinchOut.enabled",
+                   swipeLeftEnabled = "mcsc.gestures.swipeLeft.enabled",
+                   swipeRightEnabled = "mcsc.gestures.swipeRight.enabled",
+                   swipeDownEnabled = "mcsc.gestures.swipeDown.enabled",
+                   swipeUpEnabled = "mcsc.gestures.swipeUp.enabled",
+                   twoFingerDoubleTapEnabled = "mcsc.gestures.twoFingerDoubleTap.enabled",
+                   twoFingerHoldEnabled = "mcsc.gestures.twoFingerHold.enabled",
+                   twoFingerHoldDuration = "mcsc.gestures.twoFingerHold.duration",
+                   gestureActions = "mcsc.gestures.actions",
+                   cmdGestureActions = "mcsc.gestures.cmdActions"
+        /// General & Feedback
+        static let autoEjectEnabled = "mcsc.autoEject.enabled",
+                   quitAppIfNoWindowsEnabled = "mcsc.quitAppIfNoWindows.enabled",
+                   hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled",
+                   cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled",
+                   optimizedAnimationsEnabled = "mcsc.feedback.optimizedAnimations.enabled"
     }
 }

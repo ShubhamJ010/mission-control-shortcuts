@@ -47,6 +47,10 @@ enum RoutedAction: String, Codable, CaseIterable {
     case reasonableSize
     case makeLarger
     case makeSmaller
+    case leftHalfSnap
+    case rightHalfSnap
+    case leftThirdSnap
+    case rightThirdSnap
     case moveNextDesktop
     case movePreviousDesktop
     case unminimizeAll
@@ -69,6 +73,10 @@ enum RoutedAction: String, Codable, CaseIterable {
         case .reasonableSize: ShortcutBinding(keyCode: 15, includesShift: true) // R
         case .makeLarger: ShortcutBinding(keyCode: 37, includesShift: true) // L
         case .makeSmaller: ShortcutBinding(keyCode: 1, includesShift: true) // S
+        case .leftHalfSnap: ShortcutBinding(keyCode: 33, includesShift: true) // [
+        case .rightHalfSnap: ShortcutBinding(keyCode: 30, includesShift: true) // ]
+        case .leftThirdSnap: ShortcutBinding(keyCode: 43, includesShift: true) // ,
+        case .rightThirdSnap: ShortcutBinding(keyCode: 47, includesShift: true) // .
         case .moveNextDesktop: ShortcutBinding(keyCode: 124, includesShift: true) // →
         case .movePreviousDesktop: ShortcutBinding(keyCode: 123, includesShift: true) // ←
         case .unminimizeAll: ShortcutBinding(keyCode: 32, includesShift: true) // U
@@ -95,6 +103,7 @@ extension RoutedAction {
         .fullscreen, .newTab, .newWindow,
         .reopenTab,
         .fillScreen, .almostMaximize, .reasonableSize, .makeLarger, .makeSmaller,
+        .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap,
         .moveNextDesktop, .movePreviousDesktop,
         .unminimizeAll
     ]

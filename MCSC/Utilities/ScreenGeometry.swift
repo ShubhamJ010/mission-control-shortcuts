@@ -24,6 +24,17 @@ enum ScreenGeometry {
         )
     }
 
+    /// Converts a Cocoa NSScreen visibleFrame (excluding menu bar and dock) to AX/Quartz bounds (origin top-left).
+    static func axVisibleBounds(for screen: NSScreen, primaryHeight: CGFloat = primaryScreenHeight) -> CGRect {
+        let visible = screen.visibleFrame
+        return CGRect(
+            x: visible.origin.x,
+            y: primaryHeight - visible.origin.y - visible.height,
+            width: visible.width,
+            height: visible.height
+        )
+    }
+
     /// Returns the NSScreen whose AX bounds contain `point` (Quartz coords).
     static func screenContaining(axPoint point: AXPoint) -> NSScreen? {
         let primaryHeight = primaryScreenHeight

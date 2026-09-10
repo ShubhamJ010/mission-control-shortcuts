@@ -96,6 +96,18 @@ final class WindowShortcutsPane: MCSCSettingsPane {
         recorders[.makeSmaller] = addShortcutRow(
             section: sizingSection, mode: .makeSmaller, title: "Smaller", action: .makeSmaller
         )
+        recorders[.leftHalfSnap] = addShortcutRow(
+            section: sizingSection, mode: .leftHalf, title: "Left Half Snap", action: .leftHalfSnap
+        )
+        recorders[.rightHalfSnap] = addShortcutRow(
+            section: sizingSection, mode: .rightHalf, title: "Right Half Snap", action: .rightHalfSnap
+        )
+        recorders[.leftThirdSnap] = addShortcutRow(
+            section: sizingSection, mode: .leftThird, title: "Left Third Snap", action: .leftThirdSnap
+        )
+        recorders[.rightThirdSnap] = addShortcutRow(
+            section: sizingSection, mode: .rightThird, title: "Right Third Snap", action: .rightThirdSnap
+        )
         sizingSection
             .addDescriptionLabel(
                 "Resizes the window under the cursor. Assign shortcuts here or use them gesture-only."

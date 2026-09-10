@@ -72,7 +72,7 @@ final class CursorFeedbackOverlayTests: XCTestCase {
     func testCursorFeedbackModesAllRenderSymbols() {
         // Every shortcut/gesture feedback type must resolve to a real SF
         // Symbol, otherwise its feedback silently disappears.
-        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 18,
+        XCTAssertEqual(CursorFeedbackOverlay.Mode.allCases.count, 22,
                        "Adding a feedback mode must also extend this coverage")
         for mode in CursorFeedbackOverlay.Mode.allCases {
             let image = renderedSymbol(symbolName: mode.symbolName,
@@ -82,6 +82,20 @@ final class CursorFeedbackOverlayTests: XCTestCase {
                             "CursorFeedbackOverlay.Mode.\(mode) failed to render '\(mode.symbolName)'")
             XCTAssertFalse(mode.accessibilityDescription.isEmpty,
                            "CursorFeedbackOverlay.Mode.\(mode) needs an accessibility description")
+        }
+    }
+
+    func testSnapFeedbackModesUseExpectedSymbolsAndAccentPalette() {
+        let snapModes: [(CursorFeedbackOverlay.Mode, String, String)] = [
+            (.leftHalf, "rectangle.lefthalf.inset.filled", "Left Half Snap"),
+            (.rightHalf, "rectangle.righthalf.inset.filled", "Right Half Snap"),
+            (.leftThird, "rectangle.leftthird.inset.filled", "Left Third Snap"),
+            (.rightThird, "rectangle.rightthird.inset.filled", "Right Third Snap")
+        ]
+        for (mode, symbol, label) in snapModes {
+            XCTAssertEqual(mode.symbolName, symbol)
+            XCTAssertEqual(mode.accessibilityDescription, label)
+            XCTAssertEqual(mode.paletteColors, [.controlAccentColor])
         }
     }
 

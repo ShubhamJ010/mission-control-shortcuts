@@ -63,15 +63,16 @@ enum GestureKind: String, CaseIterable {
         case .pinchOut:
             [.toggleFullscreen, .fillScreen, .almostMaximize, .makeLarger, .newWindow]
         case .swipeLeft:
-            [.closeTab, .closeWindow, .quitApp, .movePreviousDesktop]
+            [.closeTab, .closeWindow, .quitApp, .movePreviousDesktop, .leftHalfSnap, .leftThirdSnap]
         case .swipeRight:
-            [.reopenTab, .newTab, .newWindow, .moveNextDesktop]
+            [.reopenTab, .newTab, .newWindow, .moveNextDesktop, .rightHalfSnap, .rightThirdSnap]
         case .swipeUp:
             [.fillScreen, .almostMaximize, .toggleFullscreen, .makeLarger, .reasonableSize, .unminimizeAll]
         case .swipeDown:
             [.minimize, .hideApp, .makeSmaller]
         case .twoFingerDoubleTap:
-            [.reasonableSize, .almostMaximize, .toggleFullscreen, .makeSmaller, .makeLarger]
+            [.reasonableSize, .almostMaximize, .toggleFullscreen, .makeSmaller, .makeLarger,
+             .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap]
         }
     }
 }
@@ -97,6 +98,10 @@ enum GestureAction: String, CaseIterable {
     case moveNextDesktop
     case movePreviousDesktop
     case unminimizeAll
+    case leftHalfSnap
+    case rightHalfSnap
+    case leftThirdSnap
+    case rightThirdSnap
 
     /// Label shown in the popup menu.
     var menuTitle: String {
@@ -118,6 +123,10 @@ enum GestureAction: String, CaseIterable {
         case .moveNextDesktop: "Move to Next Desktop"
         case .movePreviousDesktop: "Move to Previous Desktop"
         case .unminimizeAll: "Unminimize"
+        case .leftHalfSnap: "Left Half Snap"
+        case .rightHalfSnap: "Right Half Snap"
+        case .leftThirdSnap: "Left Third Snap"
+        case .rightThirdSnap: "Right Third Snap"
         }
     }
 
@@ -131,7 +140,8 @@ enum GestureAction: String, CaseIterable {
         switch self {
         case .closeTab, .reopenTab, .newTab, .newWindow,
              .toggleFullscreen, .fillScreen, .almostMaximize,
-             .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll:
+             .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll,
+             .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap:
             true
         case .closeWindow, .quitApp, .minimize, .hideApp,
              .moveNextDesktop, .movePreviousDesktop:
