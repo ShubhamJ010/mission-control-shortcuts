@@ -23,6 +23,8 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     var mockMinimizedElements: Set<AXUIElement> = []
 
     var getElementCallCount: Int = 0
+    var getWindowCallCount: Int = 0
+    var getFrameCallCount: Int = 0
 
     func getElement(at point: CGPoint) -> AXUIElement? {
         getElementCallCount += 1
@@ -31,7 +33,8 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     }
 
     func getWindow(for _: AXUIElement) -> AXUIElement? {
-        mockWindow
+        getWindowCallCount += 1
+        return mockWindow
     }
 
     func performAction(_ action: String, on element: AXUIElement) -> Bool {
@@ -58,8 +61,10 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         return nil
     }
 
+    var mockFrame: CGRect?
     func getFrame(for _: AXUIElement) -> CGRect? {
-        CGRect(x: 100, y: 100, width: 800, height: 600)
+        getFrameCallCount += 1
+        return mockFrame ?? CGRect(x: 100, y: 100, width: 800, height: 600)
     }
 
     func setFrame(_ frame: CGRect, for element: AXUIElement) -> Bool {

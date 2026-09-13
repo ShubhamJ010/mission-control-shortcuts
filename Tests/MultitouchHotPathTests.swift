@@ -103,6 +103,10 @@ final class MultitouchHotPathTests: XCTestCase {
         viewModel.isTwoFingerHoldEnabled = true
         viewModel.twoFingerHoldDuration = 0.4
 
+        let curPt = viewModel.currentAXMouseLocation()
+        mockAccessibility.mockWindow = mockAccessibility.mockElement
+        mockAccessibility.mockFrame = CGRect(x: curPt.x - 50, y: curPt.y - 10, width: 800, height: 600)
+
         let t0 = [makeTouch(id: 1, x: 0.5, y: 0.5), makeTouch(id: 2, x: 0.6, y: 0.5)]
 
         // Frames before hold threshold (0.0s, 0.1s, 0.2s, 0.3s)
@@ -117,7 +121,7 @@ final class MultitouchHotPathTests: XCTestCase {
             "Stationary frames before hold threshold must not query AX"
         )
 
-        // Threshold reached at +0.45s (> 0.4s duration): hold activates
+        // Threshold reached at +0.45s (> 0.4s duration): hold activates over title bar
         viewModel.multitouchService.onFrame?(t0, 1.45)
         XCTAssertTrue(viewModel.holdDetector.isHoldActive, "Hold must become active at duration threshold")
         XCTAssertEqual(
@@ -134,6 +138,66 @@ final class MultitouchHotPathTests: XCTestCase {
             mockAccessibility.getElementCallCount,
             1,
             "Subsequent frames while held must NOT re-query AX"
+        )
+    }
+
+    func testOneFingerLiftBeforeThresholdAbortsHoldDetector() {
+        viewModel.isTwoFingerHoldEnabled = true
+        viewModel.twoFingerHoldDuration = 0.4
+
+        let t0 = [makeTouch(id: 1, x: 0.5, y: 0.5), makeTouch(id: 2, x: 0.6, y: 0.5)]
+        viewModel.multitouchService.onFrame?(t0, 1.0)
+
+        // 1 finger lifted at 0.2s (before 0.4s threshold)
+        let singleTouch = [makeTouch(id: 1, x: 0.5, y: 0.5)]
+        viewModel.multitouchService.onFrame?(singleTouch, 1.2)
+
+        XCTAssertFalse(
+            viewModel.holdDetector.isHoldActive,
+            "Lifting one finger before hold threshold must cleanly abort hold detector to idle"
+        )
+    }
+
+    func testOneFingerLiftAfterHoldExpiresAfterLatchDuration() {
+        viewModel.isTwoFingerHoldEnabled = true
+        viewModel.twoFingerHoldDuration = 0.4
+
+        let curPt = viewModel.currentAXMouseLocation()
+        mockAccessibility.mockWindow = mockAccessibility.mockElement
+        mockAccessibility.mockFrame = CGRect(x: curPt.x - 50, y: curPt.y - 10, width: 800, height: 600)
+
+        let t0 = [makeTouch(id: 1, x: 0.5, y: 0.5), makeTouch(id: 2, x: 0.6, y: 0.5)]
+        viewModel.multitouchService.onFrame?(t0, 1.0)
+        viewModel.multitouchService.onFrame?(t0, 1.45)
+        XCTAssertTrue(viewModel.holdDetector.isHoldActive, "Hold must become active")
+
+        // 1 finger lifted at 1.55s -> enters latch grace window
+        let singleTouch = [makeTouch(id: 1, x: 0.5, y: 0.5)]
+        viewModel.multitouchService.onFrame?(singleTouch, 1.55)
+        XCTAssertTrue(viewModel.holdDetector.isHoldActive, "Modifier stays latched during latchDuration grace period")
+
+        // Beyond 0.8s latch duration (1.55 + 0.85 = 2.4s)
+        viewModel.multitouchService.onFrame?(singleTouch, 2.45)
+        XCTAssertFalse(
+            viewModel.holdDetector.isHoldActive,
+            "Hold modifier must expire after latch duration passes"
+        )
+    }
+
+    func testHoldOnInvalidRegionResetsHoldModifier() {
+        viewModel.isTwoFingerHoldEnabled = true
+        viewModel.twoFingerHoldDuration = 0.4
+        viewModel.isTitleBarActionsOutsideMCEnabled = false
+        viewModel.isDockActionsOutsideMCEnabled = false
+        mockMissionControl.isMissionControlActive = false
+
+        let t0 = [makeTouch(id: 1, x: 0.5, y: 0.5), makeTouch(id: 2, x: 0.6, y: 0.5)]
+        viewModel.multitouchService.onFrame?(t0, 1.0)
+        viewModel.multitouchService.onFrame?(t0, 1.45)
+
+        XCTAssertFalse(
+            viewModel.holdDetector.isHoldActive,
+            "Hold on invalid target region must reset detector immediately"
         )
     }
 

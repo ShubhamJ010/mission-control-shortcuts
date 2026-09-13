@@ -379,22 +379,25 @@ final class ShortcutViewModel {
                   self.config.isGesturesEnabled,
                   !self.isCoolingDown else { return }
 
+            // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
+            // Evaluated before throttling so dismissal is immediate.
+            if touches.count >= 3 && self.hoverService.isTracking {
+                self.hoverService.hideOverlay()
+            }
+
             // Handle touch lift immediately without throttling or AX overhead
             if touches.isEmpty {
-                if self.dockSuppressor.isSuppressing {
-                    self.dockSuppressor.isSuppressing = false
-                }
+                self.dockSuppressor.isSuppressing = false
                 self.holdDetector.handleTouchesEnded(timestamp: timestamp)
                 self.gestureEngine.processFrame([], timestamp: timestamp)
                 return
             }
 
             // Early exit for 1 finger (normal cursor motion/scroll):
-            // no MCSC gestures use 1 finger. Completely bypasses AX queries.
+            // notify holdDetector so it aborts any pending/held state, then exit with zero AX IPC.
             guard touches.count >= 2 else {
-                if self.dockSuppressor.isSuppressing {
-                    self.dockSuppressor.isSuppressing = false
-                }
+                self.dockSuppressor.isSuppressing = false
+                _ = self.holdDetector.processFrame(touches, timestamp: timestamp)
                 return
             }
 
@@ -402,11 +405,6 @@ final class ShortcutViewModel {
             let frameTime = timestamp > 0 ? timestamp : CACurrentMediaTime()
             guard frameTime - self.lastGestureFrameTime >= self.gestureFrameInterval else { return }
             self.lastGestureFrameTime = frameTime
-
-            // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
-            if touches.count >= 3 && self.hoverService.isTracking {
-                self.hoverService.hideOverlay()
-            }
 
             let mcActive = self.missionControlService.isMissionControlActive
             let axPoint = self.currentAXMouseLocation()
@@ -428,12 +426,18 @@ final class ShortcutViewModel {
                         && self.config.isTitleBarActionsOutsideMCEnabled
                         && self.isTitleBarHovered(at: axPoint)
                     if mcActive || dockHovered || titleBarHovered {
+                        AppLogger.gesture.info(
+                            "Two-finger hold activated at point (\(axPoint.x, privacy: .public), \(axPoint.y, privacy: .public))"
+                        )
                         if self.config.isCursorFeedbackEnabled {
                             self.cursorFeedback.show(at: axPoint, mode: .command)
                         }
                         if self.config.isHapticFeedbackEnabled {
                             HapticService.perform(.twoFingerHold)
                         }
+                    } else {
+                        // Invalid target region (e.g. empty desktop) - reset hold so Cmd modifier does not stay latched
+                        self.holdDetector.reset()
                     }
                 }
             }
