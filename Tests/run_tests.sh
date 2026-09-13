@@ -110,6 +110,7 @@ swiftc \
   "${SCRIPT_DIR}/OverlayAnimationStrategyTests.swift" \
   "${SCRIPT_DIR}/SettingsPaneTests.swift" \
   "${SCRIPT_DIR}/DiagnosticServiceTests.swift" \
+  "${SCRIPT_DIR}/MultitouchHotPathTests.swift" \
   "${SCRIPT_DIR}/TestRunner.swift"
 
 trap 'rm -f "${SCRIPT_DIR}/bin_test_runner"' EXIT

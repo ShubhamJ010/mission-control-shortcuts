@@ -369,21 +369,39 @@ final class ShortcutViewModel {
         gestureEngine.register(swipeRecognizer)
     }
 
-    /// MultitouchService → GestureEngine pump. Frames are throttled to 30 Hz
-    /// (~33 ms) because the hot path hits WindowServer (`isMissionControlActive`)
-    /// and AX IPC (dock / title-bar hover checks).
+    /// MultitouchService → GestureEngine pump. Hot path is streamlined:
+    /// - Touch lift (`isEmpty`) and 1-finger frames exit early with zero AX IPC.
+    /// - 2+ finger frames are throttled to 30 Hz without per-frame AX title-bar queries.
+    /// - Target validation happens once upon gesture completion or hold threshold.
     private func setupMultitouchFrameHandler() {
         multitouchService.onFrame = { [weak self] touches, timestamp in
             guard let self,
                   self.config.isGesturesEnabled,
                   !self.isCoolingDown else { return }
 
-            // Throttle 60-120 Hz multitouch to 30 Hz (~33ms). Hot path
-            // hits WindowServer (`isMissionControlActive`) and AX IPC
-            // (dock / title-bar hover checks).
-            let now = CACurrentMediaTime()
-            guard now - self.lastGestureFrameTime >= self.gestureFrameInterval else { return }
-            self.lastGestureFrameTime = now
+            // Handle touch lift immediately without throttling or AX overhead
+            if touches.isEmpty {
+                if self.dockSuppressor.isSuppressing {
+                    self.dockSuppressor.isSuppressing = false
+                }
+                self.holdDetector.handleTouchesEnded(timestamp: timestamp)
+                self.gestureEngine.processFrame([], timestamp: timestamp)
+                return
+            }
+
+            // Early exit for 1 finger (normal cursor motion/scroll):
+            // no MCSC gestures use 1 finger. Completely bypasses AX queries.
+            guard touches.count >= 2 else {
+                if self.dockSuppressor.isSuppressing {
+                    self.dockSuppressor.isSuppressing = false
+                }
+                return
+            }
+
+            // Throttle 60-120 Hz multitouch to 30 Hz (~33ms) for 2+ finger gestures.
+            let frameTime = timestamp > 0 ? timestamp : CACurrentMediaTime()
+            guard frameTime - self.lastGestureFrameTime >= self.gestureFrameInterval else { return }
+            self.lastGestureFrameTime = frameTime
 
             // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
             if touches.count >= 3 && self.hoverService.isTracking {
@@ -395,32 +413,33 @@ final class ShortcutViewModel {
             let dockHovered = !mcActive
                 && self.config.isDockActionsOutsideMCEnabled
                 && self.accessibilityService.isDockRegion(at: axPoint)
-            let titleBarHovered = !mcActive && !dockHovered
-                && self.config.isTitleBarActionsOutsideMCEnabled
-                && self.isTitleBarHovered(at: axPoint)
 
             if dockHovered {
-                self.dockSuppressor.isSuppressing = (touches.count >= 2)
+                self.dockSuppressor.isSuppressing = true
             } else if !mcActive {
                 self.dockSuppressor.isSuppressing = false
             }
 
-            guard mcActive || dockHovered || titleBarHovered else { return }
-
-            if touches.isEmpty {
-                self.holdDetector.handleTouchesEnded(timestamp: timestamp)
-            } else if self.config.isTwoFingerHoldEnabled {
+            // Two-finger hold: only validate target region ONCE on activation frame
+            if self.config.isTwoFingerHoldEnabled {
                 let holdJustActivated = self.holdDetector.processFrame(touches, timestamp: timestamp)
                 if holdJustActivated {
-                    if self.config.isCursorFeedbackEnabled {
-                        self.cursorFeedback.show(at: axPoint, mode: .command)
-                    }
-                    if self.config.isHapticFeedbackEnabled {
-                        HapticService.perform(.twoFingerHold)
+                    let titleBarHovered = !mcActive && !dockHovered
+                        && self.config.isTitleBarActionsOutsideMCEnabled
+                        && self.isTitleBarHovered(at: axPoint)
+                    if mcActive || dockHovered || titleBarHovered {
+                        if self.config.isCursorFeedbackEnabled {
+                            self.cursorFeedback.show(at: axPoint, mode: .command)
+                        }
+                        if self.config.isHapticFeedbackEnabled {
+                            HapticService.perform(.twoFingerHold)
+                        }
                     }
                 }
             }
 
+            // Feed gesture engine directly without per-frame AX title-bar polling.
+            // Target region validation happens once upon gesture completion in handleGestureResult.
             self.gestureEngine.processFrame(touches, timestamp: timestamp)
         }
     }

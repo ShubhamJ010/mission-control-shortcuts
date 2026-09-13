@@ -22,7 +22,10 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
     var mockMinimizeButton: AXUIElement?
     var mockMinimizedElements: Set<AXUIElement> = []
 
+    var getElementCallCount: Int = 0
+
     func getElement(at point: CGPoint) -> AXUIElement? {
+        getElementCallCount += 1
         getElementCalledWith = point
         return mockElement
     }
