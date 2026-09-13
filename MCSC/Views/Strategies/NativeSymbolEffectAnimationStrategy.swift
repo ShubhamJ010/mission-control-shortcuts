@@ -132,6 +132,8 @@ final class NativeSymbolEffectAnimationStrategy: OverlayAnimationStrategy {
 
         NSAnimationContext.runAnimationGroup { context in
             context.duration = duration
+            context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+            context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 0.0
         } completionHandler: {
             if panel.alphaValue == 0.0 {

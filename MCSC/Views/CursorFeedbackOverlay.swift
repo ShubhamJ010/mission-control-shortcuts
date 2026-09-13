@@ -24,21 +24,16 @@ import Cocoa
 final class CursorFeedbackOverlay {
     static let dimension: CGFloat = 34.0
 
-    /// Nominal window the symbol stays on screen before retracting. The retract
-    /// actually leads this by `retractLead`, so the disappear effect bleeds into
-    /// the tail of the flash rather than starting at a hard boundary. Slightly
-    /// longer than the trigger itself so the flash outlives the close / minimize
-    /// animation.
-    private let displayDuration: TimeInterval = 0.6
+    /// Nominal window the symbol stays on screen before retracting. Snappy HUD
+    /// window gives immediate visual confirmation without lingering under cursor.
+    private let displayDuration: TimeInterval = 0.28
 
     /// How much the retract leads the end of the display window: the disappear
-    /// effect starts `retractLead` seconds before `displayDuration` elapses, so
-    /// the symbol begins to thin out while the flash is still winding down.
-    private let retractLead: TimeInterval = 0.12
+    /// effect starts `retractLead` seconds before `displayDuration` elapses.
+    private let retractLead: TimeInterval = 0.04
 
-    /// Duration of the retract: the symbol's `.disappear.byLayer` effect
-    /// (macOS 14+) plus the concurrent panel fade-out.
-    private let retractDuration: TimeInterval = 0.45
+    /// Duration of the retract: crisp fade-out and subtle scale-down.
+    private let retractDuration: TimeInterval = 0.16
 
     private var panel: NSPanel?
     private var imageView: NSImageView?

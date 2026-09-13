@@ -142,7 +142,7 @@ enum OverlayAnimationFactory {
             context.timingFunction = CAMediaTimingFunction(name: .easeIn)
             context.allowsImplicitAnimation = true
             panel.animator().alphaValue = 0.0
-            imageView.animator().layer?.transform = CATransform3DMakeScale(0.75, 0.75, 1.0)
+            imageView.animator().layer?.transform = CATransform3DMakeScale(0.82, 0.82, 1.0)
         } completionHandler: {
             if panel.alphaValue == 0.0 {
                 panel.orderOut(nil)
