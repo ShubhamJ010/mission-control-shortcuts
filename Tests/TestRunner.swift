@@ -23,7 +23,8 @@ struct TestRunner {
             PerformanceTests.defaultTestSuite,
             OverlayAnimationStrategyTests.defaultTestSuite,
             SettingsPaneTests.defaultTestSuite,
-            DiagnosticServiceTests.defaultTestSuite
+            DiagnosticServiceTests.defaultTestSuite,
+            MultitouchHotPathTests.defaultTestSuite
         ]
 
         var totalFailed = 0
