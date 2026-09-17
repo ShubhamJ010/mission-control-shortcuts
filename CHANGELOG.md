@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.2 (17 Sep 2026)
+
+- **System Process & Dock Protection**: Introduced `isSafeTargetProcess` on `NSRunningApplication` guarding Force Quit, Quit, and Hide lifecycle actions across both window hover and Dock targets against acting on self (`NSRunningApplication.current`), `com.apple.dock`, or background non-regular system processes (`activationPolicy == .regular`).
+- **Dock Item Target Resolution Hardening**: Strictly gated Dock target resolution to `AXApplicationDockItem` subrole, preventing separators, trash, and folder stacks from resolving to application targets.
+- **Dock Region & Overlapping Window Routing**: Gated shortcuts over the Dock chrome only when target is `.none`, ensuring windows overlapping the Dock screen region remain interactive.
+- **CF Memory & Architecture Cleanup**: Replaced direct unsafe CF array downcasts in `refreshDockFrame()` with safe `getAttributeValue` reads.
+
 ## 0.7.1 (8 Sep 2026)
 
 - **Desktop Navigation Grab Point Refinement**: Adjusted the synthetic title-bar grab point for `MoveWindowToDesktopAction` (`origin.x + 5, origin.y + 12`) to sit closer to the left edge of the window, staying well clear of the traffic light cluster and preventing drag releases from landing on the red close button.
