@@ -37,7 +37,7 @@ struct WindowCloser {
         case .window:
             closeWindow(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .wholeApp:
-            closeAllWindows(of: app, service: service, quitIfNoWindows: quitIfNoWindows)
+            closeAllWindows(of: app, service: service)
         }
     }
 
@@ -101,8 +101,7 @@ struct WindowCloser {
 
     private func closeAllWindows(
         of app: NSRunningApplication?,
-        service: AccessibilityServiceProtocol,
-        quitIfNoWindows: Bool
+        service: AccessibilityServiceProtocol
     ) {
         guard let app,
               app.processIdentifier != NSRunningApplication.current.processIdentifier else { return }
@@ -110,9 +109,6 @@ struct WindowCloser {
 
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else {
-            if quitIfNoWindows {
-                ForceQuitAppAction().perform(app: app)
-            }
             return
         }
 
@@ -128,7 +124,7 @@ struct WindowCloser {
         for app: NSRunningApplication,
         service: AccessibilityServiceProtocol
     ) -> Bool {
-        guard app.processIdentifier != NSRunningApplication.current.processIdentifier else { return false }
+        guard app.isSafeTargetProcess else { return false }
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         let windows: [AXUIElement]? = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
         if windows == nil || windows?.isEmpty == true {

@@ -81,6 +81,9 @@ final class ShortcutActionRouter {
                        config: config, isTitleBarHover: isTitleBarHover) else {
             return .ignore
         }
+        if case .none = target, service.isDockRegion(at: location) {
+            return .ignore
+        }
         let context = Context(
             location: location,
             app: resolveApp(from: target),
@@ -243,7 +246,9 @@ private extension ShortcutActionRouter {
             return context.execute(feedbackMode: .hide) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
-                    app.hide()
+                    if app.isSafeTargetProcess {
+                        app.hide()
+                    }
                 } else {
                     self.actions.hideAction.perform(at: context.location, service: context.service)
                 }

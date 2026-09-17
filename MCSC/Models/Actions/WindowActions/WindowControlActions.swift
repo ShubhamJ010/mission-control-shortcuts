@@ -13,30 +13,23 @@ struct MinimizeWindowAction: ShortcutAction {
 
 struct HideApplicationAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        guard let element = service.getElement(at: point) else { return }
+        guard let element = service.getElement(at: point),
+              service.getWindow(for: element) != nil,
+              let app = service.getAppFromElement(element),
+              app.isSafeTargetProcess else { return }
 
-        var pid: pid_t = 0
-        let result = AXUIElementGetPid(element, &pid)
-
-        if result == .success, let app = NSRunningApplication(processIdentifier: pid) {
-            app.hide()
-        }
+        app.hide()
     }
 }
 
 struct ForceQuitAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        guard let element = service.getElement(at: point) else { return }
+        guard let element = service.getElement(at: point),
+              service.getWindow(for: element) != nil,
+              let app = service.getAppFromElement(element),
+              app.isSafeTargetProcess else { return }
 
-        var pid: pid_t = 0
-        let result = AXUIElementGetPid(element, &pid)
-
-        if result == .success, let app = NSRunningApplication(processIdentifier: pid) {
-            // Prevent the app from killing itself
-            if pid != NSRunningApplication.current.processIdentifier {
-                app.forceTerminate()
-            }
-        }
+        app.forceTerminate()
     }
 }
 

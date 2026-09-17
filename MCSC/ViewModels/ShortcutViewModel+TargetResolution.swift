@@ -47,6 +47,9 @@ extension ShortcutViewModel {
         if let window = accessibilityService.getWindow(for: element) {
             return .window(window)
         }
+        if accessibilityService.isDockRegion(at: point) {
+            return .none
+        }
         return .none
     }
 

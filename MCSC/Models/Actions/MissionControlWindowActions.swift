@@ -91,8 +91,8 @@ enum MissionControlWindowActions {
 
     static func performForceQuit(on windowInfo: [String: Any]) {
         guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
-              pid != NSRunningApplication.current.processIdentifier,
-              let app = NSRunningApplication(processIdentifier: pid) else {
+              let app = NSRunningApplication(processIdentifier: pid),
+              app.isSafeTargetProcess else {
             return
         }
         app.forceTerminate()

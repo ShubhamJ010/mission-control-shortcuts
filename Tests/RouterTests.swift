@@ -960,6 +960,71 @@ final class RouterTests: XCTestCase {
             XCTFail("Window gestures inside Mission Control must be admitted regardless of title bar")
         }
     }
+
+    func testShortcutRouterIgnoresShortcutsOverDockRegionWithoutApp() {
+        let config = ShortcutConfiguration()
+        mockService.isDockRegionValue = true
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyQ,
+            flags: .maskCommand,
+            location: CGPoint(x: 500, y: 1000),
+            config: config,
+            isMissionControlActive: true,
+            target: .none,
+            service: mockService,
+            activateApp: { _ in }
+        )
+
+        switch result {
+        case .ignore:
+            break // Expected: Dock chrome without app must be ignored
+        case .consumeAndExecute:
+            XCTFail("Expected shortcut over Dock chrome to be ignored, not executed")
+        }
+    }
+
+    func testForceQuitActionRequiresWindowAndIgnoresWhenNoWindow() {
+        mockService.mockWindow = nil
+        let action = ForceQuitAction()
+        action.perform(at: CGPoint(x: 500, y: 1000), service: mockService)
+        XCTAssertEqual(mockService.getWindowCallCount, 1)
+    }
+
+    func testShortcutRouterAllowsWindowShortcutsOverDockRegion() throws {
+        let config = ShortcutConfiguration()
+        mockService.isDockRegionValue = true
+        let windowElement = try XCTUnwrap(mockService.mockElement)
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyQ,
+            flags: .maskCommand,
+            location: CGPoint(x: 500, y: 1000),
+            config: config,
+            isMissionControlActive: true,
+            target: .window(windowElement),
+            service: mockService,
+            activateApp: { _ in }
+        )
+
+        switch result {
+        case .consumeAndExecute:
+            break // Expected: Window target inside MC over Dock region is executed
+        case .ignore:
+            XCTFail("Expected window shortcut over Dock region to be executed, not ignored")
+        }
+    }
+
+    func testIsSafeTargetProcessExcludesCurrentApp() {
+        XCTAssertFalse(NSRunningApplication.current.isSafeTargetProcess)
+    }
+
+    func testHideActionRequiresWindowAndIgnoresWhenNoWindow() {
+        mockService.mockWindow = nil
+        let action = HideApplicationAction()
+        action.perform(at: CGPoint(x: 500, y: 1000), service: mockService)
+        XCTAssertEqual(mockService.getWindowCallCount, 1)
+    }
 }
 
 final class DesktopNavigationActionTests: XCTestCase {

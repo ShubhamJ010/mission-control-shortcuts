@@ -247,14 +247,27 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             return nil
         }
 
+        // Gate to actual application dock items only. Separator, folder stacks,
+        // and trash items must never resolve to an app target.
+        guard let subrole: String = getAttributeValue(kAXSubroleAttribute, for: dockItem),
+              subrole == "AXApplicationDockItem" else {
+            return nil
+        }
+
         let runningApps = NSWorkspace.shared.runningApplications
+
+        func isCandidateApp(_ app: NSRunningApplication) -> Bool {
+            app.bundleIdentifier != "com.apple.dock"
+        }
 
         // Primary: the Dock item often exposes its app URL. Matching by bundle
         // identifier is framework-agnostic and works for Mac Catalyst / Electron
         // apps whose AXTitle does not equal the running app's localizedName.
         if let url: NSURL = getAttributeValue(kAXURLAttribute, for: dockItem),
            let bundle = Bundle(url: url as URL),
-           let app = runningApps.first(where: { $0.bundleIdentifier == bundle.bundleIdentifier }) {
+           bundle.bundleIdentifier != "com.apple.dock",
+           let app = runningApps.first(where: { $0.bundleIdentifier == bundle.bundleIdentifier }),
+           isCandidateApp(app) {
             if dockDiagnosticsEnabled {
                 AppLogger.dock
                     .debug(
@@ -281,8 +294,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let normalizedTitle = title.trimmingCharacters(in: .whitespaces)
         let opts: String.CompareOptions = [.caseInsensitive, .diacriticInsensitive]
         if let app = runningApps.first(where: {
-            normalizedTitle.compare(($0.localizedName ?? "").trimmingCharacters(in: .whitespaces),
-                                    options: opts) == .orderedSame
+            isCandidateApp($0) &&
+                normalizedTitle.compare(($0.localizedName ?? "").trimmingCharacters(in: .whitespaces),
+                                        options: opts) == .orderedSame
         }) {
             if dockDiagnosticsEnabled {
                 AppLogger.dock
@@ -470,13 +484,10 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             cachedDockFrame = nil
             return
         }
-        var childrenRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(dockElement, kAXChildrenAttribute as CFString, &childrenRef) == .success,
-           let children = childrenRef as? [AXUIElement] {
+        if let children: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: dockElement) {
             for child in children {
-                var roleRef: CFTypeRef?
-                if AXUIElementCopyAttributeValue(child, kAXRoleAttribute as CFString, &roleRef) == .success,
-                   (roleRef as? String) == "AXList",
+                if let role: String = getAttributeValue(kAXRoleAttribute, for: child),
+                   role == "AXList",
                    let frame = getFrame(for: child) {
                     cachedDockFrame = frame
                     return

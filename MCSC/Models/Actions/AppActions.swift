@@ -34,9 +34,19 @@ struct UnminimizeAllWindowsAction {
     }
 }
 
+extension NSRunningApplication {
+    /// Safe to target for destructive or hiding lifecycle operations (force quit, hide, etc.).
+    /// Excludes current app self, Dock, and background / non-regular system processes.
+    var isSafeTargetProcess: Bool {
+        processIdentifier != NSRunningApplication.current.processIdentifier &&
+            bundleIdentifier != "com.apple.dock" &&
+            activationPolicy == .regular
+    }
+}
+
 struct ForceQuitAppAction {
     func perform(app: NSRunningApplication) {
-        if app.processIdentifier != NSRunningApplication.current.processIdentifier {
+        if app.isSafeTargetProcess {
             app.forceTerminate()
         }
     }
