@@ -94,7 +94,8 @@ final class CursorFeedbackOverlay {
         panel.hasShadow = false
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
         panel.alphaValue = 0.0
 
@@ -133,9 +134,7 @@ final class CursorFeedbackOverlay {
         // Apply symbol entry before making panel visible to eliminate stale frame flicker
         strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
 
-        if !panel.isVisible {
-            panel.orderFrontRegardless()
-        }
+        panel.orderFrontRegardless()
         NSAnimationContext.beginGrouping()
         NSAnimationContext.current.duration = 0
         panel.animator().alphaValue = 1.0
@@ -154,9 +153,7 @@ final class CursorFeedbackOverlay {
         imageView?.image = nil
         imageView?.layer?.transform = CATransform3DIdentity
         imageView?.layer?.removeAllAnimations()
-        if #available(macOS 14.0, *) {
-            imageView?.removeAllSymbolEffects(animated: false)
-        }
+        imageView?.removeAllSymbolEffects(animated: false)
     }
 
     private func scheduleDismiss() {

@@ -24,77 +24,10 @@ extension MissionControlHoverService {
                 guard let refcon else { return Unmanaged.passUnretained(event) }
                 let service = Unmanaged<MissionControlHoverService>.fromOpaque(refcon).takeUnretainedValue()
 
-                // macOS disables event taps on timeout or user input; re-enable
-                // so hover tracking survives without an app restart.
-                if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
-                    if let tap = service.eventTap {
-                        CGEvent.tapEnable(tap: tap, enable: true)
-                    }
-                    return Unmanaged.passUnretained(event)
+                if let processed = service.handleTapEvent(type: type, event: event) {
+                    return Unmanaged.passUnretained(processed)
                 }
-
-                if type == .flagsChanged {
-                    let cmdPressed = event.flags.contains(.maskCommand)
-                    let optionPressed = event.flags.contains(.maskAlternate)
-                    let controlPressed = event.flags.contains(.maskControl)
-                    if Thread.isMainThread {
-                        service.handleFlagsChanged(
-                            cmdPressed: cmdPressed,
-                            optionPressed: optionPressed,
-                            controlPressed: controlPressed
-                        )
-                    } else {
-                        DispatchQueue.main.async {
-                            service.handleFlagsChanged(
-                                cmdPressed: cmdPressed,
-                                optionPressed: optionPressed,
-                                controlPressed: controlPressed
-                            )
-                        }
-                    }
-                    return Unmanaged.passUnretained(event)
-                }
-
-                if type == .leftMouseDown {
-                    let location = event.location
-                    var intercepted = false
-
-                    // Safely check if click hit the overlay button without blocking main thread
-                    if Thread.isMainThread {
-                        intercepted = service.handleMouseDown(at: location)
-                    } else {
-                        DispatchQueue.main.sync {
-                            intercepted = service.handleMouseDown(at: location)
-                        }
-                    }
-
-                    if intercepted {
-                        return nil // Swallow the click so Mission Control does not dismiss prematurely
-                    }
-
-                    // User clicked outside the close button (e.g. activating a window or dismissing MC).
-                    // Hide overlay immediately rather than waiting for lagging exit notification.
-                    if Thread.isMainThread {
-                        service.hideOverlay()
-                    } else {
-                        DispatchQueue.main.async {
-                            service.hideOverlay()
-                        }
-                    }
-
-                    return Unmanaged.passUnretained(event)
-                }
-
-                let location = event.location
-                if Thread.isMainThread {
-                    service.handleMouseMoved(at: location)
-                } else {
-                    DispatchQueue.main.async {
-                        service.handleMouseMoved(at: location)
-                    }
-                }
-
-                return Unmanaged.passUnretained(event)
+                return nil
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
@@ -106,6 +39,71 @@ extension MissionControlHoverService {
         self.runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    /// Dispatches events received on the input tap. Returns the event to pass through, or nil to swallow.
+    private func handleTapEvent(type: CGEventType, event: CGEvent) -> CGEvent? {
+        if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+            if let tap = eventTap {
+                CGEvent.tapEnable(tap: tap, enable: true)
+            }
+            return event
+        }
+
+        if type == .flagsChanged {
+            let cmdPressed = event.flags.contains(.maskCommand)
+            let optionPressed = event.flags.contains(.maskAlternate)
+            let controlPressed = event.flags.contains(.maskControl)
+            let notifyFlags = { [weak self] in
+                self?.handleFlagsChanged(
+                    cmdPressed: cmdPressed,
+                    optionPressed: optionPressed,
+                    controlPressed: controlPressed
+                )
+            }
+            if Thread.isMainThread {
+                notifyFlags()
+            } else {
+                DispatchQueue.main.async { notifyFlags() }
+            }
+            return event
+        }
+
+        if type == .leftMouseDown {
+            let location = event.location
+            var intercepted = false
+            let testClick = { [weak self] in
+                intercepted = self?.handleMouseDown(at: location) ?? false
+            }
+            if Thread.isMainThread {
+                testClick()
+            } else {
+                DispatchQueue.main.sync { testClick() }
+            }
+
+            if intercepted {
+                return nil // Swallow the click so Mission Control does not dismiss prematurely
+            }
+
+            if Thread.isMainThread {
+                hideOverlay()
+            } else {
+                DispatchQueue.main.async { [weak self] in
+                    self?.hideOverlay()
+                }
+            }
+            return event
+        }
+
+        let location = event.location
+        if Thread.isMainThread {
+            handleMouseMoved(at: location)
+        } else {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleMouseMoved(at: location)
+            }
+        }
+        return event
     }
 
     func stopInputTap() {

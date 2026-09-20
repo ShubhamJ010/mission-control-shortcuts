@@ -3,10 +3,10 @@ import Cocoa
 struct ReopenTabAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
-              service.getWindow(for: element) != nil else { return }
+              let window = service.getWindow(for: element) else { return }
 
         var pid: pid_t = 0
-        guard AXUIElementGetPid(element, &pid) == .success else { return }
+        guard AXUIElementGetPid(window, &pid) == .success else { return }
         KeyboardEventPoster.postShortcut(virtualKey: 0x11, flags: [.maskCommand, .maskShift], to: pid)
     }
 }
@@ -14,13 +14,11 @@ struct ReopenTabAction: ShortcutAction {
 /// Posts Cmd+N to the application under the point to open a new window.
 struct NewWindowAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        // Wake Exposé so the keystroke reaches the app while Mission Control is
-        // still intercepting input — same pattern as ToggleFullscreenAction.
-        _ = coreDockSendNotification("com.apple.expose.awake" as CFString, 0)
         guard let element = service.getElement(at: point) else { return }
+        let target = service.getWindow(for: element) ?? element
 
         var pid: pid_t = 0
-        guard AXUIElementGetPid(element, &pid) == .success else { return }
+        guard AXUIElementGetPid(target, &pid) == .success else { return }
         KeyboardEventPoster.postShortcut(virtualKey: 0x2D, flags: .maskCommand, to: pid)
     }
 }
@@ -28,13 +26,11 @@ struct NewWindowAction: ShortcutAction {
 /// Posts Cmd+T to the application under the point to open a new tab.
 struct NewTabAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        // Wake Exposé so the keystroke reaches the app while Mission Control is
-        // still intercepting input — same pattern as ToggleFullscreenAction.
-        _ = coreDockSendNotification("com.apple.expose.awake" as CFString, 0)
         guard let element = service.getElement(at: point) else { return }
+        let target = service.getWindow(for: element) ?? element
 
         var pid: pid_t = 0
-        guard AXUIElementGetPid(element, &pid) == .success else { return }
+        guard AXUIElementGetPid(target, &pid) == .success else { return }
         KeyboardEventPoster.postShortcut(virtualKey: 0x11, flags: .maskCommand, to: pid)
     }
 }

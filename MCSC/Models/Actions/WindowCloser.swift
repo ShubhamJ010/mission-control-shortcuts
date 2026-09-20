@@ -78,7 +78,7 @@ struct WindowCloser {
             _ = service.focusWindow(window)
 
             var pid: pid_t = 0
-            guard AXUIElementGetPid(element, &pid) == .success else { return }
+            guard AXUIElementGetPid(window, &pid) == .success else { return }
             KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
         }
     }
@@ -135,8 +135,16 @@ struct WindowCloser {
     }
 
     private func pressRedCloseButton(of window: AXUIElement, service: AccessibilityServiceProtocol) {
-        if let closeButton: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window) {
-            _ = service.performAction(kAXPressAction, on: closeButton)
+        if let closeButton: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window),
+           service.performAction(kAXPressAction, on: closeButton) {
+            return
+        }
+
+        // Fallback to ⌘W for windows without a standard AX close button (e.g. Electron, custom titlebars)
+        var pid: pid_t = 0
+        if AXUIElementGetPid(window, &pid) == .success {
+            _ = service.focusWindow(window)
+            KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
         }
     }
 }

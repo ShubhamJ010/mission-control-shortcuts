@@ -21,6 +21,14 @@ final class MissionControlServiceTests: XCTestCase {
         ]
     }
 
+    private func windowManagerWindow(layer: Int, name: String = "") -> [String: Any] {
+        [
+            kCGWindowOwnerName as String: "WindowManager",
+            kCGWindowName as String: name,
+            kCGWindowLayer as String: layer
+        ]
+    }
+
     override func setUp() {
         super.setUp()
         // Start with a clean (no Mission Control) window list.
@@ -99,12 +107,11 @@ final class MissionControlServiceTests: XCTestCase {
         XCTAssertFalse(service.checkMissionControlActive())
     }
 
-    /// Conversely, when Mission Control *is* open (the scan sees the overlay
-    /// + Dock bar), the scan keeps the latch true and the result is true.
+    /// Conversely, when Mission Control *is* open (the scan sees the WindowManager
+    /// layer 19 overlay), the scan keeps the latch true and the result is true.
     func testLatchStaysTrueWhenScanReturnsTrue() {
         service = MissionControlService(windowListProvider: { [
-            self.dockWindow(layer: 20), // overlay
-            self.dockWindow(layer: 18) // Dock bar
+            self.windowManagerWindow(layer: 19)
         ] })
         service.detectionCacheInterval = 0.35
         service.start()
@@ -152,25 +159,67 @@ final class MissionControlServiceTests: XCTestCase {
         XCTAssertFalse(service.isMissionControlActive) // cached
     }
 
-    /// `com.apple.showdesktop.start` must deactivate Mission Control and not mark it active.
-    func testShowDesktopNotificationDoesNotActivateMissionControl() {
+    /// `markActive(false)` must deactivate Mission Control and fire deactivation callbacks.
+    func testMarkActiveFalseDeactivatesMissionControl() {
         service.start()
         service.markActive(true)
         XCTAssertTrue(service.isMissionControlActive)
 
-        let exp = expectation(description: "ShowDesktop notification handled")
+        var deactivatedCalled = false
         service.onDeactivated = {
-            exp.fulfill()
+            deactivatedCalled = true
         }
 
-        DistributedNotificationCenter.default().postNotificationName(
-            NSNotification.Name("com.apple.showdesktop.start"),
-            object: nil,
-            userInfo: nil,
-            deliverImmediately: true
-        )
-
-        wait(for: [exp], timeout: 2.0)
+        service.markActive(false)
+        XCTAssertTrue(deactivatedCalled)
         XCTAssertFalse(service.isMissionControlActive)
+    }
+
+    func testMacOS27WindowManagerLayersDetectMissionControlActive() {
+        service = MissionControlService(windowListProvider: { [
+            self.dockWindow(layer: 20), // overlay
+            self.windowManagerWindow(layer: 19), // WindowManager overlay
+            self.windowManagerWindow(layer: 14) // WindowManager spaces bar
+        ] })
+        service.detectionCacheInterval = 0.35
+        service.start()
+
+        XCTAssertTrue(
+            service.checkMissionControlActive(),
+            "macOS 27 WindowManager Mission Control layers must detect active"
+        )
+    }
+
+    func testScanDetectsStateTransitionsAndFiresCallbacks() {
+        var windows: [[String: Any]] = []
+        service = MissionControlService(windowListProvider: { windows })
+        service.detectionCacheInterval = 0
+        service.start()
+
+        var activatedCount = 0
+        var deactivatedCount = 0
+        service.onActivated = { activatedCount += 1 }
+        service.onDeactivated = { deactivatedCount += 1 }
+
+        // Initial scan on empty list
+        XCTAssertFalse(service.checkMissionControlActive())
+        XCTAssertEqual(activatedCount, 0)
+        XCTAssertEqual(deactivatedCount, 0)
+
+        // Mission Control opens (macOS 27 layers appear)
+        windows = [
+            dockWindow(layer: 20),
+            windowManagerWindow(layer: 19),
+            windowManagerWindow(layer: 14)
+        ]
+        XCTAssertTrue(service.checkMissionControlActive())
+        XCTAssertEqual(activatedCount, 1, "Scan should fire onActivated on transition to active")
+        XCTAssertEqual(deactivatedCount, 0)
+
+        // Mission Control closes
+        windows = []
+        XCTAssertFalse(service.checkMissionControlActive())
+        XCTAssertEqual(activatedCount, 1)
+        XCTAssertEqual(deactivatedCount, 1, "Scan should fire onDeactivated on transition to inactive")
     }
 }

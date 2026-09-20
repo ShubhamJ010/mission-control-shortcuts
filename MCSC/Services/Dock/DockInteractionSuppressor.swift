@@ -6,6 +6,7 @@ protocol DockInteractionSuppressorProtocol: AnyObject {
     var isSuppressing: Bool { get set }
     var isDockHoveredProvider: ((CGPoint) -> Bool)? { get set }
     var isEnabledProvider: (() -> Bool)? { get set }
+    var onUserClick: (() -> Void)? { get set }
     func start()
     func stop()
 }
@@ -29,6 +30,10 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
     /// Closure returning `true` if Dock interaction suppression is currently active
     /// (i.e. `isDockActionsOutsideMCEnabled` is on and Mission Control is not active).
     var isEnabledProvider: (() -> Bool)?
+
+    /// Closure invoked when an un-swallowed user mouse click occurs.
+    /// Used by ViewModel to abort hold detection so physical press-clicks don't latch Cmd.
+    var onUserClick: (() -> Void)?
 
     func start() {
         guard eventTap == nil else { return }
@@ -90,8 +95,9 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
-    /// Undocumented Quartz trackpad gesture event raw types (gesture, magnify, swipe, smartMagnify, quickLook, pressure).
-    private static let gestureEventRawTypes: ClosedRange<UInt32> = 29...34
+    /// Undocumented Quartz trackpad gesture event raw types (gesture, magnify, swipe, smartMagnify, quickLook,
+    /// pressure).
+    private static let gestureEventRawTypes: ClosedRange<UInt32> = 29 ... 34
 
     /// Tracks whether a physical mouse-down event (pressure > 0.0) was passed through to the system.
     /// Used to guarantee that the corresponding mouse-up event is never swallowed even if pressure
@@ -129,12 +135,14 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
             let pressure = event.getDoubleValueField(.mouseEventPressure)
             if pressure > 0.0 {
                 hasActivePhysicalMouseDown = true
+                onUserClick?()
                 return event // Pass through physical press click
             }
             hasActivePhysicalMouseDown = false
-            if isSuppressing && (isDockHoveredProvider?(location) ?? false) {
+            if isSuppressing, isDockHoveredProvider?(location) ?? false {
                 return nil // Swallow synthesized tap click down
             }
+            onUserClick?()
             return event
         }
 
@@ -147,7 +155,7 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
             if pressure > 0.0 {
                 return event // Pass through any press-click release reporting positive pressure
             }
-            if isSuppressing && (isDockHoveredProvider?(location) ?? false) {
+            if isSuppressing, isDockHoveredProvider?(location) ?? false {
                 return nil // Swallow synthesized tap click up
             }
             return event

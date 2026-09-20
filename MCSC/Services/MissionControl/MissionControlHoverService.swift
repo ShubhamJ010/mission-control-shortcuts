@@ -13,15 +13,16 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
     func start()
     func stop()
     func hideOverlay()
+    func handleActivated()
+    func handleDeactivated()
 }
 
 @MainActor
 final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private let accessibilityService: AccessibilityServiceProtocol
     private let isMissionControlActiveProvider: () -> Bool
-    /// Weak ref to the shared detector so the Dock AXObserver transition can
-    /// be pushed in via `markActive` instead of waiting for the lagging 350 ms
-    /// window-list scan. Weak because the ViewModel owns both services.
+    /// Weak ref to the shared detector so transitions can be pushed in via
+    /// `markActive`. Weak because the ViewModel owns both services.
     weak var missionControlService: MissionControlServiceProtocol?
     private var injectedOverlay: PreviewCloseButtonOverlay?
     private var createdOverlay: PreviewCloseButtonOverlay?
@@ -205,7 +206,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             repeats: true,
             tolerance: HoverServiceTiming.windowPollTolerance
         ) { [weak self] _ in
-            Task { @MainActor in self?.fetchWindows() }
+            MainActor.assumeIsolated { self?.fetchWindows() }
         }
     }
 
@@ -278,7 +279,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         let filtered = list.filter { window in
             guard let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
                   let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner != "Dock", owner != "MCSC", owner != "Window Server" else {
+                  owner != "Dock", owner != "MCSC", owner != "Window Server", owner != "WindowManager" else {
                 return false
             }
             if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
@@ -289,8 +290,11 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         // Skip the assignment and overlay recomputation when the window list is
-        // unchanged. A deep compare avoids redundant work on every 500ms poll.
-        if !NSArray(array: filtered).isEqual(to: windows) {
+        // unchanged. A fast check on window count and IDs avoids redundant work on every 500ms poll.
+        let isSame = filtered.count == windows.count && zip(filtered, windows).allSatisfy { f, w in
+            (f[kCGWindowNumber as String] as? CGWindowID) == (w[kCGWindowNumber as String] as? CGWindowID)
+        }
+        if !isSame {
             windows = filtered
         }
     }
@@ -319,7 +323,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     func handleMouseMoved(at mouseLocation: CGPoint) {
-        guard isTracking && isEnabled else {
+        guard isTracking, isEnabled else {
             hideOverlay()
             return
         }
@@ -342,6 +346,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         guard isMissionControlActive || isMissionControlActiveProvider() else {
             hideOverlay()
             return
+        }
+
+        if !isMissionControlActive {
+            handleActivated()
         }
 
         if windows.isEmpty {
@@ -367,7 +375,23 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             overlay.setHovered(false)
         }
 
-        // Find window containing cursor
+        // macOS 27: First try resolving the preview tile via Accessibility
+        // (WindowManager exposes AXButton preview tiles with their exact visual frame and "wid" attribute).
+        if let hitElement = accessibilityService.getElement(at: mouseLocation),
+           let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(for: hitElement) {
+            if let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) ??
+                (CGWindowListCopyWindowInfo([.optionIncludingWindow], wid) as? [[String: Any]])?.first {
+                let previewFrame = accessibilityService.getFrame(for: tileElement) ?? .zero
+                if !previewFrame.isEmpty {
+                    hoveredWindow = winInfo
+                    overlay.show(at: previewFrame, mode: currentOverlayMode)
+                    overlayRect = overlay.currentAXRect
+                    return
+                }
+            }
+        }
+
+        // Fallback: search window list bounds
         for windowInfo in windows {
             guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
                   let x = boundsDict["X"],
@@ -381,14 +405,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
             if windowFrame.contains(mouseLocation) {
                 hoveredWindow = windowInfo
-                let halfDim = PreviewCloseButtonOverlay.buttonDimension / 2.0
-                overlayRect = CGRect(
-                    x: x - halfDim,
-                    y: y - halfDim,
-                    width: PreviewCloseButtonOverlay.buttonDimension,
-                    height: PreviewCloseButtonOverlay.buttonDimension
-                )
                 overlay.show(at: windowFrame, mode: currentOverlayMode)
+                overlayRect = overlay.currentAXRect
                 return
             }
         }
@@ -421,7 +439,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         case .quit:
             MissionControlWindowActions.performForceQuit(on: windowInfo)
         case .fullscreen:
-            MissionControlWindowActions.performFullscreen(on: windowInfo)
+            MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: accessibilityService)
         }
 
         if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID {
@@ -432,6 +450,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     deinit {
+        if let obs = axObserver {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
+        }
         if let source = runLoopSource {
             CFRunLoopSourceInvalidate(source)
             CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
@@ -448,9 +469,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         windowFetchTimer = nil
         queryIdleTimer?.invalidate()
         queryIdleTimer = nil
-        if let obs = axObserver {
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
-        }
         if let observer = spaceChangeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(observer)
         }

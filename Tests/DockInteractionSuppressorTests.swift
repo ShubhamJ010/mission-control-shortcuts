@@ -169,7 +169,12 @@ final class DockInteractionSuppressorTests: XCTestCase {
         let outsideLocation = CGPoint(x: 500, y: 100)
         let insideLocation = CGPoint(x: 500, y: 950)
 
-        let downEvent = try makeMouseEvent(type: .leftMouseDown, location: outsideLocation, button: .left, pressure: 1.0)
+        let downEvent = try makeMouseEvent(
+            type: .leftMouseDown,
+            location: outsideLocation,
+            button: .left,
+            pressure: 1.0
+        )
         let downResult = suppressor.filterEvent(type: .leftMouseDown, event: downEvent)
         XCTAssertNotNil(downResult, "Drag starting outside Dock passes through")
 
@@ -211,5 +216,39 @@ final class DockInteractionSuppressorTests: XCTestCase {
 
         let result = suppressor.filterEvent(type: .rightMouseDown, event: event)
         XCTAssertNotNil(result, "Disabled suppressor must pass through all events")
+    }
+
+    func testOnUserClickFiresOnPhysicalPressClick() throws {
+        suppressor.isEnabledProvider = { true }
+        suppressor.isDockHoveredProvider = { $0.y > 900 }
+        suppressor.isSuppressing = true
+
+        var clickFired = false
+        suppressor.onUserClick = {
+            clickFired = true
+        }
+
+        let event = try makeMouseEvent(type: .rightMouseDown, location: CGPoint(x: 500, y: 950), pressure: 1.0)
+        let result = suppressor.filterEvent(type: .rightMouseDown, event: event)
+
+        XCTAssertNotNil(result)
+        XCTAssertTrue(clickFired, "onUserClick must fire when physical press click passes through")
+    }
+
+    func testOnUserClickDoesNotFireOnSwallowedClick() throws {
+        suppressor.isEnabledProvider = { true }
+        suppressor.isDockHoveredProvider = { $0.y > 900 }
+        suppressor.isSuppressing = true
+
+        var clickFired = false
+        suppressor.onUserClick = {
+            clickFired = true
+        }
+
+        let event = try makeMouseEvent(type: .rightMouseDown, location: CGPoint(x: 500, y: 950), pressure: 0.0)
+        let result = suppressor.filterEvent(type: .rightMouseDown, event: event)
+
+        XCTAssertNil(result)
+        XCTAssertFalse(clickFired, "onUserClick must NOT fire when synthesized click is swallowed")
     }
 }

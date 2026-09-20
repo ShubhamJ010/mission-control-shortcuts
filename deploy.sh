@@ -33,14 +33,9 @@ if [ ! -d "$BUILT_APP_PATH" ]; then
     exit 1
 fi
 
-# 3. Reset accessibility permissions safely
-echo "\n--- 3. Resetting Accessibility Permissions ---"
-if command -v tccutil > /dev/null; then
-    echo "Resetting Accessibility database for bundle ID '$BUNDLE_ID'..."
-    tccutil reset Accessibility "$BUNDLE_ID" || echo "Notice: Accessibility permission reset skipped or was not previously granted."
-else
-    echo "Notice: tccutil not found; skipping Accessibility permission reset."
-fi
+# 3. Accessibility permissions notice
+echo "\n--- 3. Checking Accessibility Permissions ---"
+echo "Preserving existing Accessibility permissions for '$BUNDLE_ID'."
 
 # 4. Install into /Applications
 echo "\n--- 4. Installing to Applications Folder ---"

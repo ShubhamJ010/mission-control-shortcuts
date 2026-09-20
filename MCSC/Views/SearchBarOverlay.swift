@@ -72,10 +72,8 @@ final class SearchBarOverlay {
         textField?.stringValue = query.uppercased()
         panel.setFrame(Self.panelFrame(query: query, screen: screen), display: true)
 
-        if !isVisible {
-            panel.orderFrontRegardless()
-            isVisible = true
-        }
+        panel.orderFrontRegardless()
+        isVisible = true
     }
 
     func hide() {
@@ -100,7 +98,7 @@ final class SearchBarOverlay {
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = true
         panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
         let effectView = NSVisualEffectView(frame: contentRect)

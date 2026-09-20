@@ -37,6 +37,16 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         return mockWindow
     }
 
+    var mockWindowForWindowID: [CGWindowID: AXUIElement] = [:]
+    func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement? {
+        mockWindowForWindowID[windowID] ?? mockWindow
+    }
+
+    var mockPreviewTile: (tileElement: AXUIElement, windowID: CGWindowID)?
+    func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        mockPreviewTile
+    }
+
     func performAction(_ action: String, on element: AXUIElement) -> Bool {
         performActionCalledWith = (action, element)
         return true

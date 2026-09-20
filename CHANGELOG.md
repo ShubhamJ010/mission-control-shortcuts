@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.7.3 (21 Sep 2026)
+
+- **macOS 27 WindowManager Mission Control Support**: Integrated modern Mission Control detection targeting `com.apple.WindowManager` full-screen overlay (layer 19) alongside classic Dock overlay (layer 20 + layer ≤18). Automatic transition broadcasts keep activation state in sync with zero background polling overhead.
+- **Direct Preview Tile Resolution via "wid"**: Added `AccessibilityService.getMissionControlPreviewTile(for:)` to resolve WindowManager AX preview tiles and their target window IDs, eliminating redundant AX parent traversals and avoiding WindowServer IPC bounds fallbacks.
+- **Physical Press-Click vs. Tap Disambiguation**: Enhanced `DockInteractionSuppressor` to distinguish zero-pressure synthesized taps from physical mouse clicks (`pressure > 0.0`), allowing Dock context menus and right-clicks to pass through unobstructed.
+- **Touch Session Hold Cancellation**: Added `.cancelled` state to `TwoFingerHoldDetector` wired via `onUserClick` callback, instantly canceling `Cmd` hold modifier upon physical clicks until fingers lift.
+- **Window Actions & Closer Fallback Hardening**: `WindowCloser` and `MissionControlWindowActions` fall back to ⌘W keystroke directly targeted at the window PID if AX close button is not present (e.g. Electron apps).
+- **Multi-Monitor Boundary Anchoring**: Improved `PreviewCloseButtonOverlay` target screen selection using `ScreenGeometry.screenContaining(axPoint:)` to prevent clamping to the primary monitor on secondary display edges.
+- **Availability Cascades & Cleanup**: Pruned obsolete OS availability cascades across SF Symbol Effects and overlays for macOS 14+ deployment target.
+
 ## 0.7.2 (17 Sep 2026)
 
 - **System Process & Dock Protection**: Introduced `isSafeTargetProcess` on `NSRunningApplication` guarding Force Quit, Quit, and Hide lifecycle actions across both window hover and Dock targets against acting on self (`NSRunningApplication.current`), `com.apple.dock`, or background non-regular system processes (`activationPolicy == .regular`).

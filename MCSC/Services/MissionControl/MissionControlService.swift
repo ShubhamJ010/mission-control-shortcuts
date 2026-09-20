@@ -6,18 +6,10 @@ import Foundation
 /// inject a "fix" key sequence when Cmd+Space is pressed while Mission
 /// Control has swallowed the Spotlight shortcut.
 ///
-/// Detection is two-pronged:
-/// 1. Distributed Dock notifications (`com.apple.MissionControl.start` etc.) —
-///    unreliable on modern macOS for standalone processes.
-/// 2. A window-list heuristic that recognises Mission Control's full-screen
-///    overlay + Dock bar, cached for `detectionCacheInterval` so gesture
-///    frames never pay for a repeated `CGWindowListCopyWindowInfo` scan.
-///
-/// The authoritative signal is the Dock AXObserver in
-/// `MissionControlHoverService`, pushed in via `markActive(_:)`. The
-/// window-list scan is a time-bounded fallback: the latch is trusted only
-/// while the cache window is fresh, after which the scan self-corrects a
-/// missed close notification (fix: stuck-true landmine).
+/// On macOS 27, Mission Control composition is owned by `com.apple.WindowManager`
+/// (layer 19 overlay), cached for `detectionCacheInterval` so gesture
+/// frames never pay for a repeated `CGWindowListCopyWindowInfo` scan.
+/// Transitions are automatically broadcast via `onActivated` / `onDeactivated`.
 @MainActor
 protocol MissionControlServiceProtocol: AnyObject {
     var isMissionControlActive: Bool { get }
@@ -53,17 +45,19 @@ final class MissionControlService: MissionControlServiceProtocol {
 
     /// Maintain notification observers for cleanup
     private var observers: [NSObjectProtocol] = []
-    /// Guards `start()` so repeated calls do not register duplicate Dock
-    /// notification observers.
+    /// Guards `start()` so repeated calls are idempotent.
     private var isStarted = false
 
-    // MARK: - Detection tuning (verified on macOS 15.7.3)
+    // MARK: - Detection tuning
 
     /// Layer of Mission Control's full-screen Dock overlay window.
     private let missionControlOverlayLayer = 20
-    /// Mission Control also shows the Dock bar at/below this layer; a Finder
-    /// folder stack shows only the overlay and lacks this, so it is excluded.
+    /// Mission Control also shows the Dock bar at/below this layer.
     private let dockBarLayerThreshold = 18
+    /// Layer of Mission Control's full-screen WindowManager overlay window.
+    private let windowManagerOverlayLayer = 19
+    /// Layer of Mission Control's spaces bar window in WindowManager.
+    private let windowManagerSpacesBarLayer = 14
 
     // MARK: - Cached detection (coalesced; polled at most every 350ms)
 
@@ -151,6 +145,7 @@ final class MissionControlService: MissionControlServiceProtocol {
     /// (`active == false`) the cache is set to `false` (not `nil`) so the
     /// next read returns instantly without a re-scan.
     func markActive(_ active: Bool) {
+        guard _isMissionControlActive != active else { return }
         _isMissionControlActive = active
         cachedIsActive = active
         lastDetectionTime = CACurrentMediaTime()
@@ -163,28 +158,11 @@ final class MissionControlService: MissionControlServiceProtocol {
     }
 
     /// Returns `true` only while Mission Control is open.
-    ///
-    /// The latch (`_isMissionControlActive`, set by `markActive` or Dock
-    /// notifications) is trusted only while the cache window is fresh. After
-    /// it expires the window-list scan runs and self-corrects a latched-true
-    /// if no Mission Control windows are found, so a missed close
-    /// notification can't pin the state true forever.
-    ///
-    /// Mission Control exposes an empty-named, full-screen Dock window at
-    /// `missionControlOverlayLayer` *and* the Dock bar itself (empty-named
-    /// windows at `dockBarLayerThreshold` or below). Launchpad uses higher
-    /// layers (27–29) and a Finder folder stack shows only the overlay without
-    /// the Dock bar, so both are excluded. The result is cached for
-    /// `detectionCacheInterval` to avoid polling the window list on every
-    /// trackpad frame.
     func checkMissionControlActive() -> Bool {
         let now = CACurrentMediaTime()
 
         // Latch fast-path: trust the notification/AXObserver signal while the
-        // cache window is fresh. After it expires, fall through to the scan
-        // so a missed close notification self-corrects (fix: stuck-true
-        // landmine). Previously the latch was unconditional, pinning the state
-        // true forever if the close notification was missed.
+        // cache window is fresh.
         if _isMissionControlActive, now - lastDetectionTime < detectionCacheInterval {
             return true
         }
@@ -200,31 +178,38 @@ final class MissionControlService: MissionControlServiceProtocol {
         isDetecting = true
         defer { isDetecting = false }
 
-        // Collect the layers of all empty-named Dock windows.
+        // Collect Dock & WindowManager layers
         var emptyNamedDockLayers: [Int] = []
+        var hasWindowManagerOverlay = false
         if let windowList = windowListProvider() {
             for window in windowList {
-                guard (window[kCGWindowOwnerName as String] as? String) == "Dock" else { continue }
-                let name = window[kCGWindowName as String] as? String ?? ""
+                let owner = window[kCGWindowOwnerName as String] as? String ?? ""
                 let layer = window[kCGWindowLayer as String] as? Int ?? 0
-                if name.isEmpty {
+                let name = window[kCGWindowName as String] as? String ?? ""
+                if owner == "Dock", name.isEmpty {
                     emptyNamedDockLayers.append(layer)
+                } else if owner == "WindowManager", layer == windowManagerOverlayLayer {
+                    hasWindowManagerOverlay = true
                 }
             }
         }
 
-        let isActive = emptyNamedDockLayers.contains(missionControlOverlayLayer)
+        let isDockMC = emptyNamedDockLayers.contains(missionControlOverlayLayer)
             && emptyNamedDockLayers.contains { $0 <= dockBarLayerThreshold }
+        let isActive = hasWindowManagerOverlay || isDockMC
 
+        let previousActive = _isMissionControlActive
         cachedIsActive = isActive
         lastDetectionTime = now
+        _isMissionControlActive = isActive
 
-        // Self-correct a latched-true: if the scan sees no Mission Control
-        // windows, clear the latch so a missed close notification can't pin
-        // the state true forever. This keeps the latch a *hint* (instant
-        // reads within the cache window) rather than a permanent override.
-        if !isActive {
-            _isMissionControlActive = false
+        // Notify state transitions when detected via the window-list scan
+        if isActive != previousActive {
+            if isActive {
+                onActivated?()
+            } else {
+                onDeactivated?()
+            }
         }
 
         return isActive

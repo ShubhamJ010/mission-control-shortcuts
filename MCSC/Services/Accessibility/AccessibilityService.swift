@@ -14,6 +14,12 @@ protocol AccessibilityServiceProtocol {
     /// window, it is returned directly.
     func getWindow(for element: AXUIElement) -> AXUIElement?
 
+    /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
+    func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement?
+
+    /// Resolves a Mission Control preview tile element and its window ID if `element` (or an ancestor) represents one.
+    func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)?
+
     /// Performs a named AX action (e.g. `kAXPressAction`) on `element`.
     /// Returns `true` if the action was accepted by the target app.
     func performAction(_ action: String, on element: AXUIElement) -> Bool
@@ -185,6 +191,60 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             return element
         }
 
+        // macOS 27+ / Modern Mission Control:
+        // WindowManager exposes Mission Control window preview buttons with a "wid" attribute.
+        if let preview = getMissionControlPreviewTile(for: element) {
+            if let resolved = getWindow(forWindowID: preview.windowID) {
+                return resolved
+            }
+        }
+
+        return nil
+    }
+
+    /// Mission Control preview tile attribute identifying the target window ID (used by WindowManager).
+    private static let axMissionControlWindowIDAttribute = "wid"
+
+    /// Resolves a Mission Control preview tile element and its window ID if `element` (or an ancestor) represents one.
+    func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        var current: AXUIElement? = element
+        var depth = 0
+        while let el = current, depth < 6 {
+            if let widNum: NSNumber = getAttributeValue(Self.axMissionControlWindowIDAttribute, for: el) {
+                return (el, CGWindowID(widNum.uint32Value))
+            }
+            var parent: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
+                  let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {
+                break
+            }
+            current = unsafeDowncast(parent, to: AXUIElement.self)
+            depth += 1
+        }
+        return nil
+    }
+
+    /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
+    func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement? {
+        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]],
+              let winDict = info.first,
+              let pid = winDict[kCGWindowOwnerPID as String] as? pid_t else {
+            return nil
+        }
+        let app = AXUIElementCreateApplication(pid)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windowsRef, CFGetTypeID(windowsRef) == CFArrayGetTypeID(),
+              let axWindows = windowsRef as? [AXUIElement] else {
+            return nil
+        }
+        for axWindow in axWindows {
+            var axId: CGWindowID = 0
+            _AXUIElementGetWindow(axWindow, &axId)
+            if axId == windowID {
+                return axWindow
+            }
+        }
         return nil
     }
 
@@ -384,6 +444,12 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     func getAppFromElement(_ element: AXUIElement) -> NSRunningApplication? {
+        if let window = getWindow(for: element), !CFEqual(window, element) {
+            var pid: pid_t = 0
+            if AXUIElementGetPid(window, &pid) == .success {
+                return NSRunningApplication(processIdentifier: pid)
+            }
+        }
         var pid: pid_t = 0
         let result = AXUIElementGetPid(element, &pid)
         guard result == .success else { return nil }
@@ -413,11 +479,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             _ = raiseWindow(window)
             _ = focusWindow(window)
         }
-        if #available(macOS 14.0, *) {
-            app.activate()
-        } else {
-            app.activate(options: .activateIgnoringOtherApps)
-        }
+        app.activate()
         return true
     }
 

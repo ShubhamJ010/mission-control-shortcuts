@@ -165,7 +165,7 @@ extension MissionControlHoverService {
             repeats: false,
             tolerance: HoverServiceTiming.queryIdleTolerance
         ) { [weak self] _ in
-            Task { @MainActor in self?.clearSearch() }
+            MainActor.assumeIsolated { self?.clearSearch() }
         }
     }
 }

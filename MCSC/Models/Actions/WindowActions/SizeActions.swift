@@ -51,7 +51,8 @@ struct MakeLargerAction: ShortcutAction {
             newY = axScreenBounds.maxY - newHeight
         }
 
-        _ = service.setFrame(CGRect(x: newX, y: newY, width: newWidth, height: newHeight), for: window)
+        let newFrame = CGRect(x: newX, y: newY, width: newWidth, height: newHeight)
+        _ = service.setFrame(newFrame, for: window)
     }
 }
 
@@ -61,7 +62,6 @@ struct MakeLargerAction: ShortcutAction {
 struct MakeSmallerAction: ShortcutAction {
     /// Multiplier used to scale window dimensions (÷33% ≈ ×0.75).
     private let scaleFactor: CGFloat = 1.0 / 1.33
-    /// Floor so windows cannot collapse into unusable slivers.
     private let minWidth: CGFloat = 200
     private let minHeight: CGFloat = 100
 
@@ -80,7 +80,7 @@ struct MakeSmallerAction: ShortcutAction {
         let newWidth = min(targetWidth, axScreenBounds.width)
         let newHeight = min(targetHeight, axScreenBounds.height)
 
-        // Shrink symmetrically from center
+        // Shrink symmetrically towards center
         var newX = (currentFrame.origin.x + (currentFrame.width - newWidth) / 2.0).rounded()
         var newY = (currentFrame.origin.y + (currentFrame.height - newHeight) / 2.0).rounded()
 
@@ -97,7 +97,8 @@ struct MakeSmallerAction: ShortcutAction {
             newY = axScreenBounds.maxY - newHeight
         }
 
-        _ = service.setFrame(CGRect(x: newX, y: newY, width: newWidth, height: newHeight), for: window)
+        let newFrame = CGRect(x: newX, y: newY, width: newWidth, height: newHeight)
+        _ = service.setFrame(newFrame, for: window)
     }
 }
 

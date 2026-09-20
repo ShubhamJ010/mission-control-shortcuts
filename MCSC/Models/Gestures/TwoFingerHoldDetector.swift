@@ -37,6 +37,7 @@ struct TwoFingerHoldDetector {
         case latched(
             releaseTime: Double
         )
+        case cancelled
     }
 
     var config = Config()
@@ -51,7 +52,7 @@ struct TwoFingerHoldDetector {
         case let .latched(releaseTime):
             let now = lastTimestamp > 0 ? lastTimestamp : ProcessInfo.processInfo.systemUptime
             return (now - releaseTime) <= config.latchDuration
-        case .idle, .pending:
+        case .idle, .pending, .cancelled:
             return false
         }
     }
@@ -106,7 +107,7 @@ struct TwoFingerHoldDetector {
                 return false
             }
 
-            if timestamp - startTime >= config.holdDuration {
+            if timestamp - startTime >= config.holdDuration - 0.001 {
                 state = .held(finger1ID: f1ID, finger2ID: f2ID)
                 return true
             }
@@ -131,6 +132,12 @@ struct TwoFingerHoldDetector {
                 state = .idle
             }
             return false
+
+        case .cancelled:
+            if touches.count < 2 {
+                state = .idle
+            }
+            return false
         }
     }
 
@@ -138,7 +145,15 @@ struct TwoFingerHoldDetector {
         lastTimestamp = timestamp
         if case .held = state {
             state = .latched(releaseTime: timestamp)
+        } else if case .cancelled = state {
+            state = .idle
         }
+    }
+
+    /// Cancels hold detection for the remainder of the current touch cycle (e.g. upon mouse click).
+    /// Prevents hold activation while fingers linger after a click, resetting to idle once fingers lift.
+    mutating func cancelForCurrentTouchSession() {
+        state = .cancelled
     }
 
     mutating func reset() {

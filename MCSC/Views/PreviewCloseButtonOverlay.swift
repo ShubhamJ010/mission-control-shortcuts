@@ -84,7 +84,8 @@ final class PreviewCloseButtonOverlay {
         panel.hasShadow = false
         panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
         panel.ignoresMouseEvents = false
-        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
+        panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
         panel.isReleasedWhenClosed = false
 
         let button = CloseButtonView(frame: contentRect, strategy: strategy)
@@ -93,6 +94,9 @@ final class PreviewCloseButtonOverlay {
         self.buttonView = button
         self.panel = panel
     }
+
+    /// Current button bounding box in AX/Quartz coordinates (for hit testing).
+    private(set) var currentAXRect: CGRect = .zero
 
     /// Positions and displays the close button overlay centered directly over the top-left corner (x, y) of the window.
     func show(at windowBounds: CGRect, mode: Mode = .close) {
@@ -103,12 +107,31 @@ final class PreviewCloseButtonOverlay {
         }
         guard let panel else { return }
 
-        let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin)
+        let primaryHeight = ScreenGeometry.primaryScreenHeight
+        let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin, primaryHeight: primaryHeight)
         let halfDim = Self.buttonDimension / 2.0
 
+        var cocoaX = cocoaAnchor.x - halfDim
+        var cocoaY = cocoaAnchor.y - halfDim
+
+        let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(cocoaAnchor, $0.frame, false) })
+            ?? ScreenGeometry.screenContaining(axPoint: windowBounds.origin)
+            ?? NSScreen.screens.first
+        if let screenFrame = targetScreen?.frame {
+            cocoaX = min(max(cocoaX, screenFrame.minX + 2), screenFrame.maxX - Self.buttonDimension - 2)
+            cocoaY = min(max(cocoaY, screenFrame.minY + 2), screenFrame.maxY - Self.buttonDimension - 2)
+        }
+
         let targetRect = NSRect(
-            x: cocoaAnchor.x - halfDim,
-            y: cocoaAnchor.y - halfDim,
+            x: cocoaX,
+            y: cocoaY,
+            width: Self.buttonDimension,
+            height: Self.buttonDimension
+        )
+
+        currentAXRect = CGRect(
+            x: cocoaX,
+            y: primaryHeight - cocoaY - Self.buttonDimension,
             width: Self.buttonDimension,
             height: Self.buttonDimension
         )
@@ -119,8 +142,8 @@ final class PreviewCloseButtonOverlay {
         panel.setFrame(targetRect, display: true)
         buttonView?.setMode(mode, animated: false)
 
+        panel.orderFrontRegardless()
         if !isVisible {
-            panel.orderFrontRegardless()
             isVisible = true
             if let buttonView {
                 strategy.applyAppear(on: buttonView, imageView: buttonView.imageView)
@@ -147,6 +170,7 @@ final class PreviewCloseButtonOverlay {
         panel?.orderOut(nil)
         isVisible = false
         currentAnchorOrigin = .zero
+        currentAXRect = .zero
     }
 }
 
@@ -236,9 +260,7 @@ final class CloseButtonView: NSView {
 
     /// Cleans up symbol effects and image cache.
     func reset() {
-        if #available(macOS 14.0, *) {
-            imageView.removeAllSymbolEffects(animated: false)
-        }
+        imageView.removeAllSymbolEffects(animated: false)
         imageView.layer?.removeAllAnimations()
         layer?.removeAllAnimations()
         imageCache.removeAll()

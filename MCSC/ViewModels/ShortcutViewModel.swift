@@ -60,6 +60,12 @@ final class ShortcutViewModel {
             guard let self else { return false }
             return !self.missionControlService.isMissionControlActive && self.config.isDockActionsOutsideMCEnabled
         }
+        suppressor.onUserClick = { [weak self] in
+            guard let self else { return }
+            self.holdDetector.cancelForCurrentTouchSession()
+            self.cursorFeedback.hide()
+            self.twoFingerTapRecognizer?.reset()
+        }
         return suppressor
     }()
 
@@ -126,12 +132,16 @@ final class ShortcutViewModel {
         holdDetector.config.holdDuration = config.twoFingerHoldDuration
         setupCallbacks()
 
-        // Cooldown after Mission Control activates to avoid false gesture detection
+        // Cooldown after Mission Control activates to avoid false gesture detection, and notify hoverService.
         missionControlService.onActivated = { [weak self] in
             self?.isCoolingDown = true
+            self?.hoverService.handleActivated()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.isCoolingDown = false
             }
+        }
+        missionControlService.onDeactivated = { [weak self] in
+            self?.hoverService.handleDeactivated()
         }
     }
 

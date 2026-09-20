@@ -379,4 +379,57 @@ final class MissionControlHoverServiceTests: XCTestCase {
         XCTAssertFalse(handled, "Escape on empty query must pass through to dismiss MC")
         XCTAssertFalse(overlay.isVisible, "Overlay must be hidden immediately")
     }
+
+    func testPreviewCloseButtonOverlayCalculatesCurrentAXRectAndResetsOnHide() {
+        let overlay = PreviewCloseButtonOverlay()
+        let rect = CGRect(x: 200, y: 150, width: 400, height: 300)
+        overlay.show(at: rect)
+
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertFalse(overlay.currentAXRect.isEmpty)
+        XCTAssertEqual(overlay.currentAXRect.width, PreviewCloseButtonOverlay.buttonDimension)
+        XCTAssertEqual(overlay.currentAXRect.height, PreviewCloseButtonOverlay.buttonDimension)
+
+        overlay.hide()
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertEqual(overlay.currentAXRect, .zero)
+    }
+
+    func testMissionControlWindowActionsPerformCloseResolvesWindowID() {
+        let winInfo: [String: Any] = [
+            kCGWindowOwnerPID as String: pid_t(1234),
+            kCGWindowNumber as String: CGWindowID(999)
+        ]
+        mockService.focusWindowReturnValue = true
+        // Set mockWindow to verify focusWindow is called with the resolved window
+        let dummyElement = AXUIElementCreateSystemWide()
+        mockService.mockWindowForWindowID[999] = dummyElement
+
+        MissionControlWindowActions.performClose(on: winInfo, accessibilityService: mockService)
+        XCTAssertEqual(mockService.focusWindowCalledWith, dummyElement)
+    }
+
+    func testMissionControlWindowActionsPerformMinimizeResolvesWindowID() {
+        let winInfo: [String: Any] = [
+            kCGWindowOwnerPID as String: pid_t(1234),
+            kCGWindowNumber as String: CGWindowID(888)
+        ]
+        let dummyElement = AXUIElementCreateSystemWide()
+        mockService.mockWindowForWindowID[888] = dummyElement
+        mockService.setMinimizedReturnValue = true
+
+        MissionControlWindowActions.performMinimize(on: winInfo, accessibilityService: mockService)
+        XCTAssertEqual(mockService.setMinimizedCalledWith?.element, dummyElement)
+        XCTAssertEqual(mockService.setMinimizedCalledWith?.minimized, true)
+    }
+
+    func testIsSafeTargetProcessProtectsCriticalSystemApps() {
+        XCTAssertFalse(NSRunningApplication.current.isSafeTargetProcess)
+        if let dock = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first {
+            XCTAssertFalse(dock.isSafeTargetProcess)
+        }
+        if let wm = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first {
+            XCTAssertFalse(wm.isSafeTargetProcess)
+        }
+    }
 }

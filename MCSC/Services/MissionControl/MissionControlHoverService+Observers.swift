@@ -49,9 +49,11 @@ extension MissionControlHoverService {
     }
 
     func stopDockObserver() {
-        if let obs = axObserver, let dockElement = dockAXElement {
-            for notif in Self.dockNotifications {
-                AXObserverRemoveNotification(obs, dockElement, notif as CFString)
+        if let obs = axObserver {
+            if let dockElement = dockAXElement {
+                for notif in Self.dockNotifications {
+                    AXObserverRemoveNotification(obs, dockElement, notif as CFString)
+                }
             }
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
             self.axObserver = nil
@@ -59,37 +61,38 @@ extension MissionControlHoverService {
         }
     }
 
+    func handleActivated() {
+        guard !isMissionControlActive else { return }
+        isMissionControlActive = true
+
+        guard isEnabled else { return }
+
+        fetchWindows()
+        startWindowFetchTimer()
+        startKeyboardSession()
+
+        if let mouseLocation = CGEvent(source: nil)?.location {
+            updateOverlay(at: mouseLocation)
+        }
+    }
+
+    func handleDeactivated() {
+        guard isMissionControlActive else { return }
+        isMissionControlActive = false
+        stopWindowFetchTimer()
+        hideOverlay()
+        stopKeyboardSession()
+        windows = []
+    }
+
     func handleDockNotification(_ notification: String) {
         switch notification {
         case "AXExposeExit", "AXExposeShowDesktop":
-            isMissionControlActive = false
             missionControlService?.markActive(false)
-            stopWindowFetchTimer()
-            hideOverlay()
-            stopKeyboardSession()
-            // Drop the previous session's window list immediately so no stale
-            // entries persist before the next open's `fetchWindows()` refresh.
-            windows = []
+            handleDeactivated()
         case "AXExposeShowAllWindows", "AXExposeShowFrontWindows":
-            isMissionControlActive = true
-            // Push the authoritative open transition into the shared detector so
-            // every consumer of `MissionControlService.isMissionControlActive`
-            // (gesture/shortcut handlers, dock suppressor) sees the instant
-            // signal instead of the lagging 350 ms window-list scan.
             missionControlService?.markActive(true)
-
-            // When the feature is disabled, track Mission Control state
-            // (other services depend on it) but do NOT create the overlay,
-            // start window polling, or install the keyboard tap.
-            guard isEnabled else { return }
-
-            fetchWindows()
-            startWindowFetchTimer()
-            startKeyboardSession()
-
-            if let mouseLocation = CGEvent(source: nil)?.location {
-                updateOverlay(at: mouseLocation)
-            }
+            handleActivated()
         default:
             break
         }
