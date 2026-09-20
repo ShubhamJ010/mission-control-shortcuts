@@ -71,37 +71,11 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
                     return Unmanaged.passUnretained(event)
                 }
 
-                // Check if suppression is enabled. Defaults to *disabled* when
-                // unwired so a partially-configured suppressor can never
-                // swallow system-wide input.
-                guard suppressor.isEnabledProvider?() ?? false else {
-                    return Unmanaged.passUnretained(event)
+                if let filtered = suppressor.filterEvent(type: type, event: event) {
+                    return Unmanaged.passUnretained(filtered)
+                } else {
+                    return nil
                 }
-
-                let location = event.location
-                let rawType = type.rawValue
-
-                // 1. Always swallow trackpad gesture events (smart zoom/smartMagnify -> App Exposé, magnify, swipe,
-                // etc.)
-                // when cursor is over the Dock.
-                if rawType == 29 || rawType == 30 || rawType == 31 || rawType == 32 || rawType == 33 || rawType == 34 {
-                    if suppressor.isDockHoveredProvider?(location) ?? false {
-                        return nil // Swallow system gesture (prevents App Exposé)
-                    }
-                }
-
-                // 2. Swallow synthesized clicks (left/right/other click) when actively suppressing
-                // (e.g. 2+ fingers touching trackpad, during double-tap window, or post-gesture cooldown)
-                // over the Dock.
-                if suppressor.isSuppressing {
-                    // Defaults to *false* when unwired (fail-open) for the
-                    // same safety reason as `isEnabledProvider`.
-                    if suppressor.isDockHoveredProvider?(location) ?? false {
-                        return nil // Swallow synthesized click
-                    }
-                }
-
-                return Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
         ) else {
@@ -116,6 +90,72 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
         CGEvent.tapEnable(tap: tap, enable: true)
     }
 
+    /// Undocumented Quartz trackpad gesture event raw types (gesture, magnify, swipe, smartMagnify, quickLook, pressure).
+    private static let gestureEventRawTypes: ClosedRange<UInt32> = 29...34
+
+    /// Tracks whether a physical mouse-down event (pressure > 0.0) was passed through to the system.
+    /// Used to guarantee that the corresponding mouse-up event is never swallowed even if pressure
+    /// drops to 0.0 upon release during an active double-tap window.
+    private var hasActivePhysicalMouseDown: Bool = false
+
+    /// Evaluates whether an intercepted event should be passed through or swallowed.
+    /// Internal for direct unit testability without registering a CFMachPort event tap.
+    func filterEvent(type: CGEventType, event: CGEvent) -> CGEvent? {
+        // Check if suppression is enabled. Defaults to *disabled* when
+        // unwired so a partially-configured suppressor can never
+        // swallow system-wide input.
+        guard isEnabledProvider?() ?? false else {
+            return event
+        }
+
+        let location = event.location
+        let rawType = type.rawValue
+
+        // 1. Always swallow trackpad gesture events (smart zoom/smartMagnify -> App Exposé, magnify, swipe,
+        // etc.) when cursor is over the Dock.
+        if Self.gestureEventRawTypes.contains(rawType) {
+            if isDockHoveredProvider?(location) ?? false {
+                return nil // Swallow system gesture (prevents App Exposé)
+            }
+        }
+
+        // 2. Swallow synthesized clicks (left/right/other click) when actively suppressing
+        // during double-tap window or post-gesture cooldown over the Dock.
+        // Physical press-clicks (pressure > 0.0) and their matching release (mouseUp) are NEVER swallowed.
+        let isMouseDown = type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown
+        let isMouseUp = type == .leftMouseUp || type == .rightMouseUp || type == .otherMouseUp
+
+        if isMouseDown {
+            let pressure = event.getDoubleValueField(.mouseEventPressure)
+            if pressure > 0.0 {
+                hasActivePhysicalMouseDown = true
+                return event // Pass through physical press click
+            }
+            hasActivePhysicalMouseDown = false
+            if isSuppressing && (isDockHoveredProvider?(location) ?? false) {
+                return nil // Swallow synthesized tap click down
+            }
+            return event
+        }
+
+        if isMouseUp {
+            if hasActivePhysicalMouseDown {
+                hasActivePhysicalMouseDown = false
+                return event // Guarantee physical press click release passes through
+            }
+            let pressure = event.getDoubleValueField(.mouseEventPressure)
+            if pressure > 0.0 {
+                return event // Pass through any press-click release reporting positive pressure
+            }
+            if isSuppressing && (isDockHoveredProvider?(location) ?? false) {
+                return nil // Swallow synthesized tap click up
+            }
+            return event
+        }
+
+        return event
+    }
+
     func stop() {
         if let source = runLoopSource {
             CFRunLoopSourceInvalidate(source)
@@ -128,6 +168,7 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
             eventTap = nil
         }
         isSuppressing = false
+        hasActivePhysicalMouseDown = false
     }
 
     deinit {

@@ -74,6 +74,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/ShortcutActionRouter.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/Routing/GestureActionRouter.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel.swift" \
+  "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+Configuration.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+TargetResolution.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+Lifecycle.swift" \
   "${ROOT_DIR}/MCSC/ViewModels/ShortcutViewModel+EventHandlers.swift" \

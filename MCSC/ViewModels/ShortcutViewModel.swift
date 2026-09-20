@@ -23,6 +23,7 @@ final class ShortcutViewModel {
 
     lazy var multitouchService = MultitouchService()
     lazy var gestureEngine = GestureEngine()
+    private weak var twoFingerTapRecognizer: TwoFingerDoubleTapRecognizer?
     /// Animation backend shared by every overlay, chosen once at startup from
     /// UserDefaults so no runtime driver switching or bloat occurs.
     private lazy var animationStrategy: OverlayAnimationStrategy =
@@ -73,184 +74,6 @@ final class ShortcutViewModel {
     lazy var gestureRouter = GestureActionRouter(actions: actionRegistry)
 
     var config = ShortcutConfiguration()
-
-    /// Forwarding properties for configuration (keeps AppDelegate API unchanged)
-    var isClosingEnabled: Bool {
-        get { config.isClosingEnabled } set { config.isClosingEnabled = newValue }
-    }
-
-    var isCmdWEnabled: Bool {
-        get { config.isCmdWEnabled } set { config.isCmdWEnabled = newValue }
-    }
-
-    var isCmdQEnabled: Bool {
-        get { config.isCmdQEnabled } set { config.isCmdQEnabled = newValue }
-    }
-
-    var isCmdMEnabled: Bool {
-        get { config.isCmdMEnabled } set { config.isCmdMEnabled = newValue }
-    }
-
-    var isCmdHEnabled: Bool {
-        get { config.isCmdHEnabled } set { config.isCmdHEnabled = newValue }
-    }
-
-    var isCmdFEnabled: Bool {
-        get { config.isCmdFEnabled } set { config.isCmdFEnabled = newValue }
-    }
-
-    var isCmdSpaceEnabled: Bool {
-        get { config.isCmdSpaceEnabled } set { config.isCmdSpaceEnabled = newValue }
-    }
-
-    var isTabShortcutsEnabled: Bool {
-        get { config.isTabShortcutsEnabled } set { config.isTabShortcutsEnabled = newValue }
-    }
-
-    var isCmdTEnabled: Bool {
-        get { config.isCmdTEnabled } set { config.isCmdTEnabled = newValue }
-    }
-
-    var isCmdNEnabled: Bool {
-        get { config.isCmdNEnabled } set { config.isCmdNEnabled = newValue }
-    }
-
-    var isCmdShiftTEnabled: Bool {
-        get { config.isCmdShiftTEnabled } set { config.isCmdShiftTEnabled = newValue }
-    }
-
-    var isFillScreenEnabled: Bool {
-        get { config.isFillScreenEnabled } set { config.isFillScreenEnabled = newValue }
-    }
-
-    var isAlmostMaximizeEnabled: Bool {
-        get { config.isAlmostMaximizeEnabled } set { config.isAlmostMaximizeEnabled = newValue }
-    }
-
-    var isReasonableSizeEnabled: Bool {
-        get { config.isReasonableSizeEnabled } set { config.isReasonableSizeEnabled = newValue }
-    }
-
-    var isMakeLargerEnabled: Bool {
-        get { config.isMakeLargerEnabled } set { config.isMakeLargerEnabled = newValue }
-    }
-
-    var isMakeSmallerEnabled: Bool {
-        get { config.isMakeSmallerEnabled } set { config.isMakeSmallerEnabled = newValue }
-    }
-
-    var isLeftHalfSnapEnabled: Bool {
-        get { config.isLeftHalfSnapEnabled } set { config.isLeftHalfSnapEnabled = newValue }
-    }
-
-    var isRightHalfSnapEnabled: Bool {
-        get { config.isRightHalfSnapEnabled } set { config.isRightHalfSnapEnabled = newValue }
-    }
-
-    var isLeftThirdSnapEnabled: Bool {
-        get { config.isLeftThirdSnapEnabled } set { config.isLeftThirdSnapEnabled = newValue }
-    }
-
-    var isRightThirdSnapEnabled: Bool {
-        get { config.isRightThirdSnapEnabled } set { config.isRightThirdSnapEnabled = newValue }
-    }
-
-    var isMoveNextDesktopEnabled: Bool {
-        get { config.isMoveNextDesktopEnabled } set { config.isMoveNextDesktopEnabled = newValue }
-    }
-
-    var isMovePreviousDesktopEnabled: Bool {
-        get { config.isMovePreviousDesktopEnabled } set { config.isMovePreviousDesktopEnabled = newValue }
-    }
-
-    var isAutoEjectEnabled: Bool {
-        get { config.isAutoEjectEnabled } set { config.isAutoEjectEnabled = newValue }
-    }
-
-    var isQuitAppIfNoWindowsEnabled: Bool {
-        get { config.isQuitAppIfNoWindowsEnabled } set { config.isQuitAppIfNoWindowsEnabled = newValue }
-    }
-
-    var isDockActionsOutsideMCEnabled: Bool {
-        get { config.isDockActionsOutsideMCEnabled }
-        set {
-            config.isDockActionsOutsideMCEnabled = newValue
-            syncServiceLifecycles()
-        }
-    }
-
-    var isTitleBarActionsOutsideMCEnabled: Bool {
-        get { config.isTitleBarActionsOutsideMCEnabled } set { config.isTitleBarActionsOutsideMCEnabled = newValue }
-    }
-
-    var isGesturesEnabled: Bool {
-        get { config.isGesturesEnabled }
-        set {
-            config.isGesturesEnabled = newValue
-            syncServiceLifecycles()
-        }
-    }
-
-    var isPinchInEnabled: Bool {
-        get { config.isPinchInEnabled } set { config.isPinchInEnabled = newValue }
-    }
-
-    var isPinchOutEnabled: Bool {
-        get { config.isPinchOutEnabled } set { config.isPinchOutEnabled = newValue }
-    }
-
-    var isSwipeLeftEnabled: Bool {
-        get { config.isSwipeLeftEnabled } set { config.isSwipeLeftEnabled = newValue }
-    }
-
-    var isSwipeRightEnabled: Bool {
-        get { config.isSwipeRightEnabled } set { config.isSwipeRightEnabled = newValue }
-    }
-
-    var isSwipeDownEnabled: Bool {
-        get { config.isSwipeDownEnabled } set { config.isSwipeDownEnabled = newValue }
-    }
-
-    var isSwipeUpEnabled: Bool {
-        get { config.isSwipeUpEnabled } set { config.isSwipeUpEnabled = newValue }
-    }
-
-    var isTwoFingerDoubleTapEnabled: Bool {
-        get { config.isTwoFingerDoubleTapEnabled } set { config.isTwoFingerDoubleTapEnabled = newValue }
-    }
-
-    var isTwoFingerHoldEnabled: Bool {
-        get { config.isTwoFingerHoldEnabled }
-        set {
-            config.isTwoFingerHoldEnabled = newValue
-            holdDetector.config.holdDuration = config.twoFingerHoldDuration
-        }
-    }
-
-    var twoFingerHoldDuration: Double {
-        get { config.twoFingerHoldDuration }
-        set {
-            config.twoFingerHoldDuration = newValue
-            holdDetector.config.holdDuration = newValue
-        }
-    }
-
-    var isKeyboardNavigationEnabled: Bool {
-        get { config.isKeyboardNavigationEnabled } set { config.isKeyboardNavigationEnabled = newValue }
-    }
-
-    var isHapticFeedbackEnabled: Bool {
-        get { config.isHapticFeedbackEnabled } set { config.isHapticFeedbackEnabled = newValue }
-    }
-
-    var isCursorFeedbackEnabled: Bool {
-        get { config.isCursorFeedbackEnabled } set { config.isCursorFeedbackEnabled = newValue }
-    }
-
-    var isOptimizedAnimationModeEnabled: Bool {
-        get { config.isOptimizedAnimationModeEnabled }
-        set { config.isOptimizedAnimationModeEnabled = newValue }
-    }
 
     /// Gesture action mappings
     func gestureAction(for kind: GestureKind, isCmd: Bool) -> GestureAction {
@@ -336,6 +159,15 @@ final class ShortcutViewModel {
         let twoFingerTapRecognizer = TwoFingerDoubleTapRecognizer()
         twoFingerTapRecognizer.isCmdHeld = cmdHeldProvider
         twoFingerTapRecognizer.isEnabled = { [weak self] in self?.config.isTwoFingerDoubleTapEnabled ?? false }
+        twoFingerTapRecognizer.onStateChanged = { [weak self] isInProgress in
+            guard let self else { return }
+            let mcActive = self.missionControlService.isMissionControlActive
+            let axPoint = self.currentAXMouseLocation()
+            let dockHovered = self.isDockTargeted(at: axPoint, mcActive: mcActive)
+
+            self.dockSuppressor.isSuppressing = isInProgress && dockHovered
+        }
+        self.twoFingerTapRecognizer = twoFingerTapRecognizer
         gestureEngine.register(twoFingerTapRecognizer)
 
         let pinchInRecognizer = PinchInRecognizer()
@@ -369,6 +201,12 @@ final class ShortcutViewModel {
         gestureEngine.register(swipeRecognizer)
     }
 
+    private func isDockTargeted(at point: CGPoint, mcActive: Bool) -> Bool {
+        !mcActive
+            && config.isDockActionsOutsideMCEnabled
+            && accessibilityService.isDockRegion(at: point)
+    }
+
     /// MultitouchService → GestureEngine pump. Hot path is streamlined:
     /// - Touch lift (`isEmpty`) and 1-finger frames exit early with zero AX IPC.
     /// - 2+ finger frames are throttled to 30 Hz without per-frame AX title-bar queries.
@@ -387,9 +225,11 @@ final class ShortcutViewModel {
 
             // Handle touch lift immediately without throttling or AX overhead
             if touches.isEmpty {
-                self.dockSuppressor.isSuppressing = false
                 self.holdDetector.handleTouchesEnded(timestamp: timestamp)
                 self.gestureEngine.processFrame([], timestamp: timestamp)
+                if !(self.twoFingerTapRecognizer?.isGestureInProgress ?? false) {
+                    self.dockSuppressor.isSuppressing = false
+                }
                 return
             }
 
@@ -406,22 +246,13 @@ final class ShortcutViewModel {
             guard frameTime - self.lastGestureFrameTime >= self.gestureFrameInterval else { return }
             self.lastGestureFrameTime = frameTime
 
-            let mcActive = self.missionControlService.isMissionControlActive
-            let axPoint = self.currentAXMouseLocation()
-            let dockHovered = !mcActive
-                && self.config.isDockActionsOutsideMCEnabled
-                && self.accessibilityService.isDockRegion(at: axPoint)
-
-            if dockHovered {
-                self.dockSuppressor.isSuppressing = true
-            } else if !mcActive {
-                self.dockSuppressor.isSuppressing = false
-            }
-
             // Two-finger hold: only validate target region ONCE on activation frame
             if self.config.isTwoFingerHoldEnabled {
                 let holdJustActivated = self.holdDetector.processFrame(touches, timestamp: timestamp)
                 if holdJustActivated {
+                    let mcActive = self.missionControlService.isMissionControlActive
+                    let axPoint = self.currentAXMouseLocation()
+                    let dockHovered = self.isDockTargeted(at: axPoint, mcActive: mcActive)
                     let titleBarHovered = !mcActive && !dockHovered
                         && self.config.isTitleBarActionsOutsideMCEnabled
                         && self.isTitleBarHovered(at: axPoint)

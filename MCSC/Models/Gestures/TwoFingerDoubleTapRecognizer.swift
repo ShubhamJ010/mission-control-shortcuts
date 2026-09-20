@@ -29,6 +29,14 @@ final class TwoFingerDoubleTapRecognizer: GestureRecognizer {
     /// Called when gesture completes. Return true if Cmd is held.
     var isCmdHeld: (() -> Bool)?
 
+    /// Called whenever the double-tap sequence enters or exits an in-progress state
+    /// (e.g. during active taps, inter-tap window, or post-gesture cooldown).
+    var onStateChanged: ((_ isInProgress: Bool) -> Void)?
+
+    var isGestureInProgress: Bool {
+        state.isInProgress
+    }
+
     // MARK: - State
 
     private enum State {
@@ -36,9 +44,26 @@ final class TwoFingerDoubleTapRecognizer: GestureRecognizer {
         case tap1Down(startTime: Double, startTouches: [TouchPoint])
         case tap1Up(liftTime: Double)
         case cooldown(until: Double)
+
+        var isInProgress: Bool {
+            switch self {
+            case .idle:
+                false
+            case .tap1Down, .tap1Up, .cooldown:
+                true
+            }
+        }
     }
 
-    private var state: State = .idle
+    private var state: State = .idle {
+        didSet {
+            let wasInProgress = oldValue.isInProgress
+            let nowInProgress = state.isInProgress
+            if wasInProgress != nowInProgress {
+                onStateChanged?(nowInProgress)
+            }
+        }
+    }
 
     // MARK: - GestureRecognizer
 

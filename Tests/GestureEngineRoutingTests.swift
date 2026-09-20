@@ -269,4 +269,80 @@ final class GestureEngineRoutingTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Double Tap State Tracking Tests
+
+    func testTwoFingerDoubleTapStateTrackingAndSuppressionCallback() {
+        var recordedStates: [Bool] = []
+        tapRecognizer.onStateChanged = { inProgress in
+            recordedStates.append(inProgress)
+        }
+
+        XCTAssertFalse(tapRecognizer.isGestureInProgress)
+
+        // 1. Two fingers down (tap 1)
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.5, normalizedY: 0.5, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.5, size: 1.0)
+        _ = tapRecognizer.processFrame([t1, t2], timestamp: 1.0)
+
+        XCTAssertTrue(tapRecognizer.isGestureInProgress)
+        XCTAssertEqual(recordedStates, [true])
+
+        // 2. Fingers lift within tap duration (tap 1 up)
+        _ = tapRecognizer.processFrame([], timestamp: 1.1)
+        XCTAssertTrue(tapRecognizer.isGestureInProgress, "Should remain in progress during inter-tap window")
+        XCTAssertEqual(recordedStates, [true], "State didn't change from in-progress")
+
+        // 3. Second tap arrives within window
+        let result = tapRecognizer.processFrame([t1, t2], timestamp: 1.25)
+        guard case .twoFingerDoubleTap = result else {
+            XCTFail("Expected .twoFingerDoubleTap, got: \(String(describing: result))")
+            return
+        }
+        XCTAssertTrue(tapRecognizer.isGestureInProgress, "Should remain in progress during cooldown")
+
+        // 4. Cooldown expires
+        _ = tapRecognizer.processFrame([], timestamp: 2.1)
+        XCTAssertFalse(tapRecognizer.isGestureInProgress)
+        XCTAssertEqual(recordedStates, [true, false])
+    }
+
+    func testTwoFingerDoubleTapDisarmsWhenFingersHeldTooLong() {
+        var recordedStates: [Bool] = []
+        tapRecognizer.onStateChanged = { inProgress in
+            recordedStates.append(inProgress)
+        }
+
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.5, normalizedY: 0.5, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.5, size: 1.0)
+
+        // Fingers touch down at t = 1.0
+        _ = tapRecognizer.processFrame([t1, t2], timestamp: 1.0)
+        XCTAssertTrue(tapRecognizer.isGestureInProgress)
+
+        // Fingers held past maxTapDuration (0.22s) e.g. at t = 1.3
+        _ = tapRecognizer.processFrame([t1, t2], timestamp: 1.3)
+        XCTAssertFalse(
+            tapRecognizer.isGestureInProgress,
+            "Holding fingers past maxTapDuration must reset state to idle"
+        )
+        XCTAssertEqual(recordedStates, [true, false])
+    }
+
+    func testTwoFingerDoubleTapResetDisarmsState() {
+        var recordedStates: [Bool] = []
+        tapRecognizer.onStateChanged = { inProgress in
+            recordedStates.append(inProgress)
+        }
+
+        let t1 = TouchPoint(identifier: 1, state: 4, normalizedX: 0.5, normalizedY: 0.5, size: 1.0)
+        let t2 = TouchPoint(identifier: 2, state: 4, normalizedX: 0.6, normalizedY: 0.5, size: 1.0)
+
+        _ = tapRecognizer.processFrame([t1, t2], timestamp: 1.0)
+        XCTAssertTrue(tapRecognizer.isGestureInProgress)
+
+        tapRecognizer.reset()
+        XCTAssertFalse(tapRecognizer.isGestureInProgress)
+        XCTAssertEqual(recordedStates, [true, false])
+    }
 }
