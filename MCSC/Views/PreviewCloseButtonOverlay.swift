@@ -44,7 +44,7 @@ final class PreviewCloseButtonOverlay {
             switch self {
             case .close: nil
             case .minimize: [.black, .systemYellow]
-            case .quit: [.white, NSColor(red: 0.749, green: 0.353, blue: 0.949, alpha: 1.0)]
+            case .quit: [.white, .systemPurple]
             case .fullscreen: [.black, .systemGreen]
             }
         }
@@ -223,6 +223,14 @@ final class CloseButtonView: NSView {
         setupImageView()
     }
 
+    private var colorChangeObserver: (any NSObjectProtocol)?
+
+    deinit {
+        if let colorChangeObserver {
+            NotificationCenter.default.removeObserver(colorChangeObserver)
+        }
+    }
+
     /// Cache of rendered action symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once and reused across hovers.
     private var imageCache: [PreviewCloseButtonOverlay.Mode: NSImage] = [:]
@@ -297,6 +305,14 @@ final class CloseButtonView: NSView {
             imageView.widthAnchor.constraint(equalToConstant: 28),
             imageView.heightAnchor.constraint(equalToConstant: 28)
         ])
+
+        colorChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.imageCache.removeAll()
+        }
     }
 
     func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool = false) {

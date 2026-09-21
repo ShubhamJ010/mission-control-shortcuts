@@ -74,10 +74,25 @@ final class CursorFeedbackOverlay {
         )
     }
 
+    private var colorChangeObserver: (any NSObjectProtocol)?
+
     init(strategy: OverlayAnimationStrategy) {
         self.strategy = strategy
         // Panel creation is deferred to the first show() call so no
         // NSPanel (and its layer tree) is allocated until feedback is displayed.
+        colorChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.imageCache.removeAll()
+        }
+    }
+
+    deinit {
+        if let colorChangeObserver {
+            NotificationCenter.default.removeObserver(colorChangeObserver)
+        }
     }
 
     private func setupPanel() {

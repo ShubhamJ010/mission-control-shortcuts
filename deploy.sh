@@ -18,7 +18,9 @@ echo "\n--- 1. Checking running instances ---"
 if pgrep -x "$APP_NAME" > /dev/null; then
     echo "Quitting running instance of $APP_NAME..."
     killall "$APP_NAME" || true
-    sleep 1
+    while pgrep -x "$APP_NAME" > /dev/null; do
+        sleep 0.5
+    done
 else
     echo "App is not currently running."
 fi
@@ -33,23 +35,28 @@ if [ ! -d "$BUILT_APP_PATH" ]; then
     exit 1
 fi
 
-# 3. Accessibility permissions notice
-echo "\n--- 3. Checking Accessibility Permissions ---"
-echo "Preserving existing Accessibility permissions for '$BUNDLE_ID'."
-
-# 4. Install into /Applications
-echo "\n--- 4. Installing to Applications Folder ---"
+# 3. Uninstall previous version
+echo "\n--- 3. Uninstalling previous version ---"
 if [ -d "$APP_PATH" ]; then
     echo "Removing previous installation at $APP_PATH..."
     rm -rf "$APP_PATH"
+else
+    echo "No previous installation found at $APP_PATH."
 fi
 
+# 4. Remove Accessibility permission & clean privacy database while app is closed and uninstalled
+echo "\n--- 4. Resetting Accessibility Permissions ---"
+echo "Clearing Accessibility permissions for '$BUNDLE_ID'..."
+tccutil reset Accessibility "$BUNDLE_ID" || true
+
+# 5. Install into /Applications
+echo "\n--- 5. Installing to Applications Folder ---"
 echo "Installing to $APP_PATH..."
 # Copy the built bundle to the target location
 cp -R "$BUILT_APP_PATH" "$APP_PATH"
 
-# 5. Open the newly installed app
-echo "\n--- 5. Launching the App ---"
+# 6. Open the newly installed app
+echo "\n--- 6. Launching the App ---"
 echo "Opening $APP_PATH..."
 open "$APP_PATH"
 
