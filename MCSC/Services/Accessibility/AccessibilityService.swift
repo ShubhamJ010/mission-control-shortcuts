@@ -20,6 +20,12 @@ protocol AccessibilityServiceProtocol {
     /// Resolves a Mission Control preview tile element and its window ID if `element` (or an ancestor) represents one.
     func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)?
 
+    /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
+    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)?
+
+    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect?
+
     /// Performs a named AX action (e.g. `kAXPressAction`) on `element`.
     /// Returns `true` if the action was accepted by the target app.
     func performAction(_ action: String, on element: AXUIElement) -> Bool
@@ -92,6 +98,10 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     private var cachedDockElement: AXUIElement?
     private var cachedDockPID: pid_t = 0
 
+    /// Cached `AXUIElement` for the WindowManager process, keyed by its pid.
+    private var cachedWindowManagerElement: AXUIElement?
+    private var cachedWindowManagerPID: pid_t = 0
+
     /// Cached frontmost-application element for `isFrontmostWindow`, keyed by
     /// pid. The title-bar hover path calls `isFrontmostWindow` up to 30×/s per
     /// gesture frame; without the cache each call allocated a fresh
@@ -154,12 +164,33 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return cachedDockElement
     }
 
+    /// Returns a cached `AXUIElement` for the WindowManager process.
+    private func getWindowManagerAXElement() -> AXUIElement? {
+        guard let wmApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first
+        else { return nil }
+        if cachedWindowManagerElement == nil || cachedWindowManagerPID != wmApp.processIdentifier {
+            cachedWindowManagerElement = AXUIElementCreateApplication(wmApp.processIdentifier)
+            cachedWindowManagerPID = wmApp.processIdentifier
+        }
+        return cachedWindowManagerElement
+    }
+
     func getElement(at point: CGPoint) -> AXUIElement? {
         var element: AXUIElement?
         let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element)
 
         if result == .success, let element {
             return element
+        }
+
+        // macOS 27: When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on WindowManager,
+        // hit-test directly against the WindowManager application AXUIElement.
+        if let wmElement = getWindowManagerAXElement() {
+            var wmChild: AXUIElement?
+            if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
+               let wmChild {
+                return wmChild
+            }
         }
 
         // When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on Dock,
@@ -209,7 +240,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
         var current: AXUIElement? = element
         var depth = 0
-        while let el = current, depth < 6 {
+        while let el = current, depth < 10 {
             if let widNum: NSNumber = getAttributeValue(Self.axMissionControlWindowIDAttribute, for: el) {
                 return (el, CGWindowID(widNum.uint32Value))
             }
@@ -220,6 +251,68 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             }
             current = unsafeDowncast(parent, to: AXUIElement.self)
             depth += 1
+        }
+        return nil
+    }
+
+    /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
+    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        // 1. Direct hit-test WindowManager first (it owns Mission Control layer 19 on macOS 27)
+        if let wmElement = getWindowManagerAXElement() {
+            var wmChild: AXUIElement?
+            if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
+               let wmChild,
+               let preview = getMissionControlPreviewTile(for: wmChild) {
+                return preview
+            }
+        }
+
+        // 2. Fall back to systemWide element hit-test
+        if let hitElement = getElement(at: point),
+           let preview = getMissionControlPreviewTile(for: hitElement) {
+            return preview
+        }
+
+        // 3. Fall back to Dock element hit-test (classic Dock Exposé)
+        if let dockElement = getDockAXElement() {
+            var dockChild: AXUIElement?
+            if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
+               let dockChild,
+               let preview = getMissionControlPreviewTile(for: dockChild) {
+                return preview
+            }
+        }
+
+        return nil
+    }
+
+    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect? {
+        if let closeBtn: AXUIElement = getAttributeValue(kAXCloseButtonAttribute, for: tileElement),
+           let frame = getFrame(for: closeBtn), !frame.isEmpty {
+            return frame
+        }
+        var childrenRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(tileElement, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+           let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
+           let children = childrenRef as? [AXUIElement] {
+            for child in children {
+                let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: child)
+                if subrole == kAXCloseButtonSubrole {
+                    if let frame = getFrame(for: child), !frame.isEmpty {
+                        return frame
+                    }
+                }
+                let role: String? = getAttributeValue(kAXRoleAttribute, for: child)
+                if role == kAXButtonRole {
+                    let title: String? = getAttributeValue(kAXTitleAttribute, for: child)
+                    if let title, title.localizedCaseInsensitiveContains("close") {
+                        if let frame = getFrame(for: child), !frame.isEmpty {
+                            return frame
+                        }
+                    }
+                }
+            }
         }
         return nil
     }

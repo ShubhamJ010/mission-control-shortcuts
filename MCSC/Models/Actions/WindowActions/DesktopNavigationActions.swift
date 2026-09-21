@@ -14,7 +14,7 @@ import Cocoa
 /// The hold → switch → release sequence takes ~1.7s and runs on a utility
 /// queue; nothing is retained, so there is no state to clean up.
 struct MoveWindowToDesktopAction: ShortcutAction {
-    enum Direction {
+    nonisolated enum Direction: Sendable {
         case next
         case previous
 
@@ -115,7 +115,7 @@ struct MoveWindowToDesktopAction: ShortcutAction {
 }
 
 /// Production side effects for `MoveWindowToDesktopAction`.
-private enum SystemEffects {
+private nonisolated enum SystemEffects {
     /// `.hidSystemState` + `.cghidEventTap`: WindowServer sees the synthetic
     /// move before Exposé (same path as `WindowActivationAction`).
     static func postMouse(_ type: CGEventType, _ at: CGPoint) {

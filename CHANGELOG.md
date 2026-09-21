@@ -2,6 +2,10 @@
 
 ## 0.7.3 (21 Sep 2026)
 
+- **Preview Close Button Alignment & Intra-Thumbnail Hysteresis**: Anchored the hover close button to the native accessibility close button (`getPreviewCloseButtonFrame`) or top-left thumbnail vertex `(previewFrame.minX, previewFrame.minY)` matching native Mission Control preview conventions. Implemented preview tile hover hysteresis in `MissionControlHoverService` to prevent jitter and redundant AX hit-tests during cursor motion across the thumbnail.
+- **macOS 27 Liquid Glass Overlay Button Styling**: Integrated AppKit `NSGlassEffectView` with `effectIsInteractive` and continuous squircle curvature for dynamic Liquid Glass styling, accompanied by explicit CoreAnimation `shadowPath` caching to eliminate offscreen render passes.
+- **Swift 6 Concurrency & Lifecycle Hardening**: Isolated timer dispatches, sleep/wake notifications, and workspace observers in `AppDelegate` via `MainActor.assumeIsolated`. Isolated HID event synthesizer in `DesktopNavigationActions.SystemEffects` as `nonisolated`.
+- **Test Harness Developer Directory Resolution**: Added dynamic developer directory and SDK detection in `Tests/run_tests.sh` supporting Xcode 27, standard Xcode installations, and `xcode-select` paths.
 - **macOS 27 WindowManager Mission Control Support**: Integrated modern Mission Control detection targeting `com.apple.WindowManager` full-screen overlay (layer 19) alongside classic Dock overlay (layer 20 + layer ≤18). Automatic transition broadcasts keep activation state in sync with zero background polling overhead.
 - **Direct Preview Tile Resolution via "wid"**: Added `AccessibilityService.getMissionControlPreviewTile(for:)` to resolve WindowManager AX preview tiles and their target window IDs, eliminating redundant AX parent traversals and avoiding WindowServer IPC bounds fallbacks.
 - **Physical Press-Click vs. Tap Disambiguation**: Enhanced `DockInteractionSuppressor` to distinguish zero-pressure synthesized taps from physical mouse clicks (`pressure > 0.0`), allowing Dock context menus and right-clicks to pass through unobstructed.

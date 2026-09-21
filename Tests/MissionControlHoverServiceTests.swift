@@ -395,6 +395,116 @@ final class MissionControlHoverServiceTests: XCTestCase {
         XCTAssertEqual(overlay.currentAXRect, .zero)
     }
 
+    func testActivePreviewTileHysteresisPreventsMovementOnMouseMoveWithinPreview() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in self?.isMissionControlActive ?? false },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        let previewRect = CGRect(x: 100, y: 100, width: 300, height: 200)
+        let dummyTile = AXUIElementCreateSystemWide()
+        mockService.mockElement = dummyTile
+        mockService.mockPreviewTile = (tileElement: dummyTile, windowID: CGWindowID(777))
+        mockService.mockFrame = previewRect
+
+        let winInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(777),
+            "kCGWindowBounds": [
+                "X": previewRect.origin.x,
+                "Y": previewRect.origin.y,
+                "Width": previewRect.width,
+                "Height": previewRect.height
+            ]
+        ]
+        service._testSeedWindows([winInfo])
+
+        // First mouse move inside the preview tile: activates hover overlay
+        service.updateOverlay(at: CGPoint(x: 150, y: 150))
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertEqual(service.currentPreviewFrame, previewRect)
+        let initialAXRect = overlay.currentAXRect
+        let callCountAfterFirstHover = mockService.getElementCallCount
+
+        // Second mouse move inside the preview tile: hysteresis kicks in, no AX query, no reposition
+        service.updateOverlay(at: CGPoint(x: 200, y: 180))
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertEqual(overlay.currentAXRect, initialAXRect)
+        XCTAssertEqual(mockService.getElementCallCount, callCountAfterFirstHover, "Hysteresis must prevent AX query while mouse stays within active tile")
+
+        // Mouse leaves preview tile: overlay hides
+        mockService.mockElement = nil
+        mockService.mockPreviewTile = nil
+        service.updateOverlay(at: CGPoint(x: 50, y: 50))
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertNil(service.currentPreviewFrame)
+    }
+
+    func testPreviewOverlayPositioningCenteredOnVertexAndCloseButtonFrame() {
+        let overlay = PreviewCloseButtonOverlay()
+        let previewRect = CGRect(x: 200, y: 100, width: 400, height: 300)
+
+        // 1. Centered on the top-left vertex of the preview thumbnail
+        overlay.show(for: previewRect)
+        XCTAssertTrue(overlay.isVisible)
+        let expectedCenterX = previewRect.minX
+        let expectedCenterY = previewRect.minY
+        XCTAssertEqual(overlay.currentAXRect.midX, expectedCenterX, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.midY, expectedCenterY, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.origin.x, previewRect.minX - PreviewCloseButtonOverlay.buttonDimension / 2.0, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.origin.y, previewRect.minY - PreviewCloseButtonOverlay.buttonDimension / 2.0, accuracy: 0.5)
+
+        // 2. Aligned with native close button AX frame if provided
+        let closeBtnRect = CGRect(x: 210, y: 110, width: 20, height: 20)
+        overlay.show(for: previewRect, closeButtonFrame: closeBtnRect)
+        XCTAssertTrue(overlay.isVisible)
+        let expectedBtnCenterX = closeBtnRect.midX
+        let expectedBtnCenterY = closeBtnRect.midY
+        XCTAssertEqual(overlay.currentAXRect.midX, expectedBtnCenterX, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.midY, expectedBtnCenterY, accuracy: 0.5)
+    }
+
+    func testUpdateOverlayQueriesAndAlignsWithNativeCloseButtonFrame() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in self?.isMissionControlActive ?? false },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        let previewRect = CGRect(x: 100, y: 100, width: 300, height: 200)
+        let dummyTile = AXUIElementCreateSystemWide()
+        mockService.mockElement = dummyTile
+        mockService.mockPreviewTile = (tileElement: dummyTile, windowID: CGWindowID(888))
+        mockService.mockFrame = previewRect
+
+        let nativeCloseRect = CGRect(x: 108, y: 108, width: 16, height: 16)
+        mockService.mockCloseButtonFrame = nativeCloseRect
+
+        let winInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(888),
+            "kCGWindowBounds": [
+                "X": previewRect.origin.x,
+                "Y": previewRect.origin.y,
+                "Width": previewRect.width,
+                "Height": previewRect.height
+            ]
+        ]
+        service._testSeedWindows([winInfo])
+
+        service.updateOverlay(at: CGPoint(x: 150, y: 150))
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertEqual(overlay.currentAXRect.midX, nativeCloseRect.midX, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.midY, nativeCloseRect.midY, accuracy: 0.5)
+    }
+
     func testMissionControlWindowActionsPerformCloseResolvesWindowID() {
         let winInfo: [String: Any] = [
             kCGWindowOwnerPID as String: pid_t(1234),

@@ -4,19 +4,31 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+DEV_DIR="${DEVELOPER_DIR:-}"
+if [ -z "$DEV_DIR" ] || [ ! -d "${DEV_DIR}/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework" ]; then
+  if [ -d "/Applications/Xcode-27.0.0.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework" ]; then
+    DEV_DIR="/Applications/Xcode-27.0.0.app/Contents/Developer"
+  elif [ -d "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks/XCTest.framework" ]; then
+    DEV_DIR="/Applications/Xcode.app/Contents/Developer"
+  else
+    DEV_DIR="$(xcode-select -p 2>/dev/null || echo '')"
+  fi
+fi
+
+echo "Using Developer Directory: ${DEV_DIR}"
 echo "Building and running MCSC Unit Test Suite..."
 
 swiftc \
-  -F /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks \
-  -I /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
-  -L /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
+  -F "${DEV_DIR}/Platforms/MacOSX.platform/Developer/Library/Frameworks" \
+  -I "${DEV_DIR}/Platforms/MacOSX.platform/Developer/usr/lib" \
+  -L "${DEV_DIR}/Platforms/MacOSX.platform/Developer/usr/lib" \
   -framework XCTest \
   -framework Cocoa \
   -framework ApplicationServices \
   -framework Symbols \
   -framework ServiceManagement \
-  -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks \
-  -Xlinker -rpath -Xlinker /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib \
+  -Xlinker -rpath -Xlinker "${DEV_DIR}/Platforms/MacOSX.platform/Developer/Library/Frameworks" \
+  -Xlinker -rpath -Xlinker "${DEV_DIR}/Platforms/MacOSX.platform/Developer/usr/lib" \
   -o "${SCRIPT_DIR}/bin_test_runner" \
   "${ROOT_DIR}/MCSC/Services/Diagnostics/DiagnosticService.swift" \
   "${ROOT_DIR}/MCSC/Services/Multitouch/MultitouchService.swift" \

@@ -3,8 +3,8 @@ import Symbols
 
 /// A lightweight, floating overlay panel that anchors an action button
 /// (`xmark.circle.fill` for Close, `minus.circle.fill` for Minimize, and a
-/// purple `xmark.circle.fill` with a white cross for Force Quit) to the
-/// top-left corner vertex of a Mission Control window preview.
+/// purple `xmark.circle.fill` with a white cross for Force Quit) cleanly
+/// aligned to Mission Control window preview cards.
 @MainActor
 final class PreviewCloseButtonOverlay {
     /// The action the hover button represents, plus its visual treatment.
@@ -98,8 +98,17 @@ final class PreviewCloseButtonOverlay {
     /// Current button bounding box in AX/Quartz coordinates (for hit testing).
     private(set) var currentAXRect: CGRect = .zero
 
-    /// Positions and displays the close button overlay centered directly over the top-left corner (x, y) of the window.
-    func show(at windowBounds: CGRect, mode: Mode = .close) {
+    /// Positions and displays the close button overlay.
+    ///
+    /// Centers the button over the native close button when `closeButtonFrame` is provided,
+    /// or centers over the top-left vertex `(previewFrame.minX, previewFrame.minY)` matching
+    /// macOS Mission Control preview thumbnail conventions. Clamps position within active screen bounds.
+    ///
+    /// - Parameters:
+    ///   - previewFrame: The visual bounds of the Mission Control preview tile in AX coordinates.
+    ///   - closeButtonFrame: Optional frame of the native close button for sub-pixel alignment.
+    ///   - mode: The action mode to display (e.g. `.close`, `.minimize`, `.quit`, `.fullscreen`).
+    func show(for previewFrame: CGRect, closeButtonFrame: CGRect? = nil, mode: Mode = .close) {
         // Lazily create the panel on first use so no GPU-backed layer
         // tree exists until the feature is actually triggered.
         if panel == nil {
@@ -108,15 +117,32 @@ final class PreviewCloseButtonOverlay {
         guard let panel else { return }
 
         let primaryHeight = ScreenGeometry.primaryScreenHeight
-        let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin, primaryHeight: primaryHeight)
         let halfDim = Self.buttonDimension / 2.0
 
-        var cocoaX = cocoaAnchor.x - halfDim
-        var cocoaY = cocoaAnchor.y - halfDim
+        let axX: CGFloat
+        let axY: CGFloat
+        if let closeButtonFrame, !closeButtonFrame.isEmpty {
+            axX = closeButtonFrame.midX - halfDim
+            axY = closeButtonFrame.midY - halfDim
+        } else {
+            axX = previewFrame.minX - halfDim
+            axY = previewFrame.minY - halfDim
+        }
 
-        let targetScreen = NSScreen.screens.first(where: { NSMouseInRect(cocoaAnchor, $0.frame, false) })
-            ?? ScreenGeometry.screenContaining(axPoint: windowBounds.origin)
-            ?? NSScreen.screens.first
+        let buttonAXRect = CGRect(
+            x: axX,
+            y: axY,
+            width: Self.buttonDimension,
+            height: Self.buttonDimension
+        )
+
+        var cocoaX = buttonAXRect.origin.x
+        var cocoaY = primaryHeight - buttonAXRect.origin.y - Self.buttonDimension
+
+        let targetScreen = NSScreen.screens.first(where: {
+            ScreenGeometry.axBounds(for: $0, primaryHeight: primaryHeight).contains(previewFrame.origin)
+        }) ?? ScreenGeometry.screenContaining(axPoint: previewFrame.origin) ?? NSScreen.main ?? NSScreen.screens.first
+
         if let screenFrame = targetScreen?.frame {
             cocoaX = min(max(cocoaX, screenFrame.minX + 2), screenFrame.maxX - Self.buttonDimension - 2)
             cocoaY = min(max(cocoaY, screenFrame.minY + 2), screenFrame.maxY - Self.buttonDimension - 2)
@@ -136,8 +162,8 @@ final class PreviewCloseButtonOverlay {
             height: Self.buttonDimension
         )
 
-        let isNewOrigin = !windowBounds.origin.equalTo(currentAnchorOrigin)
-        currentAnchorOrigin = windowBounds.origin
+        let isNewOrigin = !targetRect.origin.equalTo(currentAnchorOrigin)
+        currentAnchorOrigin = targetRect.origin
 
         panel.setFrame(targetRect, display: true)
         buttonView?.setMode(mode, animated: false)
@@ -151,6 +177,11 @@ final class PreviewCloseButtonOverlay {
         } else if isNewOrigin, let buttonView {
             strategy.applyRelocationAppearance(on: buttonView, imageView: buttonView.imageView)
         }
+    }
+
+    /// Positions and displays the close button overlay for a window/preview frame.
+    func show(at windowBounds: CGRect, mode: Mode = .close) {
+        show(for: windowBounds, closeButtonFrame: nil, mode: mode)
     }
 
     func setMode(_ mode: Mode) {
@@ -231,6 +262,28 @@ final class CloseButtonView: NSView {
     }
 
     private func setupImageView() {
+        wantsLayer = true
+        layer?.cornerRadius = bounds.width / 2.0
+        layer?.masksToBounds = false
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.25
+        layer?.shadowRadius = 4.0
+        layer?.shadowOffset = CGSize(width: 0, height: -1)
+        // Explicit shadow path eliminates offscreen CoreAnimation render passes
+        layer?.shadowPath = CGPath(ellipseIn: bounds, transform: nil)
+
+        // On macOS 27+, apply Liquid Glass dynamic backdrop with interactive responsiveness
+        if #available(macOS 27.0, *) {
+            let glassView = NSGlassEffectView(frame: bounds)
+            glassView.wantsLayer = true
+            glassView.layer?.cornerRadius = bounds.width / 2.0
+            glassView.layer?.cornerCurve = .continuous
+            glassView.layer?.masksToBounds = true
+            glassView.autoresizingMask = [.width, .height]
+            glassView.effectIsInteractive = true
+            addSubview(glassView)
+        }
+
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
         imageView.image = image(for: .close)

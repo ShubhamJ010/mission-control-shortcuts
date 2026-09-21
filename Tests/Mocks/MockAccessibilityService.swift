@@ -47,6 +47,20 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         mockPreviewTile
     }
 
+    /// Mock implementation for resolving preview tiles at point coordinates.
+    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        if let element = getElement(at: point) {
+            return getMissionControlPreviewTile(for: element)
+        }
+        return mockPreviewTile
+    }
+
+    var mockCloseButtonFrame: CGRect?
+    /// Mock implementation for retrieving native close button frames.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect? {
+        mockCloseButtonFrame
+    }
+
     func performAction(_ action: String, on element: AXUIElement) -> Bool {
         performActionCalledWith = (action, element)
         return true

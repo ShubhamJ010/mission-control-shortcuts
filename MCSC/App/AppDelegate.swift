@@ -58,10 +58,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Poll for trust so the app boots the moment the user grants
             // permission in System Settings, without requiring a relaunch.
             accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-                if AXIsProcessTrusted() {
-                    self?.viewModel?.start()
-                    self?.accessibilityPollTimer = nil
-                    timer.invalidate()
+                MainActor.assumeIsolated {
+                    if AXIsProcessTrusted() {
+                        self?.viewModel?.start()
+                        self?.accessibilityPollTimer = nil
+                        timer.invalidate()
+                    }
                 }
             }
         }
@@ -72,8 +74,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            AppLogger.app.info("System sleeping - stopping event tap")
-            self?.viewModel?.stop()
+            MainActor.assumeIsolated {
+                AppLogger.app.info("System sleeping - stopping event tap")
+                self?.viewModel?.stop()
+            }
         }
 
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -81,8 +85,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            AppLogger.app.info("System woke up - restarting event tap")
-            self?.viewModel?.start()
+            MainActor.assumeIsolated {
+                AppLogger.app.info("System woke up - restarting event tap")
+                self?.viewModel?.start()
+            }
         }
     }
 
