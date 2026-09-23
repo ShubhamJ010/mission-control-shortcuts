@@ -85,7 +85,9 @@ final class CursorFeedbackOverlay {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.imageCache.removeAll()
+            MainActor.assumeIsolated {
+                self?.imageCache.removeAll()
+            }
         }
     }
 
@@ -97,21 +99,10 @@ final class CursorFeedbackOverlay {
 
     private func setupPanel() {
         let contentRect = NSRect(x: 0, y: 0, width: Self.dimension, height: Self.dimension)
-        let panel = NSPanel(
+        let panel = OverlayPanelFactory.createPanel(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+            ignoresMouseEvents: true
         )
-
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
-        panel.ignoresMouseEvents = true
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
         panel.alphaValue = 0.0
 
         let imageView = NSImageView(frame: contentRect)

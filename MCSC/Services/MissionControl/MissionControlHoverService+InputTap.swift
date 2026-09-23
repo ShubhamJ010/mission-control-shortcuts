@@ -85,12 +85,13 @@ extension MissionControlHoverService {
                 return nil // Swallow the click so Mission Control does not dismiss prematurely
             }
 
+            let dismissActions = { [weak self] in
+                self?.hideAllOverlays()
+            }
             if Thread.isMainThread {
-                hideOverlay()
+                dismissActions()
             } else {
-                DispatchQueue.main.async { [weak self] in
-                    self?.hideOverlay()
-                }
+                DispatchQueue.main.async { dismissActions() }
             }
             return event
         }

@@ -222,4 +222,33 @@ final class MissionControlServiceTests: XCTestCase {
         XCTAssertEqual(activatedCount, 1)
         XCTAssertEqual(deactivatedCount, 1, "Scan should fire onDeactivated on transition to inactive")
     }
+
+    func testPollTimerDetectsActivationAutonomously() {
+        var windows: [[String: Any]] = []
+        service = MissionControlService(windowListProvider: { windows })
+        service.detectionCacheInterval = 0
+        service.start()
+
+        var activatedCount = 0
+        service.onActivated = { activatedCount += 1 }
+
+        XCTAssertFalse(service.isMissionControlActive)
+        XCTAssertEqual(activatedCount, 0)
+
+        // Mission Control opens via hot corner / trackpad swipe
+        windows = [
+            dockWindow(layer: 20),
+            windowManagerWindow(layer: 19)
+        ]
+
+        let exp = expectation(description: "Poll timer detects Mission Control autonomously")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            if activatedCount == 1 {
+                exp.fulfill()
+            }
+        }
+        wait(for: [exp], timeout: 1.0)
+        XCTAssertEqual(activatedCount, 1)
+        XCTAssertTrue(service.isMissionControlActive)
+    }
 }

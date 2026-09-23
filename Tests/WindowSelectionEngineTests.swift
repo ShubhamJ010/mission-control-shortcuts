@@ -50,7 +50,7 @@ final class WindowSelectionEngineTests: XCTestCase {
         XCTAssertEqual(matches[0].rank, 0)
     }
 
-    func testMissingOwnerIsSkipped() {
+    func testWindowsMissingOwnerNameExcluded() {
         let nameless: [String: Any] = [
             kCGWindowBounds as String: ["X": 0.0, "Y": 0.0, "Width": 400.0, "Height": 300.0],
             kCGWindowNumber as String: 9
@@ -68,8 +68,19 @@ final class WindowSelectionEngineTests: XCTestCase {
         XCTAssertEqual(point, CGPoint(x: 120, y: 220))
     }
 
+    func testCenterPointMath() {
+        let point = WindowSelectionEngine.centerPoint(
+            for: ["X": 100, "Y": 200, "Width": 400, "Height": 300]
+        )
+        XCTAssertEqual(point, CGPoint(x: 300, y: 350))
+    }
+
     func testShoulderPointNilWithoutOrigin() {
         XCTAssertNil(WindowSelectionEngine.shoulderPoint(for: ["Width": 100, "Height": 100]))
+    }
+
+    func testCenterPointNilWithoutOrigin() {
+        XCTAssertNil(WindowSelectionEngine.centerPoint(for: ["Width": 100, "Height": 100]))
     }
 
     func testSameOwnerWindowsOrderedByWindowNumber() {
@@ -81,6 +92,9 @@ final class WindowSelectionEngineTests: XCTestCase {
         XCTAssertEqual(matches.count, 2)
         XCTAssertEqual(matches[0].shoulderPoint.x, 20)
         XCTAssertEqual(matches[1].shoulderPoint.x, 520)
+        // Center points must be positioned in the middle of each window
+        XCTAssertEqual(matches[0].centerPoint.x, 200) // 0 + 400/2
+        XCTAssertEqual(matches[1].centerPoint.x, 700) // 500 + 400/2
     }
 
     func testUnrelatedOwnersExcluded() {
@@ -100,6 +114,10 @@ final class WindowSelectionEngineTests: XCTestCase {
         XCTAssertEqual(sorted[0].shoulderPoint, CGPoint(x: 20, y: 20))
         XCTAssertEqual(sorted[1].shoulderPoint, CGPoint(x: 520, y: 20))
         XCTAssertEqual(sorted[2].shoulderPoint, CGPoint(x: 20, y: 420))
+        // Verify center points in the middle
+        XCTAssertEqual(sorted[0].centerPoint, CGPoint(x: 200, y: 150))
+        XCTAssertEqual(sorted[1].centerPoint, CGPoint(x: 700, y: 150))
+        XCTAssertEqual(sorted[2].centerPoint, CGPoint(x: 200, y: 550))
     }
 
     func testRowMajorSortedSkipsMissingBounds() {

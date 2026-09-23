@@ -10,6 +10,21 @@ extension ShortcutViewModel {
         eventTapService.onShortcutDetected = { [weak self] keyCode, flags, location in
             guard let self else { return false }
 
+            // Detect Mission Control toggle keys (F3 = 99, Apple MC key = 160, Ctrl+Up = 126 with Control)
+            let isMCKey = keyCode == 99 || keyCode == 160 || (keyCode == 126 && flags.contains(.maskControl))
+            if isMCKey {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                    _ = self?.missionControlService.checkMissionControlActive(force: true)
+                }
+            }
+
+            // If hoverService has not activated yet, check if Mission Control is active
+            if !self.hoverService.isMissionControlActive, self.config.isKeyboardNavigationEnabled {
+                if self.missionControlService.isMissionControlActive {
+                    self.hoverService.handleActivated()
+                }
+            }
+
             // Cheap pre-filter BEFORE any AX IPC: plain typing (no Cmd) and
             // unbound keys can never route, so skip the hit-test entirely.
             // This keeps keystroke latency in other apps free of MCSC cost.

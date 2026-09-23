@@ -1,12 +1,32 @@
 import Cocoa
 import Symbols
 
+/// Protocol governing the Mission Control close/action button overlay.
+@MainActor
+protocol PreviewCloseButtonOverlayProtocol: FloatingOverlayProtocol {
+    var currentAXRect: CGRect { get }
+    func show(for previewFrame: CGRect, closeButtonFrame: CGRect?, mode: PreviewCloseButtonOverlay.Mode)
+    func show(at windowBounds: CGRect, mode: PreviewCloseButtonOverlay.Mode)
+    func setMode(_ mode: PreviewCloseButtonOverlay.Mode)
+    func setHovered(_ isHovered: Bool)
+}
+
+extension PreviewCloseButtonOverlayProtocol {
+    func show(for previewFrame: CGRect, mode: PreviewCloseButtonOverlay.Mode = .close) {
+        show(for: previewFrame, closeButtonFrame: nil, mode: mode)
+    }
+
+    func show(at windowBounds: CGRect) {
+        show(at: windowBounds, mode: .close)
+    }
+}
+
 /// A lightweight, floating overlay panel that anchors an action button
 /// (`xmark.circle.fill` for Close, `minus.circle.fill` for Minimize, and a
 /// purple `xmark.circle.fill` with a white cross for Force Quit) cleanly
 /// aligned to Mission Control window preview cards.
 @MainActor
-final class PreviewCloseButtonOverlay {
+final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     /// The action the hover button represents, plus its visual treatment.
     ///
     /// Data-driven like `CursorFeedbackOverlay.Mode`: adding a new action is a
@@ -72,21 +92,10 @@ final class PreviewCloseButtonOverlay {
 
     private func setupPanel() {
         let contentRect = NSRect(x: 0, y: 0, width: Self.buttonDimension, height: Self.buttonDimension)
-        let panel = NSPanel(
+        let panel = OverlayPanelFactory.createPanel(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+            ignoresMouseEvents: false
         )
-
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
-        panel.ignoresMouseEvents = false
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
 
         let button = CloseButtonView(frame: contentRect, strategy: strategy)
 
@@ -311,7 +320,9 @@ final class CloseButtonView: NSView {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.imageCache.removeAll()
+            MainActor.assumeIsolated {
+                self?.imageCache.removeAll()
+            }
         }
     }
 

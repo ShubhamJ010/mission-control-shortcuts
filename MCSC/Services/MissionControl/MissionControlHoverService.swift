@@ -9,29 +9,34 @@ func _AXUIElementGetWindow(_ element: AXUIElement, _ identifier: UnsafeMutablePo
 protocol MissionControlHoverServiceProtocol: AnyObject {
     var isEnabled: Bool { get set }
     var isTracking: Bool { get }
+    var isMissionControlActive: Bool { get }
 
     func start()
     func stop()
     func hideOverlay()
+    func hideAllOverlays()
     func handleActivated()
     func handleDeactivated()
+    func clearSearch()
 }
 
 @MainActor
 final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private let accessibilityService: AccessibilityServiceProtocol
-    private let isMissionControlActiveProvider: () -> Bool
+    let isMissionControlActiveProvider: () -> Bool
     /// Weak ref to the shared detector so transitions can be pushed in via
     /// `markActive`. Weak because the ViewModel owns both services.
     weak var missionControlService: MissionControlServiceProtocol?
-    private var injectedOverlay: PreviewCloseButtonOverlay?
-    private var createdOverlay: PreviewCloseButtonOverlay?
+    private var injectedOverlay: (any PreviewCloseButtonOverlayProtocol)?
+    private var createdOverlay: (any PreviewCloseButtonOverlayProtocol)?
+    private var injectedSearchOverlay: (any SearchBarOverlayProtocol)?
+    private var createdSearchOverlay: (any SearchBarOverlayProtocol)?
     private let animationStrategy: OverlayAnimationStrategy
 
     /// Lazily created on first access so no `NSPanel` (and its GPU/IOSurface
     /// layer tree) exists until the overlay is actually needed. Tests can inject
     /// a pre-built overlay via the `init(overlay:)` parameter.
-    private var overlay: PreviewCloseButtonOverlay {
+    var overlay: any PreviewCloseButtonOverlayProtocol {
         if let injectedOverlay {
             return injectedOverlay
         }
@@ -41,6 +46,25 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         let newOverlay = PreviewCloseButtonOverlay(strategy: animationStrategy)
         createdOverlay = newOverlay
         return newOverlay
+    }
+
+    /// Dock-styled floating pill that shows the uppercase query above the Dock.
+    /// Follows the same DRY overlay lifecycle as `overlay`.
+    var searchOverlay: any SearchBarOverlayProtocol {
+        get {
+            if let injectedSearchOverlay {
+                return injectedSearchOverlay
+            }
+            if let createdSearchOverlay {
+                return createdSearchOverlay
+            }
+            let newOverlay = SearchBarOverlay()
+            createdSearchOverlay = newOverlay
+            return newOverlay
+        }
+        set {
+            injectedSearchOverlay = newValue
+        }
     }
 
     /// Internal: owned/installed by `+InputTap.swift`.
@@ -101,10 +125,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     /// under the SwiftLint `file_length` budget). The type remains
     /// main-actor confined.
     var keyboardTap: MCKeyboardTapServiceProtocol?
-    /// Dock-styled floating pill that shows the uppercase query above the Dock.
-    /// Created lazily on first typed character to avoid allocating an `NSPanel`
-    /// until the feature is actually used.
-    var searchOverlay: SearchBarOverlay?
     /// Pure state machine for query / selectedIndex / Effect. Never touches
     /// views or posts events; all side effects are driven by the service.
     var searchSession = WindowSearchSession()
@@ -140,12 +160,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             guard isEnabled != oldValue else { return }
             if !isEnabled {
                 // Fully tear down the hover session: stop window polling,
-                // keyboard navigation, and hide the overlay. The Dock
+                // keyboard navigation, and hide all overlays. The Dock
                 // AXObserver and event tap remain alive so we still track
                 // isMissionControlActive for other services.
                 stopWindowFetchTimer()
                 stopKeyboardSession()
-                hideOverlay()
+                hideAllOverlays()
             } else if isMissionControlActive {
                 // Re-enabled while Mission Control is already open:
                 // spin up the full session so the user sees the button.
@@ -164,13 +184,15 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
          missionControlService: MissionControlServiceProtocol? = nil,
-         overlay: PreviewCloseButtonOverlay? = nil,
+         overlay: (any PreviewCloseButtonOverlayProtocol)? = nil,
+         searchOverlay: (any SearchBarOverlayProtocol)? = nil,
          animationStrategy: OverlayAnimationStrategy? = nil,
          isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
         self.missionControlService = missionControlService
         self.injectedOverlay = overlay
+        self.injectedSearchOverlay = searchOverlay
         self.animationStrategy = animationStrategy ?? OptimizedOverlayAnimationStrategy()
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider
     }
@@ -191,7 +213,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         stopWindowFetchTimer()
         removeSpaceChangeObserver()
         stopKeyboardSession()
-        hideOverlay()
+        hideAllOverlays()
         isTracking = false
     }
 
@@ -249,6 +271,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         fetchWindows()
 
         guard isMissionControlActive || isMissionControlActiveProvider() else {
+            handleDeactivated()
             return
         }
 
@@ -316,16 +339,19 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         guard let rect = overlayRect, rect.contains(location), let window = hoveredWindow else {
+            debugLog("handleMouseDown: click at \(location) outside overlay - deactivating Mission Control")
+            handleDeactivated()
             return false
         }
 
+        debugLog("handleMouseDown: click at \(location) on overlay close button")
         executeAction(on: window)
         return true
     }
 
     func handleMouseMoved(at mouseLocation: CGPoint) {
         guard isTracking, isEnabled else {
-            hideOverlay()
+            hideAllOverlays()
             return
         }
 
@@ -344,8 +370,13 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         guard now - lastMouseMovedTime >= mouseMoveInterval else { return }
         lastMouseMovedTime = now
 
-        guard isMissionControlActive || isMissionControlActiveProvider() else {
-            hideOverlay()
+        let mcActive = isMissionControlActiveProvider()
+        guard mcActive else {
+            if isMissionControlActive {
+                handleDeactivated()
+            } else {
+                hideAllOverlays()
+            }
             return
         }
 
@@ -428,10 +459,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             }
         }
 
-        hideOverlay()
+        // Cursor is not over any preview thumbnail: hide the close button overlay only.
+        hideCloseOverlay()
     }
 
-    func hideOverlay() {
+    /// Hides the close/action button overlay and clears active preview frame state.
+    func hideCloseOverlay() {
         if hoveredWindow != nil || overlay.isVisible || currentPreviewFrame != nil {
             hoveredWindow = nil
             currentPreviewFrame = nil
@@ -442,6 +475,23 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             }
             overlay.hide()
         }
+    }
+
+    /// Hides the search bar overlay and clears any ongoing search query and selection.
+    func hideSearchOverlay() {
+        clearSearch()
+    }
+
+    /// Synchronously hides all Mission Control overlays (both close button and search bar)
+    /// following unified lifecycle management (DRY).
+    func hideAllOverlays() {
+        hideCloseOverlay()
+        hideSearchOverlay()
+    }
+
+    /// Backwards-compatible dismissal: hides all Mission Control overlays.
+    func hideOverlay() {
+        hideAllOverlays()
     }
 
     // MARK: - Actions
@@ -464,30 +514,18 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             windows.removeAll { ($0[kCGWindowNumber as String] as? CGWindowID) == windowID }
         }
 
-        hideOverlay()
+        hideAllOverlays()
     }
 
     deinit {
         if let obs = axObserver {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
         }
-        if let source = runLoopSource {
-            CFRunLoopSourceInvalidate(source)
-            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
-        }
         if let tap = eventTap {
             CGEvent.tapEnable(tap: tap, enable: false)
-            CFMachPortInvalidate(tap)
         }
-        // Both timers must die with the service: a repeating `windowFetchTimer`
-        // that survives dealloc would poll a zombie instance every 0.5 s (the
-        // timer's block retains the closure target chain).
-        windowFetchTimer?.invalidate()
-        windowFetchTimer = nil
-        queryIdleTimer?.invalidate()
-        queryIdleTimer = nil
-        if let observer = spaceChangeObserver {
-            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        if let source = runLoopSource {
+            CFRunLoopSourceInvalidate(source)
         }
     }
 }

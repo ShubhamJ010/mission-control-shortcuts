@@ -13,15 +13,33 @@ enum WindowSelectionEngine {
     /// still landing on the thumbnail for grouped windows).
     static let defaultShoulderInset: CGFloat = 20
 
-    /// A single ranked match, including the thumbnail shoulder point used to
-    /// drive Mission Control's native highlight.
+    /// A single ranked match, including both the middle center point and the
+    /// shoulder point used to drive Mission Control's native highlight and mouse targeting.
     struct Match {
         let windowInfo: [String: Any]
         let ownerName: String
+        /// Center point (middle) of the preview in AX/Quartz coordinates.
+        let centerPoint: CGPoint
         /// Top-left inset in AX/Quartz coordinates, clear of the hover button.
         let shoulderPoint: CGPoint
         /// `0` = prefix match (best), `1` = substring match.
         let rank: Int
+
+        init(windowInfo: [String: Any], ownerName: String, centerPoint: CGPoint, shoulderPoint: CGPoint, rank: Int) {
+            self.windowInfo = windowInfo
+            self.ownerName = ownerName
+            self.centerPoint = centerPoint
+            self.shoulderPoint = shoulderPoint
+            self.rank = rank
+        }
+
+        init(windowInfo: [String: Any], ownerName: String, shoulderPoint: CGPoint, rank: Int) {
+            self.windowInfo = windowInfo
+            self.ownerName = ownerName
+            self.centerPoint = shoulderPoint
+            self.shoulderPoint = shoulderPoint
+            self.rank = rank
+        }
     }
 
     /// Matches `query` against each window's owner name.
@@ -57,14 +75,16 @@ enum WindowSelectionEngine {
             }
 
             guard let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let point = shoulderPoint(for: bounds, inset: shoulderInset) else {
+                  let shoulder = shoulderPoint(for: bounds, inset: shoulderInset) else {
                 continue
             }
+            let center = centerPoint(for: bounds) ?? shoulder
 
             matches.append(Match(
                 windowInfo: window,
                 ownerName: ownerName,
-                shoulderPoint: point,
+                centerPoint: center,
+                shoulderPoint: shoulder,
                 rank: rank
             ))
         }
@@ -80,6 +100,25 @@ enum WindowSelectionEngine {
             return windowNumber(a.windowInfo) < windowNumber(b.windowInfo)
         }
         return matches
+    }
+
+    /// Center (middle) point of `boundsDict`.
+    /// When Tab cycling or fuzzy typing, the mouse cursor is placed in the
+    /// middle of the preview rather than in the top-left corner.
+    static func centerPoint(
+        for boundsDict: [String: Any]
+    ) -> CGPoint? {
+        guard let xVal = boundsDict["X"], let yVal = boundsDict["Y"],
+              let x = numberToCGFloat(xVal),
+              let y = numberToCGFloat(yVal) else {
+            return nil
+        }
+        let w = boundsDict["Width"].flatMap(numberToCGFloat) ?? 0
+        let h = boundsDict["Height"].flatMap(numberToCGFloat) ?? 0
+        if w > 0, h > 0 {
+            return CGPoint(x: x + w / 2.0, y: y + h / 2.0)
+        }
+        return CGPoint(x: x + defaultShoulderInset, y: y + defaultShoulderInset)
     }
 
     /// Top-left shoulder of `boundsDict`, inset right and down so the point
@@ -117,9 +156,7 @@ enum WindowSelectionEngine {
     /// left-to-right with a 40 pt vertical row tolerance so thumbnails that are
     /// slightly misaligned on the same row are treated as the same row,
     /// avoiding jitter. Ties on X fall back to `windowNumber` for stability
-    /// when several windows share an owner. The returned `shoulderPoint` is the
-    /// same 20 pt top-left inset used by `fuzzyMatch` (via `shoulderPoint(for:inset:)`)
-    /// so synthetic highlight targeting is consistent.
+    /// when several windows share an owner.
     static func rowMajorSorted(
         in windows: [[String: Any]],
         shoulderInset: CGFloat = defaultShoulderInset
@@ -131,13 +168,16 @@ enum WindowSelectionEngine {
             guard let ownerName = window[kCGWindowOwnerName as String] as? String,
                   !ownerName.isEmpty,
                   let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let point = shoulderPoint(for: bounds, inset: shoulderInset) else {
+                  let shoulder = shoulderPoint(for: bounds, inset: shoulderInset) else {
                 continue
             }
+            let center = centerPoint(for: bounds) ?? shoulder
+
             matches.append(Match(
                 windowInfo: window,
                 ownerName: ownerName,
-                shoulderPoint: point,
+                centerPoint: center,
+                shoulderPoint: shoulder,
                 rank: 0
             ))
         }

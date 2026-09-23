@@ -5,18 +5,16 @@ import Foundation
 /// Control window thumbnail. Pure event injection — no service or view
 /// dependencies — so it is reusable from `MissionControlHoverService` and
 /// testable in isolation. Coordinates are in AX/Quartz space (origin at
-/// top-left of the primary display in CGWindowList terms) at the top-left
-/// shoulder point (20 pt inset from `WindowSelectionEngine.shoulderPoint`)
-/// rather than the thumbnail center, so windows grouped under "group windows
-/// by application" remain targetable when centers are stacked.
+/// top-left of the primary display in CGWindowList terms) positioned in the
+/// middle of the preview thumbnail.
 enum WindowActivationAction {
-    /// Posts a HID `mouseMoved` at `point` (AX/Quartz coordinates) so Mission
-    /// Control paints its native blue highlight and scaling animation on the
-    /// thumbnail under that point and syncs `hoveredWindow` in the hover
-    /// service. Uses `CGEventSource(stateID: .hidSystemState)` and posts at
-    /// `.cghidEventTap` so the synthetic move is seen before WindowServer's
-    /// Exposé grab.
+    /// Warps the hardware cursor to `point` and posts a HID `mouseMoved` (AX/Quartz coordinates)
+    /// so Mission Control paints its native blue highlight and scaling animation on the
+    /// thumbnail under that point and syncs `hoveredWindow` in the hover service.
+    /// Uses `CGEventSource(stateID: .hidSystemState)` and posts at `.cghidEventTap`
+    /// so the synthetic move is seen before WindowServer's Exposé grab.
     static func postSyntheticMouseMoved(to point: CGPoint) {
+        _ = CGWarpMouseCursorPosition(point)
         let source = CGEventSource(stateID: .hidSystemState)
         CGEvent(
             mouseEventSource: source,

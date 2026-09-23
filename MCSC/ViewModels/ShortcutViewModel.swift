@@ -108,6 +108,8 @@ final class ShortcutViewModel {
 
     /// Prevents gestures from firing right after Mission Control opens via 3-finger swipe.
     private var isCoolingDown = false
+    /// Tracks 3+ finger contact so touch lift can immediately sync Mission Control activation state.
+    private var hadThreeOrMoreTouches = false
     /// Throttles `MultitouchService` 60-120 Hz frames to at most 30 Hz so
     /// `isMissionControlActive` / `isDockHovered()` (both WindowServer/AX IPC)
     /// do not run per-frame. Keeps gesture latency <33ms.
@@ -227,10 +229,14 @@ final class ShortcutViewModel {
                   self.config.isGesturesEnabled,
                   !self.isCoolingDown else { return }
 
-            // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
-            // Evaluated before throttling so dismissal is immediate.
-            if touches.count >= 3 && self.hoverService.isTracking {
-                self.hoverService.hideOverlay()
+            // Track 3+ finger contact (MC swipe up/down or space switch).
+            // Instantly hide Mission Control close/search overlays so they don't linger during transitions.
+            if touches.count >= 3 {
+                self.hadThreeOrMoreTouches = true
+                if self.hoverService.isMissionControlActive {
+                    self.hoverService.hideOverlay()
+                    self.hoverService.clearSearch()
+                }
             }
 
             // Handle touch lift immediately without throttling or AX overhead
@@ -239,6 +245,16 @@ final class ShortcutViewModel {
                 self.gestureEngine.processFrame([], timestamp: timestamp)
                 if !(self.twoFingerTapRecognizer?.isGestureInProgress ?? false) {
                     self.dockSuppressor.isSuppressing = false
+                }
+                if self.hadThreeOrMoreTouches {
+                    self.hadThreeOrMoreTouches = false
+                    // Multitouch gesture ended. If the user swiped up, Mission Control has opened;
+                    // if swiped down, Mission Control has closed.
+                    // Scan immediately and again after transition settles (~150ms).
+                    _ = self.missionControlService.checkMissionControlActive(force: true)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                        _ = self?.missionControlService.checkMissionControlActive(force: true)
+                    }
                 }
                 return
             }

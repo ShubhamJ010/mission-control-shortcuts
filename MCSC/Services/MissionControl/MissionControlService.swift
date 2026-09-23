@@ -17,6 +17,7 @@ protocol MissionControlServiceProtocol: AnyObject {
     var onActivated: (() -> Void)? { get set }
     var onDeactivated: (() -> Void)? { get set }
     func checkMissionControlActive() -> Bool
+    func checkMissionControlActive(force: Bool) -> Bool
     func executeFixSequence()
     func start()
     func stop()
@@ -24,6 +25,12 @@ protocol MissionControlServiceProtocol: AnyObject {
     /// `isMissionControlActive` mirrors the instant signal instead of the
     /// lagging 350 ms window-list scan.
     func markActive(_ active: Bool)
+}
+
+extension MissionControlServiceProtocol {
+    func checkMissionControlActive(force: Bool) -> Bool {
+        checkMissionControlActive()
+    }
 }
 
 @MainActor
@@ -47,6 +54,11 @@ final class MissionControlService: MissionControlServiceProtocol {
     private var observers: [NSObjectProtocol] = []
     /// Guards `start()` so repeated calls are idempotent.
     private var isStarted = false
+
+    // MARK: - Polling Timer for Autonomous Activation Detection
+    private var pollTimer: Timer?
+    private let pollInterval: TimeInterval = 0.20
+    private let pollTolerance: TimeInterval = 0.05
 
     // MARK: - Detection tuning
 
@@ -97,6 +109,29 @@ final class MissionControlService: MissionControlServiceProtocol {
         guard !isStarted else { return }
         isStarted = true
         setupNotifications()
+        startPollTimer()
+    }
+
+    private func startPollTimer() {
+        stopPollTimer()
+        pollTimer = Timer.scheduledCommon(
+            interval: pollInterval,
+            repeats: true,
+            tolerance: pollTolerance
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                _ = self?.checkMissionControlActive()
+            }
+        }
+    }
+
+    private func stopPollTimer() {
+        pollTimer?.invalidate()
+        pollTimer = nil
+    }
+
+    isolated deinit {
+        stopPollTimer()
     }
 
     private func setupNotifications() {
@@ -127,6 +162,7 @@ final class MissionControlService: MissionControlServiceProtocol {
     }
 
     func stop() {
+        stopPollTimer()
         let center = DistributedNotificationCenter.default()
         for observer in observers {
             center.removeObserver(observer)
@@ -150,6 +186,7 @@ final class MissionControlService: MissionControlServiceProtocol {
         cachedIsActive = active
         lastDetectionTime = CACurrentMediaTime()
         AppLogger.missionControl.info("Mission Control active state changed: \(active, privacy: .public)")
+        debugLog("MissionControlService.markActive: \(active)")
         if active {
             onActivated?()
         } else {
@@ -158,21 +195,25 @@ final class MissionControlService: MissionControlServiceProtocol {
     }
 
     /// Returns `true` only while Mission Control is open.
-    func checkMissionControlActive() -> Bool {
+    /// - Parameter force: When `true`, bypasses the detection cache and
+    ///   performs an authoritative WindowServer window list scan immediately.
+    func checkMissionControlActive(force: Bool = false) -> Bool {
         let now = CACurrentMediaTime()
 
-        // Latch fast-path: trust the notification/AXObserver signal while the
-        // cache window is fresh.
-        if _isMissionControlActive, now - lastDetectionTime < detectionCacheInterval {
-            return true
-        }
+        if !force {
+            // Latch fast-path: trust the notification/AXObserver signal while the
+            // cache window is fresh.
+            if _isMissionControlActive, now - lastDetectionTime < detectionCacheInterval {
+                return true
+            }
 
-        if now - lastDetectionTime < detectionCacheInterval, let cached = cachedIsActive {
-            return cached
-        }
-        // Coalesce concurrent callers (event tap + multitouch) on same turn.
-        if isDetecting, let cached = cachedIsActive {
-            return cached
+            if now - lastDetectionTime < detectionCacheInterval, let cached = cachedIsActive {
+                return cached
+            }
+            // Coalesce concurrent callers (event tap + multitouch) on same turn.
+            if isDetecting, let cached = cachedIsActive {
+                return cached
+            }
         }
 
         isDetecting = true
@@ -212,7 +253,13 @@ final class MissionControlService: MissionControlServiceProtocol {
             }
         }
 
+        debugLog("checkMissionControlActive(force: \(force)) -> \(isActive) (wmOverlay: \(hasWindowManagerOverlay), isDockMC: \(isDockMC))")
+
         return isActive
+    }
+
+    func checkMissionControlActive() -> Bool {
+        checkMissionControlActive(force: false)
     }
 
     func executeFixSequence() {

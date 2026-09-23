@@ -49,6 +49,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Models/WindowSelectionEngine.swift" \
   "${ROOT_DIR}/MCSC/Models/WindowSearchSession.swift" \
   "${ROOT_DIR}/MCSC/Models/Actions/WindowActivationAction.swift" \
+  "${ROOT_DIR}/MCSC/Views/OverlayPanelFactory.swift" \
   "${ROOT_DIR}/MCSC/Views/PreviewCloseButtonOverlay.swift" \
   "${ROOT_DIR}/MCSC/Views/SearchBarOverlay.swift" \
   "${ROOT_DIR}/MCSC/Views/CursorFeedbackOverlay.swift" \
@@ -109,6 +110,7 @@ swiftc \
   "${SCRIPT_DIR}/CmdSwipeActionsTests.swift" \
   "${SCRIPT_DIR}/GestureEngineRoutingTests.swift" \
   "${SCRIPT_DIR}/MissionControlHoverServiceTests.swift" \
+  "${SCRIPT_DIR}/MissionControlOverlayLifecycleTests.swift" \
   "${SCRIPT_DIR}/MissionControlServiceTests.swift" \
   "${SCRIPT_DIR}/WindowSelectionEngineTests.swift" \
   "${SCRIPT_DIR}/WindowSearchSessionTests.swift" \

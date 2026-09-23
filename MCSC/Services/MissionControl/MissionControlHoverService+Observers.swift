@@ -63,6 +63,7 @@ extension MissionControlHoverService {
 
     func handleActivated() {
         guard !isMissionControlActive else { return }
+        debugLog("MissionControlHoverService.handleActivated called", category: AppLogger.missionControl)
         isMissionControlActive = true
 
         guard isEnabled else { return }
@@ -77,15 +78,16 @@ extension MissionControlHoverService {
     }
 
     func handleDeactivated() {
-        guard isMissionControlActive else { return }
+        debugLog("MissionControlHoverService.handleDeactivated called", category: AppLogger.missionControl)
         isMissionControlActive = false
         stopWindowFetchTimer()
-        hideOverlay()
+        hideAllOverlays()
         stopKeyboardSession()
         windows = []
     }
 
     func handleDockNotification(_ notification: String) {
+        debugLog("handleDockNotification: \(notification)", category: AppLogger.dock)
         switch notification {
         case "AXExposeExit", "AXExposeShowDesktop":
             missionControlService?.markActive(false)

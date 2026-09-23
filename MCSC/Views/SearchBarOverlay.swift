@@ -1,5 +1,11 @@
 import Cocoa
 
+/// Protocol governing the Mission Control search bar overlay.
+@MainActor
+protocol SearchBarOverlayProtocol: FloatingOverlayProtocol {
+    func show(query: String)
+}
+
 /// Dock-style floating pill that displays the Mission Control type-to-select
 /// query. Non-interactive (ignores mouse) and positioned just above the Dock
 /// with HUD material and continuous squircle corners. Shows the uppercase
@@ -7,7 +13,7 @@ import Cocoa
 /// `screen.frame` minus `horizontalMargin`. Installed lazily by
 /// `MissionControlHoverService` only while a type-to-select session is active.
 @MainActor
-final class SearchBarOverlay {
+final class SearchBarOverlay: SearchBarOverlayProtocol {
     nonisolated static let barHeight: CGFloat = 52
     nonisolated static let minWidth: CGFloat = 120
     nonisolated static let horizontalMargin: CGFloat = 200
@@ -85,21 +91,10 @@ final class SearchBarOverlay {
 
     private func setupPanel() {
         let contentRect = NSRect(x: 0, y: 0, width: Self.minWidth, height: Self.barHeight)
-        let panel = NSPanel(
+        let panel = OverlayPanelFactory.createPanel(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+            ignoresMouseEvents: true
         )
-
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
-        panel.ignoresMouseEvents = true
-        panel.hidesOnDeactivate = false
-        panel.collectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
 
         let effectView = NSVisualEffectView(frame: contentRect)
         effectView.material = .hudWindow
