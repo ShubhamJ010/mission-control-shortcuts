@@ -141,7 +141,7 @@ final class MultitouchService {
 /// Shared throttle gate for the framework's C callback. Process-global because
 /// the callback is a free function; reset whenever listening starts so a stale
 /// pre-sleep timestamp cannot drop fresh post-wake frames.
-let multitouchFrameGate = MultitouchFrameGate()
+nonisolated let multitouchFrameGate = MultitouchFrameGate()
 
 /// Lock-protected timestamp gate used to throttle high-frequency trackpad
 /// frames *before* they cross to the main thread.
@@ -157,7 +157,7 @@ let multitouchFrameGate = MultitouchFrameGate()
 /// Thread-safety: the framework callback can run on arbitrary threads, so the
 /// last-forwarded timestamp is guarded by a lock. Internal (not private) so
 /// `PerformanceTests` can verify the rate-limit behavior directly.
-final class MultitouchFrameGate {
+nonisolated final class MultitouchFrameGate: @unchecked Sendable {
     /// Matches the consumer-side throttle in `ShortcutViewModel` (30 Hz).
     static let minimumInterval: Double = 1.0 / 30.0
 

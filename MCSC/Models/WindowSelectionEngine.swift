@@ -113,8 +113,8 @@ enum WindowSelectionEngine {
               let y = numberToCGFloat(yVal) else {
             return nil
         }
-        let w = boundsDict["Width"].flatMap(numberToCGFloat) ?? 0
-        let h = boundsDict["Height"].flatMap(numberToCGFloat) ?? 0
+        let w = (boundsDict["Width"].flatMap { numberToCGFloat($0) }) ?? 0
+        let h = (boundsDict["Height"].flatMap { numberToCGFloat($0) }) ?? 0
         if w > 0, h > 0 {
             return CGPoint(x: x + w / 2.0, y: y + h / 2.0)
         }
@@ -135,7 +135,7 @@ enum WindowSelectionEngine {
         return CGPoint(x: x + inset, y: y + inset)
     }
 
-    private static func numberToCGFloat(_ value: Any) -> CGFloat? {
+    nonisolated private static func numberToCGFloat(_ value: Any) -> CGFloat? {
         if let n = value as? NSNumber {
             return CGFloat(n.doubleValue)
         }
@@ -145,7 +145,7 @@ enum WindowSelectionEngine {
         return nil
     }
 
-    private static func cgNumber(_ dict: [String: Any], key: String) -> Double {
+    nonisolated private static func cgNumber(_ dict: [String: Any], key: String) -> Double {
         (dict[key] as? NSNumber)?.doubleValue ?? 0
     }
 

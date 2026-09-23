@@ -184,9 +184,8 @@ final class CursorFeedbackOverlay {
     /// Converts a Quartz/AX screen point (origin top-left of the primary
     /// display) into a Cocoa screen origin (bottom-left) that centers a panel
     /// of `panelSize` on the point, clamped so the panel never leaves the
-    /// display that contains it. Pure math — kept `nonisolated` so it is
-    /// testable without a main actor.
-    nonisolated static func cocoaAnchorPoint(for point: CGPoint, panelSize: CGSize) -> CGPoint {
+    /// display that contains it.
+    static func cocoaAnchorPoint(for point: CGPoint, panelSize: CGSize) -> CGPoint {
         ScreenGeometry.cocoaAnchorPoint(for: point, panelSize: panelSize)
     }
 }
