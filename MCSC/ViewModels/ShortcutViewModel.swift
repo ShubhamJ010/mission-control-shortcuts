@@ -31,12 +31,15 @@ final class ShortcutViewModel {
             ? OptimizedOverlayAnimationStrategy()
             : NativeSymbolEffectAnimationStrategy()
 
+    lazy var spaceService: SpaceManagementServiceProtocol = SpaceManagementService()
+
     lazy var hoverService: MissionControlHoverServiceProtocol = MissionControlHoverService(
         accessibilityService: accessibilityService,
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
         missionControlService: missionControlService,
+        spaceService: spaceService,
         animationStrategy: animationStrategy,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true

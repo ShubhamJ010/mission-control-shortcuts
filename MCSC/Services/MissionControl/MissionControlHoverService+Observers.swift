@@ -1,47 +1,46 @@
 import ApplicationServices
 import Cocoa
 
-/// Dock AXObserver for `MissionControlHoverService`: the Dock exposes
-/// Exposé/Mission Control state transitions as AX notifications on its
-/// application element (`AXExposeShowAllWindows`, `AXExposeExit`, …).
-/// Split from the main file to stay under the SwiftLint `file_length` budget.
-@MainActor
 extension MissionControlHoverService {
     static let dockNotifications = [
         "AXExposeShowAllWindows",
         "AXExposeShowFrontWindows",
+        "AXExposeExit",
         "AXExposeShowDesktop",
-        "AXExposeExit"
     ]
 
     func setupDockObserver() {
         guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
         else {
+            AppLogger.dock.error("Dock process not found for AXObserver")
             return
         }
 
         let pid = dockApp.processIdentifier
-        let dockElement = AXUIElementCreateApplication(pid)
-        self.dockAXElement = dockElement
-
         var observer: AXObserver?
-        let callback: AXObserverCallback = { _, _, notification, refcon in
+        let result = AXObserverCreate(pid, { _, element, notification, refcon in
             guard let refcon else { return }
             let service = Unmanaged<MissionControlHoverService>.fromOpaque(refcon).takeUnretainedValue()
-            let notifName = notification as String
-
-            DispatchQueue.main.async {
-                service.handleDockNotification(notifName)
+            let notif = notification as String
+            MainActor.assumeIsolated {
+                service.handleDockNotification(notif)
             }
-        }
+        }, &observer)
 
-        guard AXObserverCreate(pid, callback, &observer) == .success, let obs = observer else {
+        guard result == .success, let obs = observer else {
+            AppLogger.dock.error("Failed to create AXObserver for Dock: \(result.rawValue)")
             return
         }
 
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        let dockElement = AXUIElementCreateApplication(pid)
+        self.dockAXElement = dockElement
+
+        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         for notif in Self.dockNotifications {
-            AXObserverAddNotification(obs, dockElement, notif as CFString, selfPtr)
+            let addResult = AXObserverAddNotification(obs, dockElement, notif as CFString, refcon)
+            if addResult != .success {
+                AppLogger.dock.warning("Failed to add observer for \(notif): \(addResult.rawValue)")
+            }
         }
 
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
@@ -84,6 +83,8 @@ extension MissionControlHoverService {
         hideAllOverlays()
         stopKeyboardSession()
         windows = []
+        currentMatches = []
+        searchSession = WindowSearchSession()
     }
 
     func handleDockNotification(_ notification: String) {
@@ -99,4 +100,5 @@ extension MissionControlHoverService {
             break
         }
     }
+
 }

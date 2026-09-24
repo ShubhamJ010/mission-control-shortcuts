@@ -27,6 +27,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     /// Weak ref to the shared detector so transitions can be pushed in via
     /// `markActive`. Weak because the ViewModel owns both services.
     weak var missionControlService: MissionControlServiceProtocol?
+    private let spaceService: SpaceManagementServiceProtocol
     private var injectedOverlay: (any PreviewCloseButtonOverlayProtocol)?
     private var createdOverlay: (any PreviewCloseButtonOverlayProtocol)?
     private var injectedSearchOverlay: (any SearchBarOverlayProtocol)?
@@ -184,6 +185,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
          missionControlService: MissionControlServiceProtocol? = nil,
+         spaceService: SpaceManagementServiceProtocol? = nil,
          overlay: (any PreviewCloseButtonOverlayProtocol)? = nil,
          searchOverlay: (any SearchBarOverlayProtocol)? = nil,
          animationStrategy: OverlayAnimationStrategy? = nil,
@@ -191,6 +193,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
         self.missionControlService = missionControlService
+        self.spaceService = spaceService ?? SpaceManagementService()
         self.injectedOverlay = overlay
         self.injectedSearchOverlay = searchOverlay
         self.animationStrategy = animationStrategy ?? OptimizedOverlayAnimationStrategy()
@@ -218,18 +221,18 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     // MARK: - Dock AXObserver & Input Event Tap live in the `+Observers` /
-    // `+InputTap` extension files (SwiftLint file_length budget).
+    // `+InputTap` splits.
 
     // MARK: - Window Polling
 
     func startWindowFetchTimer() {
-        stopWindowFetchTimer()
+        guard windowFetchTimer == nil else { return }
         windowFetchTimer = Timer.scheduledCommon(
             interval: HoverServiceTiming.windowPoll,
             repeats: true,
             tolerance: HoverServiceTiming.windowPollTolerance
         ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.fetchWindows() }
+            self?.fetchWindows()
         }
     }
 
@@ -238,11 +241,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         windowFetchTimer = nil
     }
 
-    // MARK: - Active Space Change
+    // MARK: - Space Change Tracking
 
-    /// Refreshes the window list and overlay when the active Space changes
-    /// while Mission Control is open. Without this, `windows` can reference
-    /// windows that no longer exist on the new Space.
     private func setupSpaceChangeObserver() {
         guard spaceChangeObserver == nil else { return }
         spaceChangeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -268,6 +268,16 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     ///   tests. When `nil`, the current global cursor position is resolved
     ///   from the event system.
     func handleSpaceChange(at mouseLocation: CGPoint? = nil) {
+        // Invalidate previous space hover and search state immediately so
+        // stale frames and hysteresis never leak to the new space.
+        hideAllOverlays()
+        hoveredWindow = nil
+        currentPreviewFrame = nil
+        overlayRect = nil
+        isOverlayHovered = false
+        currentMatches = []
+        searchSession = WindowSearchSession()
+
         fetchWindows()
 
         guard isMissionControlActive || isMissionControlActiveProvider() else {
@@ -308,6 +318,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             }
             if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
                let w = bounds["Width"], let h = bounds["Height"], w >= 100, h >= 100 {
+                if let wid = window[kCGWindowNumber as String] as? CGWindowID,
+                   !spaceService.isWindowOnCurrentSpace(windowID: wid) {
+                    return false
+                }
                 return true
             }
             return false
@@ -339,12 +353,12 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         guard let rect = overlayRect, rect.contains(location), let window = hoveredWindow else {
-            debugLog("handleMouseDown: click at \(location) outside overlay - deactivating Mission Control")
+            debugLog("handleMouseDown: click at \(location) outside overlay - deactivating Mission Control", category: AppLogger.missionControl)
             handleDeactivated()
             return false
         }
 
-        debugLog("handleMouseDown: click at \(location) on overlay close button")
+        debugLog("handleMouseDown: click at \(location) on overlay close button", category: AppLogger.missionControl)
         executeAction(on: window)
         return true
     }
@@ -391,11 +405,16 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         updateOverlay(at: mouseLocation)
     }
 
-    /// Updates the hover overlay position and visibility based on the cursor position in AX coordinates.
+    // MARK: - Overlay Management
+
+    /// Updates the preview close button overlay based on the cursor position.
     ///
-    /// Implements hover hysteresis to keep the close button securely anchored while the cursor
-    /// moves within the active preview tile, queries native close button frames when available,
-    /// and falls back to window bounds matching during test seeding.
+    /// Evaluates the cursor location in priority order:
+    /// 1. Hovering the close button itself (preserves visibility so clicks register).
+    /// 2. Active preview tile hysteresis (avoids jitter/repositioning within the same preview thumbnail).
+    /// 3. Resolving the preview tile under cursor via Accessibility (macOS 27 WindowManager preview buttons).
+    /// 4. Falls back to window frames seeded during unit testing.
+    /// 5. Otherwise hides the overlay.
     func updateOverlay(at mouseLocation: CGPoint) {
         // 1. If mouse is hovering over the action button itself, keep it visible
         if let rect = overlayRect, rect.contains(mouseLocation), hoveredWindow != nil {
@@ -421,9 +440,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
         // 3. macOS 27: Resolve the preview tile via Accessibility
         // (WindowManager exposes AXButton preview tiles with their exact visual frame and "wid" attribute).
-        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(at: mouseLocation) {
-            if let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) ??
-                (CGWindowListCopyWindowInfo([.optionIncludingWindow], wid) as? [[String: Any]])?.first {
+        let currentWindowIDs = Set(windows.compactMap { $0[kCGWindowNumber as String] as? CGWindowID })
+        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(at: mouseLocation, matchingWindowIDs: currentWindowIDs) {
+            if let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) {
                 let previewFrame = accessibilityService.getFrame(for: tileElement) ?? .zero
                 if !previewFrame.isEmpty {
                     hoveredWindow = winInfo

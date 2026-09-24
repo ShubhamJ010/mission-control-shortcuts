@@ -542,4 +542,142 @@ final class MissionControlHoverServiceTests: XCTestCase {
             XCTAssertFalse(wm.isSafeTargetProcess)
         }
     }
+
+    // MARK: - Multi-Desktop Mission Control Isolation Tests
+
+    func testMultiDesktopMissionControlOverlaySuppressedForWindowOnOtherSpace() {
+        let mockSpaceService = MockSpaceManagementService()
+        // Space 1 has windows 101, 102. Space 2 has window 201.
+        mockSpaceService.mockCurrentSpaceID = 2
+        mockSpaceService.mockWindowSpaces = [
+            101: [1],
+            102: [1],
+            201: [2]
+        ]
+
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in self?.isMissionControlActive ?? false },
+            spaceService: mockSpaceService,
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+
+        let win201: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(201),
+            kCGWindowOwnerName as String: "Xcode",
+            kCGWindowLayer as String: 0,
+            "kCGWindowBounds": [
+                "X": CGFloat(500), "Y": CGFloat(500), "Width": CGFloat(400), "Height": CGFloat(300)
+            ]
+        ]
+        // On Space 2, only window 201 is in the space
+        service._testSeedWindows([win201])
+
+        let dummyTile101 = AXUIElementCreateSystemWide()
+        let previewRect101 = CGRect(x: 100, y: 100, width: 300, height: 200)
+
+        // Cursor is at (150, 150) where Desktop 1's window 101 would be in WindowManager's flat overlay
+        mockService.mockElement = dummyTile101
+        mockService.mockPreviewTile = (tileElement: dummyTile101, windowID: CGWindowID(101))
+        mockService.mockFrame = previewRect101
+
+        service.updateOverlay(at: CGPoint(x: 150, y: 150))
+
+        // Overlay MUST NOT be shown for window 101 from Desktop 1
+        XCTAssertFalse(overlay.isVisible)
+
+        // Now simulate cursor over Desktop 2's own window 201
+        let dummyTile201 = AXUIElementCreateSystemWide()
+        let previewRect201 = CGRect(x: 500, y: 500, width: 400, height: 300)
+        mockService.mockElement = dummyTile201
+        mockService.mockPreviewTile = (tileElement: dummyTile201, windowID: CGWindowID(201))
+        mockService.mockFrame = previewRect201
+
+        service.updateOverlay(at: CGPoint(x: 550, y: 550))
+
+        // Overlay MUST be shown for window 201 on Desktop 2
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertEqual(overlay.currentAXRect.midX, previewRect201.minX, accuracy: 0.5)
+        XCTAssertEqual(overlay.currentAXRect.midY, previewRect201.minY, accuracy: 0.5)
+    }
+
+    func testSpaceChangeResetsHysteresisAndStaleOverlay() {
+        let mockSpaceService = MockSpaceManagementService()
+        mockSpaceService.mockCurrentSpaceID = 1
+        mockSpaceService.mockWindowSpaces = [
+            101: [1],
+            201: [2]
+        ]
+
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in self?.isMissionControlActive ?? false },
+            spaceService: mockSpaceService,
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+
+        let win101: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(101),
+            kCGWindowOwnerName as String: "App1",
+            kCGWindowLayer as String: 0,
+            "kCGWindowBounds": [
+                "X": CGFloat(100), "Y": CGFloat(100), "Width": CGFloat(300), "Height": CGFloat(200)
+            ]
+        ]
+        service._testSeedWindows([win101])
+
+        let dummyTile101 = AXUIElementCreateSystemWide()
+        let previewRect101 = CGRect(x: 100, y: 100, width: 300, height: 200)
+        mockService.mockElement = dummyTile101
+        mockService.mockPreviewTile = (tileElement: dummyTile101, windowID: CGWindowID(101))
+        mockService.mockFrame = previewRect101
+
+        service.updateOverlay(at: CGPoint(x: 150, y: 150))
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertEqual(service.currentPreviewFrame, previewRect101)
+
+        // Switch to Space 2
+        mockSpaceService.mockCurrentSpaceID = 2
+        let win201: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(201),
+            kCGWindowOwnerName as String: "App2",
+            kCGWindowLayer as String: 0,
+            "kCGWindowBounds": [
+                "X": CGFloat(600), "Y": CGFloat(200), "Width": CGFloat(400), "Height": CGFloat(300)
+            ]
+        ]
+        service._testSeedWindows([win201])
+
+        // Space change occurs while cursor was at (150, 150)
+        service.handleSpaceChange(at: CGPoint(x: 150, y: 150))
+
+        // On Space 2, cursor at (150, 150) should NOT keep the stale Space 1 window overlay visible
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertNil(service.currentPreviewFrame)
+    }
+
+    func testAccessibilityServiceMatchingWindowIDsFiltersCrossSpaceTiles() {
+        let dummyTile = AXUIElementCreateSystemWide()
+        mockService.mockElement = dummyTile
+        mockService.mockPreviewTile = (tileElement: dummyTile, windowID: CGWindowID(101))
+
+        // When allowed IDs do not include 101, it must return nil
+        let resultDisallowed = mockService.getMissionControlPreviewTile(at: CGPoint(x: 100, y: 100), matchingWindowIDs: [201, 202])
+        XCTAssertNil(resultDisallowed)
+
+        // When allowed IDs include 101, it returns the tile
+        let resultAllowed = mockService.getMissionControlPreviewTile(at: CGPoint(x: 100, y: 100), matchingWindowIDs: [101, 201])
+        XCTAssertNotNil(resultAllowed)
+        XCTAssertEqual(resultAllowed?.windowID, 101)
+    }
 }

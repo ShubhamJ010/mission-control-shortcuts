@@ -47,12 +47,21 @@ class MockAccessibilityService: AccessibilityServiceProtocol {
         mockPreviewTile
     }
 
-    /// Mock implementation for resolving preview tiles at point coordinates.
-    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+    /// Mock implementation for resolving preview tiles at point coordinates with space isolation filtering.
+    func getMissionControlPreviewTile(
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>?
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        let result: (tileElement: AXUIElement, windowID: CGWindowID)?
         if let element = getElement(at: point) {
-            return getMissionControlPreviewTile(for: element)
+            result = getMissionControlPreviewTile(for: element)
+        } else {
+            result = mockPreviewTile
         }
-        return mockPreviewTile
+        if let result, let matchingWindowIDs, !matchingWindowIDs.contains(result.windowID) {
+            return nil
+        }
+        return result
     }
 
     var mockCloseButtonFrame: CGRect?

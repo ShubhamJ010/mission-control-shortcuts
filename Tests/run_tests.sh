@@ -37,6 +37,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Services/Dock/DockInteractionSuppressor.swift" \
   "${ROOT_DIR}/MCSC/Services/Volume/MountedVolumeService.swift" \
   "${ROOT_DIR}/MCSC/Services/Haptics/HapticService.swift" \
+  "${ROOT_DIR}/MCSC/Services/MissionControl/SpaceManagementService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+Observers.swift" \
   "${ROOT_DIR}/MCSC/Services/MissionControl/MissionControlHoverService+InputTap.swift" \
@@ -106,6 +107,7 @@ swiftc \
   "${ROOT_DIR}/MCSC/Views/Settings/Panes/GestureSettingsPane.swift" \
   "${SCRIPT_DIR}/Mocks/MockAccessibilityService.swift" \
   "${SCRIPT_DIR}/Mocks/MockMissionControlService.swift" \
+  "${SCRIPT_DIR}/Mocks/MockSpaceManagementService.swift" \
   "${SCRIPT_DIR}/PinchInRecognizerTests.swift" \
   "${SCRIPT_DIR}/CmdSwipeActionsTests.swift" \
   "${SCRIPT_DIR}/GestureEngineRoutingTests.swift" \

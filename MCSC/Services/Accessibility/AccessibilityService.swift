@@ -21,7 +21,11 @@ protocol AccessibilityServiceProtocol {
     func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)?
 
     /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
-    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)?
+    /// Optionally filters candidate tiles against `matchingWindowIDs` to isolate the active desktop space.
+    func getMissionControlPreviewTile(
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>?
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)?
 
     /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
     func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect?
@@ -87,6 +91,12 @@ protocol AccessibilityServiceProtocol {
     /// Activates `app`, optionally raising and focusing `window`.
     @discardableResult
     func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool
+}
+
+extension AccessibilityServiceProtocol {
+    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        getMissionControlPreviewTile(at: point, matchingWindowIDs: nil)
+    }
 }
 
 final class AccessibilityService: AccessibilityServiceProtocol {
@@ -256,21 +266,46 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
-    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+    /// When `matchingWindowIDs` is provided, candidate tiles are filtered to match the active desktop space.
+    func getMissionControlPreviewTile(
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>? = nil
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
         // 1. Direct hit-test WindowManager first (it owns Mission Control layer 19 on macOS 27)
         if let wmElement = getWindowManagerAXElement() {
             var wmChild: AXUIElement?
             if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
                let wmChild,
                let preview = getMissionControlPreviewTile(for: wmChild) {
-                return preview
+                if let matchingWindowIDs {
+                    if matchingWindowIDs.contains(preview.windowID) {
+                        return preview
+                    }
+                } else {
+                    return preview
+                }
+            }
+
+            // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
+            // If the element hit-tested at point belongs to another space or was masked,
+            // scan WindowManager's preview tiles to find the matching tile on the active desktop.
+            if let matchingWindowIDs, !matchingWindowIDs.isEmpty {
+                if let preview = findMatchingPreviewTile(in: wmElement, at: point, matchingWindowIDs: matchingWindowIDs) {
+                    return preview
+                }
             }
         }
 
         // 2. Fall back to systemWide element hit-test
         if let hitElement = getElement(at: point),
            let preview = getMissionControlPreviewTile(for: hitElement) {
-            return preview
+            if let matchingWindowIDs {
+                if matchingWindowIDs.contains(preview.windowID) {
+                    return preview
+                }
+            } else {
+                return preview
+            }
         }
 
         // 3. Fall back to Dock element hit-test (classic Dock Exposé)
@@ -279,10 +314,50 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
                let dockChild,
                let preview = getMissionControlPreviewTile(for: dockChild) {
-                return preview
+                if let matchingWindowIDs {
+                    if matchingWindowIDs.contains(preview.windowID) {
+                        return preview
+                    }
+                } else {
+                    return preview
+                }
             }
         }
 
+        return nil
+    }
+
+    private func findMatchingPreviewTile(
+        in parent: AXUIElement,
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>,
+        depth: Int = 0,
+        maxDepth: Int = 8
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        guard depth < maxDepth else { return nil }
+        var childrenRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+              let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
+              let children = childrenRef as? [AXUIElement] else {
+            return nil
+        }
+        for child in children {
+            if let preview = getMissionControlPreviewTile(for: child),
+               matchingWindowIDs.contains(preview.windowID) {
+                if let frame = getFrame(for: child), frame.contains(point) {
+                    return preview
+                }
+            }
+            if let found = findMatchingPreviewTile(
+                in: child,
+                at: point,
+                matchingWindowIDs: matchingWindowIDs,
+                depth: depth + 1,
+                maxDepth: maxDepth
+            ) {
+                return found
+            }
+        }
         return nil
     }
 
