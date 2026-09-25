@@ -38,6 +38,7 @@ final class GestureActionRouter {
         }
 
         let (kind, isCmd) = result.kindAndModifier
+        guard config.isGestureEnabled(kind, isCmd: isCmd) else { return .none }
         let haptic = kind.haptic(isCmd: isCmd)
 
         // Eject intercept (Finder window with ejectable volume) takes priority for

@@ -173,7 +173,10 @@ final class ShortcutViewModel {
         }
         let twoFingerTapRecognizer = TwoFingerDoubleTapRecognizer()
         twoFingerTapRecognizer.isCmdHeld = cmdHeldProvider
-        twoFingerTapRecognizer.isEnabled = { [weak self] in self?.config.isTwoFingerDoubleTapEnabled ?? false }
+        twoFingerTapRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isTwoFingerDoubleTapEnabled || self.config.isCmdTwoFingerDoubleTapEnabled
+        }
         twoFingerTapRecognizer.onStateChanged = { [weak self] isInProgress in
             guard let self else { return }
             let mcActive = self.missionControlService.isMissionControlActive
@@ -187,32 +190,51 @@ final class ShortcutViewModel {
 
         let pinchInRecognizer = PinchInRecognizer()
         pinchInRecognizer.isCmdHeld = cmdHeldProvider
-        pinchInRecognizer.isEnabled = { [weak self] in self?.config.isPinchInEnabled ?? false }
+        pinchInRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isPinchInEnabled || self.config.isCmdPinchInEnabled
+        }
         gestureEngine.register(pinchInRecognizer)
 
         let pinchOutRecognizer = PinchOutRecognizer()
         pinchOutRecognizer.isCmdHeld = cmdHeldProvider
-        pinchOutRecognizer.isEnabled = { [weak self] in self?.config.isPinchOutEnabled ?? false }
+        pinchOutRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isPinchOutEnabled || self.config.isCmdPinchOutEnabled
+        }
         gestureEngine.register(pinchOutRecognizer)
 
         let swipeLeftRecognizer = TwoFingerSwipeLeftRecognizer()
         swipeLeftRecognizer.isCmdHeld = cmdHeldProvider
-        swipeLeftRecognizer.isEnabled = { [weak self] in self?.config.isSwipeLeftEnabled ?? false }
+        swipeLeftRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeLeftEnabled || self.config.isCmdSwipeLeftEnabled
+        }
         gestureEngine.register(swipeLeftRecognizer)
 
         let swipeRightRecognizer = TwoFingerSwipeRightRecognizer()
         swipeRightRecognizer.isCmdHeld = cmdHeldProvider
-        swipeRightRecognizer.isEnabled = { [weak self] in self?.config.isSwipeRightEnabled ?? false }
+        swipeRightRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeRightEnabled || self.config.isCmdSwipeRightEnabled
+        }
         gestureEngine.register(swipeRightRecognizer)
 
         let swipeRecognizer = SwipeRecognizer()
         swipeRecognizer.isCmdHeld = cmdHeldProvider
         swipeRecognizer.isEnabled = { [weak self] in
             guard let self else { return false }
-            return self.config.isSwipeDownEnabled || self.config.isSwipeUpEnabled
+            return self.config.isSwipeDownEnabled || self.config.isCmdSwipeDownEnabled
+                || self.config.isSwipeUpEnabled || self.config.isCmdSwipeUpEnabled
         }
-        swipeRecognizer.isSwipeDownEnabled = { [weak self] in self?.config.isSwipeDownEnabled ?? false }
-        swipeRecognizer.isSwipeUpEnabled = { [weak self] in self?.config.isSwipeUpEnabled ?? false }
+        swipeRecognizer.isSwipeDownEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeDownEnabled || self.config.isCmdSwipeDownEnabled
+        }
+        swipeRecognizer.isSwipeUpEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeUpEnabled || self.config.isCmdSwipeUpEnabled
+        }
         gestureEngine.register(swipeRecognizer)
     }
 

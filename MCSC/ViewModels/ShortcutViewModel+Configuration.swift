@@ -122,28 +122,64 @@ extension ShortcutViewModel {
         get { config.isPinchInEnabled } set { config.isPinchInEnabled = newValue }
     }
 
+    var isCmdPinchInEnabled: Bool {
+        get { config.isCmdPinchInEnabled } set { config.isCmdPinchInEnabled = newValue }
+    }
+
     var isPinchOutEnabled: Bool {
         get { config.isPinchOutEnabled } set { config.isPinchOutEnabled = newValue }
+    }
+
+    var isCmdPinchOutEnabled: Bool {
+        get { config.isCmdPinchOutEnabled } set { config.isCmdPinchOutEnabled = newValue }
     }
 
     var isSwipeLeftEnabled: Bool {
         get { config.isSwipeLeftEnabled } set { config.isSwipeLeftEnabled = newValue }
     }
 
+    var isCmdSwipeLeftEnabled: Bool {
+        get { config.isCmdSwipeLeftEnabled } set { config.isCmdSwipeLeftEnabled = newValue }
+    }
+
     var isSwipeRightEnabled: Bool {
         get { config.isSwipeRightEnabled } set { config.isSwipeRightEnabled = newValue }
+    }
+
+    var isCmdSwipeRightEnabled: Bool {
+        get { config.isCmdSwipeRightEnabled } set { config.isCmdSwipeRightEnabled = newValue }
     }
 
     var isSwipeDownEnabled: Bool {
         get { config.isSwipeDownEnabled } set { config.isSwipeDownEnabled = newValue }
     }
 
+    var isCmdSwipeDownEnabled: Bool {
+        get { config.isCmdSwipeDownEnabled } set { config.isCmdSwipeDownEnabled = newValue }
+    }
+
     var isSwipeUpEnabled: Bool {
         get { config.isSwipeUpEnabled } set { config.isSwipeUpEnabled = newValue }
     }
 
+    var isCmdSwipeUpEnabled: Bool {
+        get { config.isCmdSwipeUpEnabled } set { config.isCmdSwipeUpEnabled = newValue }
+    }
+
     var isTwoFingerDoubleTapEnabled: Bool {
         get { config.isTwoFingerDoubleTapEnabled } set { config.isTwoFingerDoubleTapEnabled = newValue }
+    }
+
+    var isCmdTwoFingerDoubleTapEnabled: Bool {
+        get { config.isCmdTwoFingerDoubleTapEnabled } set { config.isCmdTwoFingerDoubleTapEnabled = newValue }
+    }
+
+    func isGestureEnabled(for kind: GestureKind, isCmd: Bool) -> Bool {
+        config.isGestureEnabled(kind, isCmd: isCmd)
+    }
+
+    func setGestureEnabled(_ enabled: Bool, for kind: GestureKind, isCmd: Bool) {
+        config.setGestureEnabled(kind, isCmd: isCmd, enabled: enabled)
     }
 
     var isTwoFingerHoldEnabled: Bool {

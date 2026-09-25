@@ -63,6 +63,7 @@ final class SettingsPaneTests: XCTestCase {
             UserDefaults.standard.removeObject(forKey: entry.key)
         }
         UserDefaults.standard.removeObject(forKey: "mcsc.gestures.actions")
+        UserDefaults.standard.removeObject(forKey: "mcsc.gestures.cmdActions")
         UserDefaults.standard.removeObject(forKey: ShortcutConfiguration.bindingsStorageKey)
     }
 
@@ -92,6 +93,7 @@ final class SettingsPaneTests: XCTestCase {
         let actionPopup: NSPopUpButton
         let cmdActionPopup: NSPopUpButton
         let enableSwitch: NSSwitch
+        let cmdEnableSwitch: NSSwitch
     }
 
     private func gestureRows(of pane: GestureSettingsPane) -> [RowSnapshot] {
@@ -110,7 +112,8 @@ final class SettingsPaneTests: XCTestCase {
                 kind: child("kind") as! GestureKind,
                 actionPopup: child("actionPopup") as! NSPopUpButton,
                 cmdActionPopup: child("cmdActionPopup") as! NSPopUpButton,
-                enableSwitch: child("enableSwitch") as! NSSwitch
+                enableSwitch: child("enableSwitch") as! NSSwitch,
+                cmdEnableSwitch: child("cmdEnableSwitch") as! NSSwitch
             )
         }
     }
@@ -158,17 +161,15 @@ final class SettingsPaneTests: XCTestCase {
         let switches = descendants.compactMap { $0 as? NSSwitch }
         let buttons = descendants.compactMap { $0 as? NSButton }
 
-        // 7 rows × (plain popup + ⌘ popup) and one enable switch per row.
+        // 7 rows × (plain popup + ⌘ popup) and 2 switches per row + 2 header switches = 16.
         XCTAssertEqual(popups.count, 14,
                        "Expected 7 plain + 7 ⌘ action pop-ups in the view tree")
-        XCTAssertEqual(switches.count, 7,
-                       "Expected one enable switch per gesture row in the view tree")
-        XCTAssertGreaterThanOrEqual(buttons.count, 3,
-                                    "Expected master checkbox, hold modifier checkbox, and Restore Defaults button")
+        XCTAssertEqual(switches.count, 16,
+                       "Expected 16 switches: 1 master + 1 hold modifier + 7 plain + 7 ⌘ in the view tree")
+        XCTAssertGreaterThanOrEqual(buttons.count, 1,
+                                    "Expected at least Restore Defaults button")
         XCTAssertTrue(buttons.contains { $0.title == "Restore Defaults" },
                       "Restore Defaults button missing from the pane")
-        XCTAssertTrue(buttons.contains { $0.title == "Two-Finger Hold for Command (⌘)" },
-                      "Two-Finger Hold modifier checkbox missing from the pane")
     }
 
     // MARK: Row wiring
@@ -180,7 +181,8 @@ final class SettingsPaneTests: XCTestCase {
         for (index, row) in gestureRows(of: pane).enumerated() {
             XCTAssertEqual(row.actionPopup.tag, index, "plain popup tag for row \(index)")
             XCTAssertEqual(row.cmdActionPopup.tag, index, "⌘ popup tag for row \(index)")
-            XCTAssertEqual(row.enableSwitch.tag, index, "switch tag for row \(index)")
+            XCTAssertEqual(row.enableSwitch.tag, index, "plain switch tag for row \(index)")
+            XCTAssertEqual(row.cmdEnableSwitch.tag, index, "cmd switch tag for row \(index)")
         }
     }
 
@@ -211,6 +213,8 @@ final class SettingsPaneTests: XCTestCase {
                            "⌘ popup target must be the pane")
             XCTAssertEqual(row.enableSwitch.target as? GestureSettingsPane, pane,
                            "enable switch target must be the pane")
+            XCTAssertEqual(row.cmdEnableSwitch.target as? GestureSettingsPane, pane,
+                           "cmd enable switch target must be the pane")
         }
     }
 
@@ -258,6 +262,10 @@ final class SettingsPaneTests: XCTestCase {
                            "\(row.kind.rawValue) popup must be disabled when gestures are off")
             XCTAssertFalse(row.enableSwitch.isEnabled,
                            "\(row.kind.rawValue) switch must be disabled when gestures are off")
+            XCTAssertFalse(row.cmdActionPopup.isEnabled,
+                           "\(row.kind.rawValue) cmd popup must be disabled when gestures are off")
+            XCTAssertFalse(row.cmdEnableSwitch.isEnabled,
+                           "\(row.kind.rawValue) cmd switch must be disabled when gestures are off")
         }
 
         pane.viewModel.isGesturesEnabled = true
@@ -267,6 +275,10 @@ final class SettingsPaneTests: XCTestCase {
                           "\(row.kind.rawValue) popup must be enabled when gestures are on")
             XCTAssertTrue(row.enableSwitch.isEnabled,
                           "\(row.kind.rawValue) switch must be enabled when gestures are on")
+            XCTAssertTrue(row.cmdActionPopup.isEnabled,
+                          "\(row.kind.rawValue) cmd popup must be enabled when gestures are on")
+            XCTAssertTrue(row.cmdEnableSwitch.isEnabled,
+                          "\(row.kind.rawValue) cmd switch must be enabled when gestures are on")
         }
     }
 
@@ -276,14 +288,14 @@ final class SettingsPaneTests: XCTestCase {
         let pane = makeGesturePane()
         pane.loadView()
 
-        guard let master = Mirror(reflecting: pane).descendant("gesturesToggleCheckbox") as? NSButton else {
-            return XCTFail("Master checkbox outlet missing")
+        guard let master = Mirror(reflecting: pane).descendant("gesturesToggleCheckbox") as? NSSwitch else {
+            return XCTFail("Master switch outlet missing")
         }
         XCTAssertTrue(pane.viewModel.isGesturesEnabled, "Gestures default to enabled")
 
         sendAction(of: master)
-        XCTAssertFalse(pane.viewModel.isGesturesEnabled, "Master checkbox must toggle the view model")
-        XCTAssertEqual(master.state, .off, "Checkbox state must track the view model")
+        XCTAssertFalse(pane.viewModel.isGesturesEnabled, "Master switch must toggle the view model")
+        XCTAssertEqual(master.state, .off, "Switch state must track the view model")
         XCTAssertTrue(gestureRows(of: pane).allSatisfy { !$0.actionPopup.isEnabled },
                       "Rows must disable immediately after toggling the master off")
 
@@ -296,13 +308,13 @@ final class SettingsPaneTests: XCTestCase {
         let pane = makeGesturePane()
         pane.loadView()
 
-        guard let holdCheckbox = Mirror(reflecting: pane).descendant("holdModifierCheckbox") as? NSButton else {
-            return XCTFail("Hold modifier checkbox outlet missing")
+        guard let holdCheckbox = Mirror(reflecting: pane).descendant("holdModifierCheckbox") as? NSSwitch else {
+            return XCTFail("Hold modifier switch outlet missing")
         }
         XCTAssertTrue(pane.viewModel.isTwoFingerHoldEnabled, "Two-finger hold defaults to enabled")
 
         sendAction(of: holdCheckbox)
-        XCTAssertFalse(pane.viewModel.isTwoFingerHoldEnabled, "Hold modifier checkbox must toggle the view model")
+        XCTAssertFalse(pane.viewModel.isTwoFingerHoldEnabled, "Hold modifier switch must toggle the view model")
         XCTAssertEqual(holdCheckbox.state, .off)
 
         sendAction(of: holdCheckbox)
@@ -322,6 +334,20 @@ final class SettingsPaneTests: XCTestCase {
         sendAction(of: switchControl)
         XCTAssertFalse(pane.viewModel.isPinchInEnabled,
                        "Row switch must update the per-gesture enablement via its tag")
+    }
+
+    func testCmdGestureSwitchActionUpdatesViewModel() {
+        let pane = makeGesturePane()
+        pane.loadView()
+
+        let switchControl = gestureRows(of: pane).first { $0.kind == .pinchIn }?.cmdEnableSwitch
+        guard let switchControl else { return XCTFail("Pinch-in row not built") }
+
+        XCTAssertTrue(pane.viewModel.isCmdPinchInEnabled)
+        switchControl.state = .off
+        sendAction(of: switchControl)
+        XCTAssertFalse(pane.viewModel.isCmdPinchInEnabled,
+                       "Cmd row switch must update the per-gesture cmd enablement via its tag")
     }
 
     func testGesturePopupActionUpdatesViewModel() {
@@ -346,6 +372,7 @@ final class SettingsPaneTests: XCTestCase {
         pane.loadView()
         pane.viewModel.isGesturesEnabled = false
         pane.viewModel.isPinchInEnabled = false
+        pane.viewModel.isCmdPinchInEnabled = false
         pane.viewModel.setGestureAction(.quitApp, for: .pinchIn, isCmd: false)
 
         guard let restoreButton = allDescendants(of: pane.view).compactMap({ $0 as? NSButton })
@@ -356,10 +383,13 @@ final class SettingsPaneTests: XCTestCase {
 
         XCTAssertTrue(pane.viewModel.isGesturesEnabled)
         XCTAssertTrue(pane.viewModel.isPinchInEnabled)
+        XCTAssertTrue(pane.viewModel.isCmdPinchInEnabled)
         XCTAssertEqual(pane.viewModel.gestureAction(for: .pinchIn, isCmd: false),
                        GestureDefaults.action(for: .pinchIn, isCmd: false))
         XCTAssertEqual(gestureRows(of: pane).first { $0.kind == .pinchIn }?.enableSwitch.state, .on,
                        "Rows must re-sync after Restore Defaults")
+        XCTAssertEqual(gestureRows(of: pane).first { $0.kind == .pinchIn }?.cmdEnableSwitch.state, .on,
+                       "Cmd switches must re-sync after Restore Defaults")
     }
 
     // MARK: Same-class-of-bug smoke tests for the sibling panes
