@@ -147,16 +147,6 @@ Force Quit (`Command`) without touching the keyboard.
 - [PERFORMANCE.md](./docs/PERFORMANCE.md) - The memory and CPU budget, profiling recipes, and measured numbers.
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - MVVM design, event taps, and low-level choices.
 
-## Tests
-
-127 unit and performance tests, including wall-clock budget tests that fail
-on hot-path regressions (frame-throttle rate, keystroke pre-filter cost,
-detection-cache short-circuit, and window-list matching):
-
-```bash
-./Tests/run_tests.sh
-```
-
 ## Credits
 
 - Inspired by [Mission Control Plus](https://www.folivora.ai/missionscontrol)

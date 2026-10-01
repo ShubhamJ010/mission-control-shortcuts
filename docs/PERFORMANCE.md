@@ -76,23 +76,6 @@ while Mission Control is closed (the quiet baseline) and again during active use
 (gestures over previews) to capture both extremes. A regression past the 13 MB
 ceiling means the change needs redesign before merge.
 
-### Regression guard: budget tests (2026-08-22 audit)
-
-`Tests/PerformanceTests.swift` locks the hot paths behind wall-clock budgets
-(generous enough for any machine, tight enough to fail on an order-of-magnitude
-regression). Run via `./Tests/run_tests.sh`:
-
-| Test | Guards |
-| --- | --- |
-| `testFrameGateThrottles120HzStreamTo30Hz` | Pre-hop 30 Hz cap holds; gestures still get ≥20 forwards/s |
-| `testFrameGatePassesSlowFramesUnthrottled` | Gate coalesces, never delays slow frames; first frame always passes |
-| `testFrameGateIsSafeUnderConcurrentCalls` | Lock-protected gate under 8 concurrent threads respects the cap |
-| `testFrameGateThroughput` | 100k gate checks < 0.5 s (callback-side cost ~ns) |
-| `testShortcutCandidateRejectsPlainTypingAndUntrackedKeys` | Whitelist matches router contract, incl. every `kKey*` constant |
-| `testShortcutCandidateFilterThroughput` | 100k filter calls < 0.25 s (runs on every system keyDown) |
-| `testDetectionCacheShortCircuitsRepeatedChecks` | 10k cached MC checks < 0.2 s — cache actually short-circuits WindowServer IPC |
-| `testFuzzyMatchThroughputOnRealisticWindowList` | 5k fuzzy matches over 60 windows < 2 s (per-keystroke cost in Exposé) |
-| `testRowMajorSortThroughputOnRealisticWindowList` | 5k row-major sorts over 60 windows < 2 s (Tab-cycle cost) |
 
 ### Audit findings fixed (2026-08-22, branch `perf/audit-fixes`)
 

@@ -111,11 +111,6 @@ queues animations when switches arrive faster than they render.
 - Routing: `MCSC/ViewModels/Routing/GestureActionRouter.swift`.
 - Cursor feedback modes: `spaceLeft` / `spaceRight` in
   `MCSC/Views/CursorFeedbackMode.swift`.
-- Tests: `DesktopNavigationActionTests` in `Tests/RouterTests.swift`.
-
-The production code injects side-effect closures (`postMouseEvent`,
-`sendSpaceSwitchShortcut`, `waitFor`, and others) so tests can record the
-event sequence without posting real events or sleeping.
 
 ## Next steps
 
