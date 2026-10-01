@@ -52,6 +52,7 @@ final class MissionControlService: MissionControlServiceProtocol {
 
     /// Maintain notification observers for cleanup
     private var observers: [NSObjectProtocol] = []
+    private var localObservers: [NSObjectProtocol] = []
     /// Guards `start()` so repeated calls are idempotent.
     private var isStarted = false
 
@@ -159,6 +160,17 @@ final class MissionControlService: MissionControlServiceProtocol {
                 }
             observers.append(observer)
         }
+
+        let purgeObserver = NotificationCenter.default.addObserver(
+            forName: .mcscPurgeCaches,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.cachedIsActive = nil
+            self?.lastDetectionTime = 0
+            AppLogger.missionControl.info("Mission Control detection cache purged.")
+        }
+        localObservers.append(purgeObserver)
     }
 
     func stop() {
@@ -168,6 +180,12 @@ final class MissionControlService: MissionControlServiceProtocol {
             center.removeObserver(observer)
         }
         observers.removeAll()
+
+        for observer in localObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        localObservers.removeAll()
+
         _isMissionControlActive = false
         cachedIsActive = false
         lastDetectionTime = CACurrentMediaTime()
@@ -222,7 +240,10 @@ final class MissionControlService: MissionControlServiceProtocol {
         // Collect Dock & WindowManager layers
         var emptyNamedDockLayers: [Int] = []
         var hasWindowManagerOverlay = false
-        if let windowList = windowListProvider() {
+        let windowList = AppSignpost.trace(AppSignpost.missionControl, "windowListScan") {
+            windowListProvider()
+        }
+        if let windowList {
             for window in windowList {
                 let owner = window[kCGWindowOwnerName as String] as? String ?? ""
                 let layer = window[kCGWindowLayer as String] as? Int ?? 0

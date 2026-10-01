@@ -110,11 +110,7 @@ extension MissionControlHoverService {
     /// Prefers the window bounds center from `WindowSelectionEngine.centerPoint`,
     /// falling back to `match.centerPoint`.
     func previewCenter(for match: WindowSelectionEngine.Match) -> CGPoint {
-        if let bounds = match.windowInfo[kCGWindowBounds as String] as? [String: Any],
-           let center = WindowSelectionEngine.centerPoint(for: bounds) {
-            return center
-        }
-        return match.centerPoint
+        match.centerPoint
     }
 
     /// Updates the pill visibility and drives the native Mission Control highlight.

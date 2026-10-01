@@ -452,6 +452,24 @@ private extension ShortcutActionRouter {
         ]
 
         for (action, mode, handler) in snapConfigs where matched.contains(action) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: mode) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    switch action {
+                    case .leftHalfSnap:
+                        self?.actions.leftHalfSnapAction.perform(window: window, at: context.location, service: context.service)
+                    case .rightHalfSnap:
+                        self?.actions.rightHalfSnapAction.perform(window: window, at: context.location, service: context.service)
+                    case .leftThirdSnap:
+                        self?.actions.leftThirdSnapAction.perform(window: window, at: context.location, service: context.service)
+                    case .rightThirdSnap:
+                        self?.actions.rightThirdSnapAction.perform(window: window, at: context.location, service: context.service)
+                    default:
+                        break
+                    }
+                }
+            }
             return context.execute(feedbackMode: mode, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 handler(self.actions, context.app, context.location, context.service)
@@ -466,14 +484,10 @@ private extension ShortcutActionRouter {
     ) -> ResolvedShortcutAction? {
         if matched.contains(.fillScreen) {
             if case let .missionControlPreview(windowInfo, _) = context.target {
-                return context.execute(feedbackMode: .maximize) {
-                    if let hover = context.hoverService {
-                        Self.runOnMainActor {
-                            hover.executeAction(mode: .fullscreen, on: windowInfo)
-                        }
-                    } else {
-                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
-                    }
+                return context.execute(feedbackMode: .maximize) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    self?.actions.fillScreenAction.perform(window: window, at: context.location, service: context.service)
                 }
             }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
@@ -487,14 +501,10 @@ private extension ShortcutActionRouter {
         }
         if matched.contains(.almostMaximize) {
             if case let .missionControlPreview(windowInfo, _) = context.target {
-                return context.execute(feedbackMode: .almost) {
-                    if let hover = context.hoverService {
-                        Self.runOnMainActor {
-                            hover.executeAction(mode: .fullscreen, on: windowInfo)
-                        }
-                    } else {
-                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
-                    }
+                return context.execute(feedbackMode: .almost) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    self?.actions.almostMaximizeAction.perform(window: window, at: context.location, service: context.service)
                 }
             }
             return context.execute(feedbackMode: .almost, needsActivate: true) { [weak self] in
@@ -514,6 +524,13 @@ private extension ShortcutActionRouter {
         context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.reasonableSize) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .reasonable) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    self?.actions.reasonableSizeAction.perform(window: window, at: context.location, service: context.service)
+                }
+            }
             return context.execute(feedbackMode: .reasonable, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -525,14 +542,10 @@ private extension ShortcutActionRouter {
         }
         if matched.contains(.makeLarger) {
             if case let .missionControlPreview(windowInfo, _) = context.target {
-                return context.execute(feedbackMode: .maximize) {
-                    if let hover = context.hoverService {
-                        Self.runOnMainActor {
-                            hover.executeAction(mode: .fullscreen, on: windowInfo)
-                        }
-                    } else {
-                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
-                    }
+                return context.execute(feedbackMode: .maximize) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    self?.actions.makeLargerAction.perform(window: window, at: context.location, service: context.service)
                 }
             }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
@@ -545,6 +558,13 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.makeSmaller) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .makeSmaller) { [weak self] in
+                    guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                          let window = context.service.getWindow(forWindowID: windowID) else { return }
+                    self?.actions.makeSmallerAction.perform(window: window, at: context.location, service: context.service)
+                }
+            }
             return context.execute(feedbackMode: .makeSmaller, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -606,7 +626,11 @@ private extension ShortcutActionRouter {
         if matched.contains(.moveNextDesktop) {
             return context.execute(feedbackMode: .spaceRight) { [weak self] in
                 guard let self else { return }
-                if let app = context.app {
+                if case let .missionControlPreview(windowInfo, _) = context.target,
+                   let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                   let window = context.service.getWindow(forWindowID: windowID) {
+                    self.actions.moveNextDesktopAction.perform(window: window, service: context.service)
+                } else if let app = context.app {
                     self.actions.moveNextDesktopAction.perform(app: app, service: context.service)
                 } else {
                     self.actions.moveNextDesktopAction.perform(at: context.location, service: context.service)
@@ -616,7 +640,11 @@ private extension ShortcutActionRouter {
         if matched.contains(.movePreviousDesktop) {
             return context.execute(feedbackMode: .spaceLeft) { [weak self] in
                 guard let self else { return }
-                if let app = context.app {
+                if case let .missionControlPreview(windowInfo, _) = context.target,
+                   let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                   let window = context.service.getWindow(forWindowID: windowID) {
+                    self.actions.movePreviousDesktopAction.perform(window: window, service: context.service)
+                } else if let app = context.app {
                     self.actions.movePreviousDesktopAction.perform(app: app, service: context.service)
                 } else {
                     self.actions.movePreviousDesktopAction.perform(at: context.location, service: context.service)

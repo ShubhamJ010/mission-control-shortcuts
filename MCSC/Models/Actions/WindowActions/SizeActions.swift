@@ -2,14 +2,17 @@ import Cocoa
 
 // MARK: - Size Actions
 
-/// Expands the window at `point` to fill its screen's full bounds.
+/// Expands the window at `point` to fill its screen's visible bounds (excluding dock and menu bar).
 struct FillScreenAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
+        perform(window: window, at: point, service: service)
+    }
 
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axBounds(for: screen)
+        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
         _ = service.setFrame(axScreenBounds, for: window)
     }
 }
@@ -21,11 +24,14 @@ struct MakeLargerAction: ShortcutAction {
 
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
-              let window = service.getWindow(for: element),
-              let currentFrame = service.getFrame(for: window) else { return }
+              let window = service.getWindow(for: element) else { return }
+        perform(window: window, at: point, service: service)
+    }
 
-        guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axBounds(for: screen)
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        guard let currentFrame = service.getFrame(for: window),
+              let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
+        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
 
         let targetWidth = (currentFrame.width * scaleFactor).rounded()
         let targetHeight = (currentFrame.height * scaleFactor).rounded()
@@ -67,11 +73,14 @@ struct MakeSmallerAction: ShortcutAction {
 
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
-              let window = service.getWindow(for: element),
-              let currentFrame = service.getFrame(for: window) else { return }
+              let window = service.getWindow(for: element) else { return }
+        perform(window: window, at: point, service: service)
+    }
 
-        guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axBounds(for: screen)
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        guard let currentFrame = service.getFrame(for: window),
+              let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
+        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
 
         let targetWidth = max((currentFrame.width * scaleFactor).rounded(), minWidth)
         let targetHeight = max((currentFrame.height * scaleFactor).rounded(), minHeight)
@@ -106,8 +115,12 @@ struct ReasonableSizeAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
+        perform(window: window, at: point, service: service)
+    }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axBounds = ScreenGeometry.axBounds(for: screen)
+        let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
         let w = (axBounds.width * 0.604).rounded()
         let h = (axBounds.height * 0.58).rounded()
         let x = (axBounds.origin.x + (axBounds.width - w) / 2).rounded()
@@ -120,8 +133,12 @@ struct AlmostMaximizeAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
+        perform(window: window, at: point, service: service)
+    }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axBounds = ScreenGeometry.axBounds(for: screen)
+        let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
         let w = (axBounds.width * 0.904).rounded()
         let h = (axBounds.height * 0.872).rounded()
         let x = (axBounds.origin.x + (axBounds.width - w) / 2).rounded()
@@ -159,17 +176,25 @@ enum SnapPosition {
     }
 }
 
-private func performSnapAction(_ position: SnapPosition, at point: CGPoint, service: AccessibilityServiceProtocol) {
-    guard let element = service.getElement(at: point),
-          let window = service.getWindow(for: element) else { return }
+private func performSnapAction(_ position: SnapPosition, on window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
     guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
     let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
     _ = service.setFrame(position.frame(for: visibleBounds), for: window)
 }
 
+private func performSnapAction(_ position: SnapPosition, at point: CGPoint, service: AccessibilityServiceProtocol) {
+    guard let element = service.getElement(at: point),
+          let window = service.getWindow(for: element) else { return }
+    performSnapAction(position, on: window, at: point, service: service)
+}
+
 struct LeftHalfSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         performSnapAction(.leftHalf, at: point, service: service)
+    }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        performSnapAction(.leftHalf, on: window, at: point, service: service)
     }
 }
 
@@ -177,16 +202,28 @@ struct RightHalfSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         performSnapAction(.rightHalf, at: point, service: service)
     }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        performSnapAction(.rightHalf, on: window, at: point, service: service)
+    }
 }
 
 struct LeftThirdSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         performSnapAction(.leftThird, at: point, service: service)
     }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        performSnapAction(.leftThird, on: window, at: point, service: service)
+    }
 }
 
 struct RightThirdSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         performSnapAction(.rightThird, at: point, service: service)
+    }
+
+    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
+        performSnapAction(.rightThird, on: window, at: point, service: service)
     }
 }

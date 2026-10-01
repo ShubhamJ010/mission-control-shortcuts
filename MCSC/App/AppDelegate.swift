@@ -41,6 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                       missionControlService: missionControl,
                                       launchAtLoginService: launchAtLogin)
 
+        DiagnosticService.shared.liveStateProvider = { [weak self] in
+            guard let self, let vm = self.viewModel else { return [:] }
+            return [
+                "isMissionControlActive": vm.missionControlService.isMissionControlActive,
+                "isKeyboardNavigationEnabled": vm.config.isKeyboardNavigationEnabled,
+                "isAutoEjectEnabled": vm.config.isAutoEjectEnabled,
+                "isHoverTracking": vm.hoverService.isTracking
+            ]
+        }
+
         // Build the status bar menu after the ViewModel exists so every toggle
         // reflects real configuration. This runs exactly once — calling
         // `statusItem(withLength:)` again would leak a second menu bar icon.

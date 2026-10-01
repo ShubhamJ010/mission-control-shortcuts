@@ -3,6 +3,11 @@ import Cocoa
 /// Executes window-level operations (close, minimize, force-quit) on windows
 /// identified by Mission Control / Exposé window metadata dictionaries.
 enum MissionControlWindowActions {
+    // Standard macOS virtual key codes (Carbon kVK_ANSI_*)
+    private static let keyW: CGKeyCode = 0x0D
+    private static let keyM: CGKeyCode = 0x2E
+    private static let keyF: CGKeyCode = 0x03
+
     /// Finds the AX window matching `windowID` and presses its button for
     /// `attribute` (kAXCloseButtonAttribute / kAXMinimizeButtonAttribute / kAXZoomButtonAttribute).
     /// Returns true if the button was successfully pressed.
@@ -49,7 +54,7 @@ enum MissionControlWindowActions {
            let window = accessibilityService.getWindow(forWindowID: windowID) {
             _ = accessibilityService.focusWindow(window)
         }
-        KeyboardEventPoster.postShortcut(virtualKey: 0x0D, flags: .maskCommand, to: pid)
+        KeyboardEventPoster.postShortcut(virtualKey: keyW, flags: .maskCommand, to: pid)
     }
 
     static func performMinimize(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
@@ -85,7 +90,7 @@ enum MissionControlWindowActions {
         if let app = NSRunningApplication(processIdentifier: pid) {
             _ = accessibilityService.activate(app: app, window: nil)
         }
-        KeyboardEventPoster.postShortcut(virtualKey: 0x2E, flags: .maskCommand, to: pid)
+        KeyboardEventPoster.postShortcut(virtualKey: keyM, flags: .maskCommand, to: pid)
     }
 
     static func performForceQuit(on windowInfo: [String: Any]) {
@@ -97,17 +102,25 @@ enum MissionControlWindowActions {
         app.forceTerminate()
     }
 
-    /// Toggles a window's zoom/fullscreen state via its AX zoom button (`kAXZoomButtonAttribute`).
+    /// Toggles a window's zoom/fullscreen state via its AX zoom button (`kAXZoomButtonAttribute`) or fullscreen button.
     static func performFullscreen(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
         if pressWindowButton(attribute: kAXZoomButtonAttribute, on: windowInfo, accessibilityService: accessibilityService) {
             return
         }
+        if pressWindowButton(attribute: "AXFullScreenButton", on: windowInfo, accessibilityService: accessibilityService) {
+            return
+        }
 
-        // Fallback: activate the owning app
+        // Fallback: activate the owning app and post ⌃⌘F shortcut
         guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t else { return }
 
         if let app = NSRunningApplication(processIdentifier: pid) {
             _ = accessibilityService.activate(app: app, window: nil)
         }
+        if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+           let window = accessibilityService.getWindow(forWindowID: windowID) {
+            _ = accessibilityService.focusWindow(window)
+        }
+        KeyboardEventPoster.postShortcut(virtualKey: keyF, flags: [.maskControl, .maskCommand], to: pid)
     }
 }

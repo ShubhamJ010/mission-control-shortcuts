@@ -54,7 +54,7 @@ struct WindowCloser {
                 return
             }
 
-            let appElement = AXUIElementCreateApplication(app.processIdentifier)
+            let appElement = service.appElement(for: app)
 
             // Act on the app's key window (the one being targeted from the Dock).
             if let keyWindow: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement),
@@ -93,6 +93,17 @@ struct WindowCloser {
             if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
                 return
             }
+            let appElement = service.appElement(for: app)
+            if let keyWindow: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement) {
+                pressRedCloseButton(of: keyWindow, service: service)
+                return
+            }
+            if let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+               let first = windows.first {
+                pressRedCloseButton(of: first, service: service)
+                return
+            }
+            return
         }
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
@@ -105,7 +116,7 @@ struct WindowCloser {
     ) {
         guard let app,
               app.processIdentifier != NSRunningApplication.current.processIdentifier else { return }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
 
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else {
@@ -125,7 +136,7 @@ struct WindowCloser {
         service: AccessibilityServiceProtocol
     ) -> Bool {
         guard app.isSafeTargetProcess else { return false }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
         let windows: [AXUIElement]? = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
         if windows == nil || windows?.isEmpty == true {
             ForceQuitAppAction().perform(app: app)

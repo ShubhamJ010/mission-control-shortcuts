@@ -24,21 +24,46 @@ enum WindowSelectionEngine {
         let shoulderPoint: CGPoint
         /// `0` = prefix match (best), `1` = substring match.
         let rank: Int
+        /// Precomputed window number for fast scalar sort comparison.
+        let windowNumber: Int
+        /// Precomputed bounding box in Quartz AX coordinates for $O(1)$ sort comparisons.
+        let bounds: CGRect
 
-        init(windowInfo: [String: Any], ownerName: String, centerPoint: CGPoint, shoulderPoint: CGPoint, rank: Int) {
+        init(
+            windowInfo: [String: Any],
+            ownerName: String,
+            centerPoint: CGPoint,
+            shoulderPoint: CGPoint,
+            rank: Int,
+            windowNumber: Int = 0,
+            bounds: CGRect = .zero
+        ) {
             self.windowInfo = windowInfo
             self.ownerName = ownerName
             self.centerPoint = centerPoint
             self.shoulderPoint = shoulderPoint
             self.rank = rank
+            self.windowNumber = windowNumber != 0 ? windowNumber : WindowSelectionEngine.windowNumber(windowInfo)
+            self.bounds = bounds != .zero ? bounds : (WindowSelectionEngine.boundsRect(for: windowInfo) ?? .zero)
         }
 
-        init(windowInfo: [String: Any], ownerName: String, shoulderPoint: CGPoint, rank: Int) {
-            self.windowInfo = windowInfo
-            self.ownerName = ownerName
-            self.centerPoint = shoulderPoint
-            self.shoulderPoint = shoulderPoint
-            self.rank = rank
+        init(
+            windowInfo: [String: Any],
+            ownerName: String,
+            shoulderPoint: CGPoint,
+            rank: Int,
+            windowNumber: Int = 0,
+            bounds: CGRect = .zero
+        ) {
+            self.init(
+                windowInfo: windowInfo,
+                ownerName: ownerName,
+                centerPoint: shoulderPoint,
+                shoulderPoint: shoulderPoint,
+                rank: rank,
+                windowNumber: windowNumber,
+                bounds: bounds
+            )
         }
     }
 
@@ -52,54 +77,81 @@ enum WindowSelectionEngine {
         in windows: [[String: Any]],
         shoulderInset: CGFloat = defaultShoulderInset
     ) -> [Match] {
-        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !needle.isEmpty else { return [] }
+        AppSignpost.trace(AppSignpost.search, "fuzzyMatch") {
+            let needle = query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            guard !needle.isEmpty else { return [] }
 
-        var matches: [Match] = []
-        matches.reserveCapacity(windows.count)
+            var matches: [Match] = []
+            matches.reserveCapacity(windows.count)
 
-        for window in windows {
-            guard let ownerName = window[kCGWindowOwnerName as String] as? String,
-                  !ownerName.isEmpty else {
-                continue
+            for window in windows {
+                guard let ownerName = window[kCGWindowOwnerName as String] as? String,
+                      !ownerName.isEmpty else {
+                    continue
+                }
+
+                let haystack = ownerName.lowercased()
+                let rank: Int
+                if haystack.hasPrefix(needle) {
+                    rank = 0
+                } else if haystack.contains(needle) {
+                    rank = 1
+                } else {
+                    continue
+                }
+
+                guard let bounds = boundsRect(for: window) else {
+                    continue
+                }
+                let shoulder = CGPoint(x: bounds.origin.x + shoulderInset, y: bounds.origin.y + shoulderInset)
+                let center = bounds.width > 0 && bounds.height > 0
+                    ? CGPoint(x: bounds.midX, y: bounds.midY)
+                    : shoulder
+                let winNum = windowNumber(window)
+
+                matches.append(Match(
+                    windowInfo: window,
+                    ownerName: ownerName,
+                    centerPoint: center,
+                    shoulderPoint: shoulder,
+                    rank: rank,
+                    windowNumber: winNum,
+                    bounds: bounds
+                ))
             }
 
-            let haystack = ownerName.lowercased()
-            let rank: Int
-            if haystack.hasPrefix(needle) {
-                rank = 0
-            } else if haystack.contains(needle) {
-                rank = 1
-            } else {
-                continue
+            matches.sort { a, b in
+                if a.rank != b.rank {
+                    return a.rank < b.rank
+                }
+                let nameOrder = a.ownerName.localizedStandardCompare(b.ownerName)
+                if nameOrder != .orderedSame {
+                    return nameOrder == .orderedAscending
+                }
+                return a.windowNumber < b.windowNumber
             }
-
-            guard let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let shoulder = shoulderPoint(for: bounds, inset: shoulderInset) else {
-                continue
-            }
-            let center = centerPoint(for: bounds) ?? shoulder
-
-            matches.append(Match(
-                windowInfo: window,
-                ownerName: ownerName,
-                centerPoint: center,
-                shoulderPoint: shoulder,
-                rank: rank
-            ))
+            return matches
         }
+    }
 
-        matches.sort { a, b in
-            if a.rank != b.rank {
-                return a.rank < b.rank
-            }
-            let nameOrder = a.ownerName.localizedStandardCompare(b.ownerName)
-            if nameOrder != .orderedSame {
-                return nameOrder == .orderedAscending
-            }
-            return windowNumber(a.windowInfo) < windowNumber(b.windowInfo)
+    /// Computes the bounding box `CGRect` once from a window dictionary.
+    static func boundsRect(for windowInfo: [String: Any]) -> CGRect? {
+        guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: Any] else {
+            return nil
         }
-        return matches
+        return boundsRect(from: boundsDict)
+    }
+
+    /// Computes the bounding box `CGRect` directly from a bounds dictionary.
+    static func boundsRect(from boundsDict: [String: Any]) -> CGRect? {
+        guard let xVal = boundsDict["X"], let yVal = boundsDict["Y"],
+              let x = numberToCGFloat(xVal),
+              let y = numberToCGFloat(yVal) else {
+            return nil
+        }
+        let w = (boundsDict["Width"].flatMap { numberToCGFloat($0) }) ?? 0
+        let h = (boundsDict["Height"].flatMap { numberToCGFloat($0) }) ?? 0
+        return CGRect(x: x, y: y, width: w, height: h)
     }
 
     /// Center (middle) point of `boundsDict`.
@@ -108,17 +160,13 @@ enum WindowSelectionEngine {
     static func centerPoint(
         for boundsDict: [String: Any]
     ) -> CGPoint? {
-        guard let xVal = boundsDict["X"], let yVal = boundsDict["Y"],
-              let x = numberToCGFloat(xVal),
-              let y = numberToCGFloat(yVal) else {
+        guard let rect = boundsRect(from: boundsDict) else {
             return nil
         }
-        let w = (boundsDict["Width"].flatMap { numberToCGFloat($0) }) ?? 0
-        let h = (boundsDict["Height"].flatMap { numberToCGFloat($0) }) ?? 0
-        if w > 0, h > 0 {
-            return CGPoint(x: x + w / 2.0, y: y + h / 2.0)
+        if rect.width > 0, rect.height > 0 {
+            return CGPoint(x: rect.midX, y: rect.midY)
         }
-        return CGPoint(x: x + defaultShoulderInset, y: y + defaultShoulderInset)
+        return CGPoint(x: rect.origin.x + defaultShoulderInset, y: rect.origin.y + defaultShoulderInset)
     }
 
     /// Top-left shoulder of `boundsDict`, inset right and down so the point
@@ -127,12 +175,10 @@ enum WindowSelectionEngine {
         for boundsDict: [String: Any],
         inset: CGFloat = defaultShoulderInset
     ) -> CGPoint? {
-        guard let xVal = boundsDict["X"], let yVal = boundsDict["Y"],
-              let x = numberToCGFloat(xVal),
-              let y = numberToCGFloat(yVal) else {
+        guard let rect = boundsRect(from: boundsDict) else {
             return nil
         }
-        return CGPoint(x: x + inset, y: y + inset)
+        return CGPoint(x: rect.origin.x + inset, y: rect.origin.y + inset)
     }
 
     nonisolated private static func numberToCGFloat(_ value: Any) -> CGFloat? {
@@ -143,10 +189,6 @@ enum WindowSelectionEngine {
             return v
         }
         return nil
-    }
-
-    nonisolated private static func cgNumber(_ dict: [String: Any], key: String) -> Double {
-        (dict[key] as? NSNumber)?.doubleValue ?? 0
     }
 
     /// Row-major ordering of all visible windows used for Tab cycling when no
@@ -161,46 +203,52 @@ enum WindowSelectionEngine {
         in windows: [[String: Any]],
         shoulderInset: CGFloat = defaultShoulderInset
     ) -> [Match] {
-        var matches: [Match] = []
-        matches.reserveCapacity(windows.count)
+        AppSignpost.trace(AppSignpost.search, "rowMajorSorted") {
+            var matches: [Match] = []
+            matches.reserveCapacity(windows.count)
 
-        for window in windows {
-            guard let ownerName = window[kCGWindowOwnerName as String] as? String,
-                  !ownerName.isEmpty,
-                  let bounds = window[kCGWindowBounds as String] as? [String: Any],
-                  let shoulder = shoulderPoint(for: bounds, inset: shoulderInset) else {
-                continue
+            for window in windows {
+                guard let ownerName = window[kCGWindowOwnerName as String] as? String,
+                      !ownerName.isEmpty,
+                      let bounds = boundsRect(for: window) else {
+                    continue
+                }
+                let shoulder = CGPoint(x: bounds.origin.x + shoulderInset, y: bounds.origin.y + shoulderInset)
+                let center = bounds.width > 0 && bounds.height > 0
+                    ? CGPoint(x: bounds.midX, y: bounds.midY)
+                    : shoulder
+                let winNum = windowNumber(window)
+
+                matches.append(Match(
+                    windowInfo: window,
+                    ownerName: ownerName,
+                    centerPoint: center,
+                    shoulderPoint: shoulder,
+                    rank: 0,
+                    windowNumber: winNum,
+                    bounds: bounds
+                ))
             }
-            let center = centerPoint(for: bounds) ?? shoulder
 
-            matches.append(Match(
-                windowInfo: window,
-                ownerName: ownerName,
-                centerPoint: center,
-                shoulderPoint: shoulder,
-                rank: 0
-            ))
+            // O(N log N) sort using precomputed scalar CGRect values — zero dictionary lookups or NSNumber bridges
+            matches.sort { a, b in
+                let aY = a.bounds.origin.y
+                let bY = b.bounds.origin.y
+                if abs(aY - bY) > 40 {
+                    return aY < bY
+                }
+                let aX = a.bounds.origin.x
+                let bX = b.bounds.origin.x
+                if aX != bX {
+                    return aX < bX
+                }
+                return a.windowNumber < b.windowNumber
+            }
+            return matches
         }
-
-        matches.sort { a, b in
-            let aBounds = a.windowInfo[kCGWindowBounds as String] as? [String: Any] ?? [:]
-            let bBounds = b.windowInfo[kCGWindowBounds as String] as? [String: Any] ?? [:]
-            let aY = cgNumber(aBounds, key: "Y")
-            let bY = cgNumber(bBounds, key: "Y")
-            if abs(aY - bY) > 40 {
-                return aY < bY
-            }
-            let aX = cgNumber(aBounds, key: "X")
-            let bX = cgNumber(bBounds, key: "X")
-            if aX != bX {
-                return aX < bX
-            }
-            return windowNumber(a.windowInfo) < windowNumber(b.windowInfo)
-        }
-        return matches
     }
 
-    private static func windowNumber(_ info: [String: Any]) -> Int {
+    static func windowNumber(_ info: [String: Any]) -> Int {
         if let n = info[kCGWindowNumber as String] as? NSNumber {
             return n.intValue
         }

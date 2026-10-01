@@ -91,11 +91,21 @@ protocol AccessibilityServiceProtocol {
     /// Activates `app`, optionally raising and focusing `window`.
     @discardableResult
     func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool
+
+    /// Returns the application `AXUIElement` for the given process identifier, cached by PID.
+    func appElement(for pid: pid_t) -> AXUIElement
+
+    /// Returns the application `AXUIElement` for `app`, cached by PID.
+    func appElement(for app: NSRunningApplication) -> AXUIElement
 }
 
 extension AccessibilityServiceProtocol {
     func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
         getMissionControlPreviewTile(at: point, matchingWindowIDs: nil)
+    }
+
+    func appElement(for app: NSRunningApplication) -> AXUIElement {
+        appElement(for: app.processIdentifier)
     }
 }
 
@@ -112,6 +122,10 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     private var cachedWindowManagerElement: AXUIElement?
     private var cachedWindowManagerPID: pid_t = 0
 
+    /// Cached application element for `appElement(for:)`, keyed by PID.
+    private var cachedAppElement: AXUIElement?
+    private var cachedAppPID: pid_t = 0
+
     /// Cached frontmost-application element for `isFrontmostWindow`, keyed by
     /// pid. The title-bar hover path calls `isFrontmostWindow` up to 30×/s per
     /// gesture frame; without the cache each call allocated a fresh
@@ -123,6 +137,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// screen-configuration changes to avoid per-frame AX queries.
     private var cachedDockFrame: CGRect?
     private var screenObserver: NSObjectProtocol?
+    private var purgeObserver: NSObjectProtocol?
 
     private let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
 
@@ -153,12 +168,47 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main
         ) { [weak self] _ in self?.cachedDockFrame = nil }
+
+        purgeObserver = NotificationCenter.default.addObserver(
+            forName: .mcscPurgeCaches,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.purgeCaches()
+        }
     }
 
     deinit {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
+        if let purgeObserver {
+            NotificationCenter.default.removeObserver(purgeObserver)
+        }
+    }
+
+    /// Purges cached AX elements and geometry frames to release memory when nearing ceiling.
+    func purgeCaches() {
+        cachedDockElement = nil
+        cachedDockPID = 0
+        cachedWindowManagerElement = nil
+        cachedWindowManagerPID = 0
+        cachedAppElement = nil
+        cachedAppPID = 0
+        cachedFrontmostAppElement = nil
+        cachedFrontmostAppPID = 0
+        cachedDockFrame = nil
+        AppLogger.accessibility.info("Accessibility caches purged.")
+    }
+
+    /// Returns the application `AXUIElement` for the given process identifier, cached by PID.
+    func appElement(for pid: pid_t) -> AXUIElement {
+        if cachedAppPID == pid, let element = cachedAppElement {
+            return element
+        }
+        let element = AXUIElementCreateApplication(pid)
+        cachedAppElement = element
+        cachedAppPID = pid
+        return element
     }
 
     /// Returns a cached `AXUIElement` for the Dock process, creating it on
@@ -186,34 +236,36 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     func getElement(at point: CGPoint) -> AXUIElement? {
-        var element: AXUIElement?
-        let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element)
+        AppSignpost.trace(AppSignpost.accessibility, "hitTest") {
+            var element: AXUIElement?
+            let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element)
 
-        if result == .success, let element {
-            return element
-        }
-
-        // macOS 27: When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on WindowManager,
-        // hit-test directly against the WindowManager application AXUIElement.
-        if let wmElement = getWindowManagerAXElement() {
-            var wmChild: AXUIElement?
-            if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
-               let wmChild {
-                return wmChild
+            if result == .success, let element {
+                return element
             }
-        }
 
-        // When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on Dock,
-        // hit-test directly against the Dock application AXUIElement.
-        if let dockElement = getDockAXElement() {
-            var dockChild: AXUIElement?
-            if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
-               let dockChild {
-                return dockChild
+            // macOS 27: When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on WindowManager,
+            // hit-test directly against the WindowManager application AXUIElement.
+            if let wmElement = getWindowManagerAXElement() {
+                var wmChild: AXUIElement?
+                if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
+                   let wmChild {
+                    return wmChild
+                }
             }
-        }
 
-        return nil
+            // When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on Dock,
+            // hit-test directly against the Dock application AXUIElement.
+            if let dockElement = getDockAXElement() {
+                var dockChild: AXUIElement?
+                if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
+                   let dockChild {
+                    return dockChild
+                }
+            }
+
+            return nil
+        }
     }
 
     func getWindow(for element: AXUIElement) -> AXUIElement? {
@@ -672,22 +724,44 @@ final class AccessibilityService: AccessibilityServiceProtocol {
 
     /// Retrieves the current frame (origin and size in Quartz AX coordinates) for an accessibility element.
     func getFrame(for element: AXUIElement) -> CGRect? {
-        var posVal: CFTypeRef?
-        var sizeVal: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posVal) == .success,
-              let posVal, CFGetTypeID(posVal) == AXValueGetTypeID(),
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeVal) == .success,
-              let sizeVal, CFGetTypeID(sizeVal) == AXValueGetTypeID() else {
-            return nil
+        AppSignpost.trace(AppSignpost.accessibility, "getFrame") {
+            // Fast path: batch position and size into a single IPC round-trip
+            let attrs = [kAXPositionAttribute as CFString, kAXSizeAttribute as CFString]
+            var valuesRef: CFArray?
+            if AXUIElementCopyMultipleAttributeValues(element, attrs as CFArray, .stopOnError, &valuesRef) == .success,
+               let values = valuesRef as? [CFTypeRef],
+               values.count == 2 {
+                let posVal = values[0]
+                let sizeVal = values[1]
+                if CFGetTypeID(posVal) == AXValueGetTypeID(),
+                   CFGetTypeID(sizeVal) == AXValueGetTypeID() {
+                    var point = CGPoint.zero
+                    var size = CGSize.zero
+                    if AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+                       AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) {
+                        return CGRect(origin: point, size: size)
+                    }
+                }
+            }
+
+            // Fallback for elements/apps where multi-attribute IPC returns an error
+            var posVal: CFTypeRef?
+            var sizeVal: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posVal) == .success,
+                  let posVal, CFGetTypeID(posVal) == AXValueGetTypeID(),
+                  AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeVal) == .success,
+                  let sizeVal, CFGetTypeID(sizeVal) == AXValueGetTypeID() else {
+                return nil
+            }
+            var point = CGPoint.zero
+            var size = CGSize.zero
+            // TypeIDs verified above; `as?` cannot check CF types.
+            guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+                  AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
+                return nil
+            }
+            return CGRect(origin: point, size: size)
         }
-        var point = CGPoint.zero
-        var size = CGSize.zero
-        // TypeIDs verified above; `as?` cannot check CF types.
-        guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
-              AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
-            return nil
-        }
-        return CGRect(origin: point, size: size)
     }
 
     func setFrame(_ frame: CGRect, for element: AXUIElement) -> Bool {

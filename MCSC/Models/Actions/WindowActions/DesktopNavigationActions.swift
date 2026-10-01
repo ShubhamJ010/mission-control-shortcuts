@@ -67,9 +67,15 @@ struct MoveWindowToDesktopAction: ShortcutAction {
     /// Dock-target entry point: moves the app's focused window, matching the
     /// dock parity of `ToggleFullscreenAppAction`.
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
         guard let window: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement),
               let frame = service.getFrame(for: window) else { return }
+        performMove(window: window, frame: frame, service: service)
+    }
+
+    /// Direct window entry point (used by Mission Control router where window is resolved by ID).
+    func perform(window: AXUIElement, service: AccessibilityServiceProtocol) {
+        guard let frame = service.getFrame(for: window) else { return }
         performMove(window: window, frame: frame, service: service)
     }
 
