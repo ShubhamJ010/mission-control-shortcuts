@@ -74,20 +74,20 @@ switches to the `Cmd` variant (right column). All 14 bindings are re-mappable in
 | # | Gesture (Kind) | Plain default | `Cmd` + gesture | Symbol | File |
 | --- | --- | --- | --- | --- | --- |
 | 1 | **Pinch In** (`pinchIn`) | `Close Window` | `Quit App` | `arrow.inward` | `PinchInRecognizer.swift` |
-| 2 | **Pinch Out** (`pinchOut`) | `Toggle Fullscreen` | `New Window` (`Cmd+N`) | `arrow.outward` | `PinchOutRecognizer.swift` |
-| 3 | **Swipe Left** (`swipeLeft`) | `Close Tab` | `Close Window` | `arrow.left` | `TwoFingerSwipeLeftRecognizer.swift` |
-| 4 | **Swipe Right** (`swipeRight`) | `Reopen Tab` | `New Tab` (`Cmd+T`) / `New Window` on Dock | `arrow.right` | `TwoFingerSwipeRightRecognizer.swift` |
-| 5 | **Swipe Up** (`swipeUp`) | `Fill Screen` | `Make Larger` (+33%) | `arrow.up` | `SwipeRecognizer.swift` |
+| 2 | **Pinch Out** (`pinchOut`) | `New Window` (`Cmd+N`) | `Toggle Fullscreen` | `arrow.outward` | `PinchOutRecognizer.swift` |
+| 3 | **Swipe Left** (`swipeLeft`) | `Left Cycle Snap` | `Close Window` | `arrow.left` | `TwoFingerSwipeLeftRecognizer.swift` |
+| 4 | **Swipe Right** (`swipeRight`) | `Right Cycle Snap` | `Reopen Tab` | `arrow.right` | `TwoFingerSwipeRightRecognizer.swift` |
+| 5 | **Swipe Up** (`swipeUp`) | `Fill Screen` | `Unminimize` | `arrow.up` | `SwipeRecognizer.swift` |
 | 6 | **Swipe Down** (`swipeDown`) | `Minimize` | `Hide App` | `arrow.down` | `SwipeRecognizer.swift` |
-| 7 | **2-Finger Double Tap** (`twoFingerDoubleTap`) | `Reasonable Size` (60%) | `Almost Maximize` (90%) | `hand.tap` | `TwoFingerDoubleTapRecognizer.swift` |
+| 7 | **2-Finger Double Tap** (`twoFingerDoubleTap`) | `Small and Center` (60%) | `Almost Maximize` (90%) | `hand.tap` | `TwoFingerDoubleTapRecognizer.swift` |
 
-Source: `GestureKind` (`MCSC/Models/Gestures/GestureAction.swift:8`, 7 cases) × `GestureDefaults` (`GestureAction.swift:136`, `plain`/`cmd` 14) · `HapticType` (`GestureKind.haptic:48`) · `GestureResult` (`Models/Gestures/GestureRecognizer.swift:4`, 14 cases).
-
-> [!NOTE]
-> **Make Smaller (−33%)** is a 5th size action (`SizeActions.swift:61`) available for **Pinch In**, **Swipe Down**, and **2-Finger Double Tap** via `naturalActions` but **unbound by default** (no default `GestureDefaults` entry). It shrinks via `÷1.33` clamped to 200×100 pt — inverse of `Make Larger` so `Larger → Smaller` restores size. Also selectable for any gesture if you change `Settings → Gestures` popup filter from `kind.naturalActions` (`GestureAction.swift:63`) to `GestureAction.allCases` (`MCSCSettingsPanes.swift:388`).
+Source: `GestureKind` (`MCSC/Models/Gestures/GestureAction.swift:8`, 7 cases) × `GestureDefaults` (`GestureAction.swift:152`, `plain`/`cmd` 14) · `HapticType` (`GestureKind.haptic:44`) · `GestureResult` (`Models/Gestures/GestureRecognizer.swift:4`, 14 cases).
 
 > [!NOTE]
-> Swipe-up pair: plain = **fill screen** (`setFrame(axBounds)`), `Cmd` = **+33%** (`MakeLargerAction` `×1.33` center-anchored). Both show `rectangle.fill` maximize symbol.
+> **Make Smaller (−33%)** is a 5th size action (`SizeActions.swift`) available for **Pinch In**, **Swipe Down**, and **2-Finger Double Tap** via `naturalActions` but **unbound by default** (no default `GestureDefaults` entry). It shrinks via `÷1.33` clamped to 200×100 pt — inverse of `Make Larger` so `Larger → Smaller` restores size. Also selectable for any gesture if you change `Settings → Gestures` popup filter from `kind.naturalActions` (`GestureAction.swift:59`) to `GestureAction.allCases` (`GestureSettingsPane.swift`).
+
+> [!NOTE]
+> Swipe-up pair: plain = **fill screen** (`setFrame(axBounds)`), `Cmd` = **unminimize** (brings minimized windows back).
 
 ### Target resolution
 
@@ -172,19 +172,19 @@ When the cursor is over a **Finder window showing an ejectable/removable volume*
 - **Ejection:** `EjectVolumeAction` → `MountedVolumeService.ejectVolume(at:)` (`NSWorkspace.unmountAndEjectDevice`).
   See [SHORTCUTS.md](./SHORTCUTS.md) for the full detection and toggle details.
 
-#### All 16 Actions — What Gestures Can Trigger
+#### All 19 Actions — What Gestures Can Trigger
 
-Gestures can trigger **any** of the 16 `GestureAction` (`GestureAction.swift:87`), but Settings filters popups to `kind.naturalActions` (`GestureAction.swift:63`) for natural UX:
+Gestures can trigger **any** of the 19 `GestureAction` cases (`GestureAction.swift`), but Settings filters popups to `kind.naturalActions` for natural UX:
 
-| Category | Actions (16) | Natural gestures |
+| Category | Actions (19) | Natural gestures |
 | --- | --- | --- |
 | **Tab** (3) | `Close Tab`, `Reopen Tab`, `New Tab` | Swipe Left/Right |
-| **Window** (3) | `Close Window`, `Minimize`, `Toggle Fullscreen` | Pinch In/Out, Swipe Up |
-| **Size** (5) — `WindowActions/SizeActions.swift:3` | `Fill Screen`, `Almost Maximize`, `Reasonable Size`, `Make Larger`, `Make Smaller` | Pinch In/Out, Swipe Down, 2FTap |
-| **App** (3) | `Quit App`, `Hide App`, `New Window` | Pinch In/Out, Swipe Up |
-| **Desktop** (2) — `WindowActions/DesktopNavigationActions.swift:16` | `Move to Next Desktop`, `Move to Previous Desktop` | Swipe Left/Right |
+| **Window** (3) | `Close Window`, `Minimize`, `Toggle Fullscreen` | Pinch In/Out, Swipe Up/Down |
+| **Size** (7) — `WindowActions/SizeActions.swift` | `Fill Screen`, `Almost Maximize`, `Small and Center`, `Make Larger`, `Make Smaller`, `Left Cycle Snap`, `Right Cycle Snap` | Pinch In/Out, Swipe Up/Down/Left/Right, 2FTap |
+| **App** (4) | `Quit App`, `Hide App`, `New Window`, `Unminimize` | Pinch In/Out, Swipe Up/Down |
+| **Desktop** (2) — `WindowActions/DesktopNavigationActions.swift` | `Move to Next Desktop`, `Move to Previous Desktop` | Swipe Left/Right |
 
-Full definitions: `WindowActions/WindowControlActions.swift:3` (chrome) · `WindowActions/SizeActions.swift:3` (tiling `setFrame`) · `TabActions.swift:13` · `AppActions.swift:3` · `WindowActions/DesktopNavigationActions.swift:16`. See `SHORTCUTS.md` for categorized tables with keyboard equivalents.
+Full definitions: `WindowActions/WindowControlActions.swift` (chrome) · `WindowActions/SizeActions.swift` (tiling `setFrame`) · `TabActions.swift` · `AppActions.swift` · `WindowActions/DesktopNavigationActions.swift`. See `SHORTCUTS.md` for categorized tables with keyboard equivalents.
 
 | Recognizer | File | `GestureKind` |
 |------------|------|---------------|

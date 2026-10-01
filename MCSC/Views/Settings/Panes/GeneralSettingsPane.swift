@@ -1,7 +1,7 @@
 import Cocoa
 
-/// General settings pane: launch-at-login, hover-close button, dock
-/// actions, keyboard navigation and animation mode toggles.
+/// General settings pane: launch at login, window and dock behavior,
+/// Mission Control, and feedback options.
 final class GeneralSettingsPane: MCSCSettingsPane {
     private var launchAtLoginCheckbox: NSButton!
     private var autoEjectCheckbox: NSButton!
@@ -21,42 +21,45 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         let layoutView = SettingsLayoutView()
         layoutView.install(in: view)
 
-        // Startup — single toggle, no description needed.
+        // Startup
         let startup = layoutView.addColumnSection(label: "Startup")
-        launchAtLoginCheckbox = startup.addCheckbox(title: "Launch at Login",
-                                                    target: self,
-                                                    action: #selector(toggleLaunchAtLogin(_:)))
+        launchAtLoginCheckbox = startup.addDescribedCheckbox(
+            title: "Launch at Login",
+            description: "Open MCSC automatically when you log in.",
+            target: self,
+            action: #selector(toggleLaunchAtLogin(_:))
+        )
 
         layoutView.addSeparatorSection()
 
-        // Behavior — core, always-visible toggles.
+        // Behavior
         let behavior = layoutView.addColumnSection(label: "Behavior", itemColumnMaximumWidth: 340)
-        autoEjectCheckbox = behavior.addCheckbox(title: "Auto-Eject Mounted Volumes",
-                                                 target: self,
-                                                 action: #selector(toggleAutoEject(_:)))
+        autoEjectCheckbox = behavior.addDescribedCheckbox(
+            title: "Auto-Eject Mounted Volumes",
+            description: "Ejects the volume when you close its Finder window.",
+            target: self,
+            action: #selector(toggleAutoEject(_:))
+        )
+        behavior.addSpacing(6)
         quitAppIfNoWindowsCheckbox = behavior.addDescribedCheckbox(
-            title: "Quit App if No Windows",
-            description: "Quits the application when a close action is performed and no open windows exist.",
+            title: "Quit App When Last Window Closes",
+            description: "Quits an application when you close its last open window.",
             target: self,
             action: #selector(toggleQuitAppIfNoWindows(_:))
         )
+        behavior.addSpacing(6)
         dockActionsCheckbox = behavior.addDescribedCheckbox(
-            title: "Dock Gestures & Shortcuts",
-            description: "Gestures & Cmd-shortcuts while hovering Dock icons.",
+            title: "Dock Gestures and Shortcuts",
+            description: "Enables gestures and Command shortcuts while hovering over Dock icons.",
             target: self,
             action: #selector(toggleDockActions(_:))
         )
+        behavior.addSpacing(6)
         titleBarActionsCheckbox = behavior.addDescribedCheckbox(
-            title: "Title Bar Gestures & Shortcuts",
-            description: "Gestures & Cmd-shortcuts while hovering the frontmost window's title bar.",
+            title: "Title Bar Gestures and Shortcuts",
+            description: "Enables gestures and Command shortcuts while hovering over a window title bar.",
             target: self,
             action: #selector(toggleTitleBarActions(_:))
-        )
-        hoverCloseCheckbox = behavior.addDescribedCheckbox(
-            title: "Hover Close Button",
-            description: "Shows a close button when hovering window thumbnails in Mission Control. Click to close; Cmd = quit, Option = minimize.",
-            target: self,
-            action: #selector(toggleHoverClose(_:))
         )
 
         layoutView.addSeparatorSection()
@@ -67,58 +70,52 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         refresh()
     }
 
-    /// Mission Control — keyboard navigation & Spotlight fix (moved from the
-    /// Shortcuts pane for better grouping) plus the Feedback section and the
-    /// Restore Defaults button. Split out of `loadView` for readability.
+    /// Mission Control, Feedback, and Restore Defaults sections.
     private func buildMissionControlAndFeedbackSections(on layoutView: SettingsLayoutView) {
-        // Mission Control — keyboard navigation & Spotlight fix (moved from Shortcuts pane for better grouping)
+        // Mission Control
         let missionControl = layoutView.addColumnSection(label: "Mission Control", itemColumnMaximumWidth: 340)
+        hoverCloseCheckbox = missionControl.addDescribedCheckbox(
+            title: "Hover Close Button",
+            description: "Shows a close button on window thumbnails in Mission Control. Click to close, hold Command to quit, or hold Option to minimize.",
+            target: self,
+            action: #selector(toggleHoverClose(_:))
+        )
+        missionControl.addSpacing(6)
         keyboardNavCheckbox = missionControl.addDescribedCheckbox(
-            title: "Keyboard Navigation (Tab / Return)",
-            description: "Tab / Shift+Tab cycle the selection between visible thumbnails row-major "
-                + "(wrap-around). Return activates the selected window. Typing filters windows fuzzy "
-                + "(e.g. “code” matches Xcode + Code) and Tab cycles only the filtered matches.",
+            title: "Keyboard Navigation",
+            description: "Cycle through thumbnails with Tab and Shift-Tab, then press Return to activate. Type to filter windows by title.",
             target: self,
             action: #selector(toggleKeyboardNav(_:))
         )
-        let mcGapView = NSView(frame: .zero)
-        mcGapView.translatesAutoresizingMaskIntoConstraints = false
-        mcGapView.heightAnchor.constraint(equalToConstant: 8).isActive = true
-        missionControl.addCustomView(mcGapView, verticalAlignment: .centerY)
-        mcGapView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        mcGapView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        missionControl.addSpacing(6)
         spotlightFixCheckbox = missionControl.addDescribedCheckbox(
-            title: "Restore Spotlight (⌘ + Space) in Mission Control",
-            description: "Fixes Mission Control blocking Spotlight. Re-sends ⌘+Space when Mission Control is visible so Spotlight still opens.",
+            title: "Spotlight Shortcut (⌘Space)",
+            description: "Allows ⌘Space to open Spotlight while Mission Control is open.",
             target: self,
             action: #selector(toggleSpotlightFix(_:))
         )
 
         layoutView.addSeparatorSection()
 
-        // Feedback — on by default (configurable, previously forced-on).
+        // Feedback
         let feedback = layoutView.addColumnSection(label: "Feedback", itemColumnMaximumWidth: 340)
         hapticCheckbox = feedback.addDescribedCheckbox(
             title: "Haptic Feedback",
-            description: "Plays trackpad haptics on gesture/shortcut actions.",
+            description: "Provides trackpad haptics when gestures or shortcuts trigger.",
             target: self,
             action: #selector(toggleHaptics(_:))
         )
+        feedback.addSpacing(6)
         cursorFeedbackCheckbox = feedback.addDescribedCheckbox(
-            title: "Cursor Flash Overlay",
-            description: "Flashes an icon at the cursor when an action fires.",
+            title: "Cursor Feedback Overlay",
+            description: "Briefly displays an icon next to the cursor when an action runs.",
             target: self,
             action: #selector(toggleCursorFeedback(_:))
         )
-        let feedbackGapView = NSView(frame: .zero)
-        feedbackGapView.translatesAutoresizingMaskIntoConstraints = false
-        feedbackGapView.heightAnchor.constraint(equalToConstant: 8).isActive = true
-        feedback.addCustomView(feedbackGapView, verticalAlignment: .centerY)
-        feedbackGapView.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        feedbackGapView.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        feedback.addSpacing(6)
         optimizedAnimationsCheckbox = feedback.addDescribedCheckbox(
-            title: "Optimized Animation Mode (Requires Restart)",
-            description: "Zero-overhead CoreAnimation effects. Uncheck and restart the app to use native Apple SF Symbol Effects.",
+            title: "Reduced Animation Overhead",
+            description: "Uses lightweight CoreAnimation effects instead of native symbol effects. Requires restarting MCSC.",
             target: self,
             action: #selector(toggleOptimizedAnimations(_:))
         )
@@ -192,7 +189,7 @@ final class GeneralSettingsPane: MCSCSettingsPane {
 
         let alert = NSAlert()
         alert.messageText = "Restart MCSC?"
-        alert.informativeText = "Changing the animation mode requires restarting MCSC for the changes to take effect."
+        alert.informativeText = "MCSC must restart for this change to take effect."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "Restart Now")
         alert.addButton(withTitle: "Later")
@@ -234,6 +231,7 @@ final class GeneralSettingsPane: MCSCSettingsPane {
 
     @objc private func restoreDefaults(_: NSButton) {
         viewModel.isAutoEjectEnabled = true
+        viewModel.isQuitAppIfNoWindowsEnabled = false
         viewModel.isDockActionsOutsideMCEnabled = false
         viewModel.isTitleBarActionsOutsideMCEnabled = false
         viewModel.isHoverCloseButtonEnabled = true

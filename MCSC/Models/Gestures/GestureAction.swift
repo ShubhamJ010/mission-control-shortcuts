@@ -63,16 +63,16 @@ enum GestureKind: String, CaseIterable {
         case .pinchOut:
             [.toggleFullscreen, .fillScreen, .almostMaximize, .makeLarger, .newWindow]
         case .swipeLeft:
-            [.closeTab, .closeWindow, .quitApp, .movePreviousDesktop, .leftHalfSnap, .leftThirdSnap]
+            [.closeTab, .closeWindow, .quitApp, .movePreviousDesktop, .leftCycleSnap]
         case .swipeRight:
-            [.reopenTab, .newTab, .newWindow, .moveNextDesktop, .rightHalfSnap, .rightThirdSnap]
+            [.reopenTab, .newTab, .newWindow, .moveNextDesktop, .rightCycleSnap]
         case .swipeUp:
             [.fillScreen, .almostMaximize, .toggleFullscreen, .makeLarger, .reasonableSize, .unminimizeAll]
         case .swipeDown:
             [.minimize, .hideApp, .makeSmaller]
         case .twoFingerDoubleTap:
             [.reasonableSize, .almostMaximize, .toggleFullscreen, .makeSmaller, .makeLarger,
-             .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap]
+             .leftCycleSnap, .rightCycleSnap]
         }
     }
 }
@@ -98,10 +98,8 @@ enum GestureAction: String, CaseIterable {
     case moveNextDesktop
     case movePreviousDesktop
     case unminimizeAll
-    case leftHalfSnap
-    case rightHalfSnap
-    case leftThirdSnap
-    case rightThirdSnap
+    case leftCycleSnap
+    case rightCycleSnap
 
     /// Label shown in the popup menu.
     var menuTitle: String {
@@ -117,16 +115,14 @@ enum GestureAction: String, CaseIterable {
         case .almostMaximize: "Almost Maximize"
         case .makeLarger: "Make Larger (+33%)"
         case .makeSmaller: "Make Smaller (−33%)"
-        case .reasonableSize: "Reasonable Size"
+        case .reasonableSize: "Small and Center"
         case .minimize: "Minimize"
         case .hideApp: "Hide App"
         case .moveNextDesktop: "Move to Next Desktop"
         case .movePreviousDesktop: "Move to Previous Desktop"
         case .unminimizeAll: "Unminimize"
-        case .leftHalfSnap: "Left Half Snap"
-        case .rightHalfSnap: "Right Half Snap"
-        case .leftThirdSnap: "Left Third Snap"
-        case .rightThirdSnap: "Right Third Snap"
+        case .leftCycleSnap: "Left Cycle Snap"
+        case .rightCycleSnap: "Right Cycle Snap"
         }
     }
 
@@ -141,7 +137,7 @@ enum GestureAction: String, CaseIterable {
         case .closeTab, .reopenTab, .newTab, .newWindow,
              .toggleFullscreen, .fillScreen, .almostMaximize,
              .makeLarger, .makeSmaller, .reasonableSize, .unminimizeAll,
-             .leftHalfSnap, .rightHalfSnap, .leftThirdSnap, .rightThirdSnap:
+             .leftCycleSnap, .rightCycleSnap:
             true
         case .closeWindow, .quitApp, .minimize, .hideApp,
              .moveNextDesktop, .movePreviousDesktop:
@@ -161,9 +157,9 @@ enum GestureDefaults {
     static func plainAction(for kind: GestureKind) -> GestureAction {
         switch kind {
         case .pinchIn: .closeWindow
-        case .pinchOut: .toggleFullscreen
-        case .swipeLeft: .closeTab
-        case .swipeRight: .reopenTab
+        case .pinchOut: .newWindow
+        case .swipeLeft: .leftCycleSnap
+        case .swipeRight: .rightCycleSnap
         case .swipeUp: .fillScreen
         case .swipeDown: .minimize
         case .twoFingerDoubleTap: .reasonableSize
@@ -173,10 +169,10 @@ enum GestureDefaults {
     static func cmdAction(for kind: GestureKind) -> GestureAction {
         switch kind {
         case .pinchIn: .quitApp
-        case .pinchOut: .newWindow
+        case .pinchOut: .toggleFullscreen
         case .swipeLeft: .closeWindow
-        case .swipeRight: .newTab
-        case .swipeUp: .makeLarger
+        case .swipeRight: .reopenTab
+        case .swipeUp: .unminimizeAll
         case .swipeDown: .hideApp
         case .twoFingerDoubleTap: .almostMaximize
         }

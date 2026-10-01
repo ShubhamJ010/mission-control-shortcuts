@@ -421,32 +421,18 @@ private extension ShortcutActionRouter {
             CursorFeedbackOverlay.Mode,
             (ActionRegistry, NSRunningApplication?, CGPoint, AccessibilityServiceProtocol) -> Void
         )] = [
-            (.leftHalfSnap, .leftHalf, { actions, app, loc, svc in
+            (.leftCycleSnap, .leftCycleSnap, { actions, app, loc, svc in
                 if let app {
-                    actions.leftHalfSnapAppAction.perform(app: app, service: svc)
+                    actions.leftCycleSnapAppAction.perform(app: app, service: svc)
                 } else {
-                    actions.leftHalfSnapAction.perform(at: loc, service: svc)
+                    actions.leftCycleSnapAction.perform(at: loc, service: svc)
                 }
             }),
-            (.rightHalfSnap, .rightHalf, { actions, app, loc, svc in
+            (.rightCycleSnap, .rightCycleSnap, { actions, app, loc, svc in
                 if let app {
-                    actions.rightHalfSnapAppAction.perform(app: app, service: svc)
+                    actions.rightCycleSnapAppAction.perform(app: app, service: svc)
                 } else {
-                    actions.rightHalfSnapAction.perform(at: loc, service: svc)
-                }
-            }),
-            (.leftThirdSnap, .leftThird, { actions, app, loc, svc in
-                if let app {
-                    actions.leftThirdSnapAppAction.perform(app: app, service: svc)
-                } else {
-                    actions.leftThirdSnapAction.perform(at: loc, service: svc)
-                }
-            }),
-            (.rightThirdSnap, .rightThird, { actions, app, loc, svc in
-                if let app {
-                    actions.rightThirdSnapAppAction.perform(app: app, service: svc)
-                } else {
-                    actions.rightThirdSnapAction.perform(at: loc, service: svc)
+                    actions.rightCycleSnapAction.perform(at: loc, service: svc)
                 }
             })
         ]
@@ -457,14 +443,10 @@ private extension ShortcutActionRouter {
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
                     switch action {
-                    case .leftHalfSnap:
-                        self?.actions.leftHalfSnapAction.perform(window: window, at: context.location, service: context.service)
-                    case .rightHalfSnap:
-                        self?.actions.rightHalfSnapAction.perform(window: window, at: context.location, service: context.service)
-                    case .leftThirdSnap:
-                        self?.actions.leftThirdSnapAction.perform(window: window, at: context.location, service: context.service)
-                    case .rightThirdSnap:
-                        self?.actions.rightThirdSnapAction.perform(window: window, at: context.location, service: context.service)
+                    case .leftCycleSnap:
+                        self?.actions.leftCycleSnapAction.perform(window: window, at: context.location, service: context.service)
+                    case .rightCycleSnap:
+                        self?.actions.rightCycleSnapAction.perform(window: window, at: context.location, service: context.service)
                     default:
                         break
                     }

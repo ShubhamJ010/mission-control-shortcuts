@@ -66,20 +66,12 @@ extension ShortcutViewModel {
         get { config.isMakeSmallerEnabled } set { config.isMakeSmallerEnabled = newValue }
     }
 
-    var isLeftHalfSnapEnabled: Bool {
-        get { config.isLeftHalfSnapEnabled } set { config.isLeftHalfSnapEnabled = newValue }
+    var isLeftCycleSnapEnabled: Bool {
+        get { config.isLeftCycleSnapEnabled } set { config.isLeftCycleSnapEnabled = newValue }
     }
 
-    var isRightHalfSnapEnabled: Bool {
-        get { config.isRightHalfSnapEnabled } set { config.isRightHalfSnapEnabled = newValue }
-    }
-
-    var isLeftThirdSnapEnabled: Bool {
-        get { config.isLeftThirdSnapEnabled } set { config.isLeftThirdSnapEnabled = newValue }
-    }
-
-    var isRightThirdSnapEnabled: Bool {
-        get { config.isRightThirdSnapEnabled } set { config.isRightThirdSnapEnabled = newValue }
+    var isRightCycleSnapEnabled: Bool {
+        get { config.isRightCycleSnapEnabled } set { config.isRightCycleSnapEnabled = newValue }
     }
 
     var isMoveNextDesktopEnabled: Bool {

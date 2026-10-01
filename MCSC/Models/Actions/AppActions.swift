@@ -1,3 +1,4 @@
+import ApplicationServices
 import Cocoa
 
 struct MinimizeAppAction {
@@ -204,43 +205,47 @@ struct ToggleFullscreenAppAction {
     }
 }
 
-private func performSnapAppAction(
-    _ position: SnapPosition,
+private func performCycleSnapAppAction(
+    _ direction: CycleDirection,
     app: NSRunningApplication,
     service: AccessibilityServiceProtocol
 ) {
     let appElement = AXUIElementCreateApplication(app.processIdentifier)
     guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
           !windows.isEmpty else { return }
+
+    guard let firstFrame = service.getFrame(for: windows[0]) else { return }
+    let anchor = CGPoint(x: firstFrame.midX, y: firstFrame.midY)
+    guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { return }
+    let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
+
+    var wid: CGWindowID = 0
+    _ = _AXUIElementGetWindow(windows[0], &wid)
+    let effectiveID = wid != 0 ? wid : CGWindowID(truncatingIfNeeded: CFHash(windows[0]))
+    let nextPos = CycleTracker.shared.nextPosition(
+        direction: direction,
+        windowID: effectiveID,
+        currentFrame: firstFrame,
+        visibleBounds: visibleBounds
+    )
+
     for window in windows {
         guard let frame = service.getFrame(for: window) else { continue }
-        let anchor = CGPoint(x: frame.midX, y: frame.midY)
-        guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-        let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
-        _ = service.setFrame(position.frame(for: visibleBounds), for: window)
+        let winAnchor = CGPoint(x: frame.midX, y: frame.midY)
+        guard let winScreen = ScreenGeometry.screenContaining(axPoint: winAnchor) else { continue }
+        let winVisibleBounds = ScreenGeometry.axVisibleBounds(for: winScreen)
+        _ = service.setFrame(nextPos.frame(for: winVisibleBounds), for: window)
     }
 }
 
-struct LeftHalfSnapAppAction {
+struct LeftCycleSnapAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        performSnapAppAction(.leftHalf, app: app, service: service)
+        performCycleSnapAppAction(.left, app: app, service: service)
     }
 }
 
-struct RightHalfSnapAppAction {
+struct RightCycleSnapAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        performSnapAppAction(.rightHalf, app: app, service: service)
-    }
-}
-
-struct LeftThirdSnapAppAction {
-    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        performSnapAppAction(.leftThird, app: app, service: service)
-    }
-}
-
-struct RightThirdSnapAppAction {
-    func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        performSnapAppAction(.rightThird, app: app, service: service)
+        performCycleSnapAppAction(.right, app: app, service: service)
     }
 }

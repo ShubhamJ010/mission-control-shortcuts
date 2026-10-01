@@ -1,3 +1,4 @@
+import ApplicationServices
 import Cocoa
 
 // MARK: - Size Actions
@@ -150,24 +151,34 @@ struct AlmostMaximizeAction: ShortcutAction {
 // MARK: - Native Snap Actions
 
 enum SnapPosition {
+    case leftTwoThirds
     case leftHalf
-    case rightHalf
     case leftThird
+    case rightTwoThirds
+    case rightHalf
     case rightThird
 
     func frame(for visibleBounds: CGRect) -> CGRect {
         switch self {
+        case .leftTwoThirds:
+            let w = (visibleBounds.width * 2.0 / 3.0).rounded()
+            return CGRect(x: visibleBounds.origin.x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
         case .leftHalf:
             let w = (visibleBounds.width / 2.0).rounded()
             return CGRect(x: visibleBounds.origin.x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
+        case .leftThird:
+            let w = (visibleBounds.width / 3.0).rounded()
+            return CGRect(x: visibleBounds.origin.x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
+        case .rightTwoThirds:
+            let leftW = (visibleBounds.width / 3.0).rounded()
+            let w = visibleBounds.width - leftW
+            let x = visibleBounds.origin.x + leftW
+            return CGRect(x: x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
         case .rightHalf:
             let leftW = (visibleBounds.width / 2.0).rounded()
             let w = visibleBounds.width - leftW
             let x = visibleBounds.origin.x + leftW
             return CGRect(x: x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
-        case .leftThird:
-            let w = (visibleBounds.width / 3.0).rounded()
-            return CGRect(x: visibleBounds.origin.x, y: visibleBounds.origin.y, width: w, height: visibleBounds.height)
         case .rightThird:
             let w = (visibleBounds.width / 3.0).rounded()
             let x = visibleBounds.origin.x + visibleBounds.width - w
@@ -176,54 +187,114 @@ enum SnapPosition {
     }
 }
 
-private func performSnapAction(_ position: SnapPosition, on window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
-    guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
+enum CycleDirection {
+    case left
+    case right
+}
+
+final class CycleTracker {
+    static let shared = CycleTracker()
+    private var lastWindowID: CGWindowID?
+    private var lastDirection: CycleDirection?
+    private var lastIndex: Int = 0
+    private var lastTimestamp: TimeInterval = 0
+
+    private init() {}
+
+    func nextPosition(
+        direction: CycleDirection,
+        windowID: CGWindowID?,
+        currentFrame: CGRect?,
+        visibleBounds: CGRect
+    ) -> SnapPosition {
+        let sequence: [SnapPosition] = switch direction {
+        case .left:
+            [.leftHalf, .leftTwoThirds, .leftThird]
+        case .right:
+            [.rightHalf, .rightTwoThirds, .rightThird]
+        }
+
+        let now = ProcessInfo.processInfo.systemUptime
+        if let windowID, let lastWindowID, windowID == lastWindowID,
+           let lastDirection, lastDirection == direction,
+           now - lastTimestamp < 2.5 {
+            let nextIdx = (lastIndex + 1) % sequence.count
+            self.lastIndex = nextIdx
+            self.lastTimestamp = now
+            return sequence[nextIdx]
+        }
+
+        var selectedIdx = 0
+        if let current = currentFrame {
+            let tolerance: CGFloat = 25.0
+            for (index, position) in sequence.enumerated() {
+                let expected = position.frame(for: visibleBounds)
+                if abs(current.origin.x - expected.origin.x) <= tolerance &&
+                   abs(current.width - expected.width) <= tolerance {
+                    selectedIdx = (index + 1) % sequence.count
+                    break
+                }
+            }
+        }
+
+        self.lastWindowID = windowID
+        self.lastDirection = direction
+        self.lastIndex = selectedIdx
+        self.lastTimestamp = now
+        return sequence[selectedIdx]
+    }
+}
+
+private func performCycleSnapAction(
+    _ direction: CycleDirection,
+    on window: AXUIElement,
+    at point: CGPoint,
+    service: AccessibilityServiceProtocol
+) {
+    let currentFrame = service.getFrame(for: window)
+    let anchor = currentFrame.map { CGPoint(x: $0.midX, y: $0.midY) } ?? point
+    guard let screen = ScreenGeometry.screenContaining(axPoint: point) ?? ScreenGeometry.screenContaining(axPoint: anchor) else { return }
     let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
+
+    var wid: CGWindowID = 0
+    _ = _AXUIElementGetWindow(window, &wid)
+    let effectiveID = wid != 0 ? wid : CGWindowID(truncatingIfNeeded: CFHash(window))
+
+    let position = CycleTracker.shared.nextPosition(
+        direction: direction,
+        windowID: effectiveID,
+        currentFrame: currentFrame,
+        visibleBounds: visibleBounds
+    )
     _ = service.setFrame(position.frame(for: visibleBounds), for: window)
 }
 
-private func performSnapAction(_ position: SnapPosition, at point: CGPoint, service: AccessibilityServiceProtocol) {
+private func performCycleSnapAction(
+    _ direction: CycleDirection,
+    at point: CGPoint,
+    service: AccessibilityServiceProtocol
+) {
     guard let element = service.getElement(at: point),
           let window = service.getWindow(for: element) else { return }
-    performSnapAction(position, on: window, at: point, service: service)
+    performCycleSnapAction(direction, on: window, at: point, service: service)
 }
 
-struct LeftHalfSnapAction: ShortcutAction {
+struct LeftCycleSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.leftHalf, at: point, service: service)
+        performCycleSnapAction(.left, at: point, service: service)
     }
 
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.leftHalf, on: window, at: point, service: service)
+        performCycleSnapAction(.left, on: window, at: point, service: service)
     }
 }
 
-struct RightHalfSnapAction: ShortcutAction {
+struct RightCycleSnapAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.rightHalf, at: point, service: service)
+        performCycleSnapAction(.right, at: point, service: service)
     }
 
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.rightHalf, on: window, at: point, service: service)
-    }
-}
-
-struct LeftThirdSnapAction: ShortcutAction {
-    func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.leftThird, at: point, service: service)
-    }
-
-    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.leftThird, on: window, at: point, service: service)
-    }
-}
-
-struct RightThirdSnapAction: ShortcutAction {
-    func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.rightThird, at: point, service: service)
-    }
-
-    func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
-        performSnapAction(.rightThird, on: window, at: point, service: service)
+        performCycleSnapAction(.right, on: window, at: point, service: service)
     }
 }

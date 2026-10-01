@@ -765,19 +765,25 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     func setFrame(_ frame: CGRect, for element: AXUIElement) -> Bool {
-        // Set position first, then size — some apps fail if done in one shot
+        // Set position first, then size, then re-apply position.
+        // When shrinking and moving rightward/downward (e.g. right snap), WindowServer
+        // clamps position against older (larger) dimensions on the first pass.
+        // Re-applying position after size ensures the final frame is exact.
         var position = CGPoint(x: frame.origin.x, y: frame.origin.y)
         guard let posValue = AXValueCreate(.cgPoint, &position) else { return false }
-        let posResult = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, posValue)
+        _ = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, posValue)
 
         var size = CGSize(width: frame.width, height: frame.height)
         guard let sizeValue = AXValueCreate(.cgSize, &size) else { return false }
         let sizeResult = AXUIElementSetAttributeValue(element, kAXSizeAttribute as CFString, sizeValue)
 
-        let success = posResult == .success && sizeResult == .success
+        let finalPosResult = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, posValue)
+
+        let success = (finalPosResult == .success || finalPosResult == .cannotComplete) &&
+                      (sizeResult == .success || sizeResult == .cannotComplete)
         if !success {
             AppLogger.accessibility.warning(
-                "setFrame failed (pos=\(posResult.rawValue, privacy: .public), size=\(sizeResult.rawValue, privacy: .public))"
+                "setFrame failed (pos=\(finalPosResult.rawValue, privacy: .public), size=\(sizeResult.rawValue, privacy: .public))"
             )
         }
         return success

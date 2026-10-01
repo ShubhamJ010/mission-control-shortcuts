@@ -28,10 +28,8 @@ extension CursorFeedbackOverlay {
         case spaceLeft
         case unminimizeAll
         case command
-        case leftHalf
-        case rightHalf
-        case leftThird
-        case rightThird
+        case leftCycleSnap
+        case rightCycleSnap
 
         /// SF Symbol name rendered by `NSImage(systemSymbolName:)`.
         var symbolName: String {
@@ -54,10 +52,8 @@ extension CursorFeedbackOverlay {
             case .spaceLeft: "arrow.left.circle.fill"
             case .unminimizeAll: "arrow.up.square.fill"
             case .command: "command.circle.fill"
-            case .leftHalf: "rectangle.lefthalf.inset.filled"
-            case .rightHalf: "rectangle.righthalf.inset.filled"
-            case .leftThird: "rectangle.leftthird.inset.filled"
-            case .rightThird: "rectangle.rightthird.inset.filled"
+            case .leftCycleSnap: "rectangle.lefthalf.inset.filled.arrow.left"
+            case .rightCycleSnap: "rectangle.righthalf.inset.filled.arrow.right"
             }
         }
 
@@ -70,7 +66,7 @@ extension CursorFeedbackOverlay {
             case .hide: "Hide Application"
             case .eject: "Eject Volume"
             case .almost: "Almost Maximize Window"
-            case .reasonable: "Reasonable Size"
+            case .reasonable: "Small and Center"
             case .makeSmaller: "Make Smaller Window"
             case .maximize: "Maximize Window"
             case .closeTab: "Close Tab"
@@ -82,10 +78,8 @@ extension CursorFeedbackOverlay {
             case .spaceLeft: "Move Window to Previous Desktop"
             case .unminimizeAll: "Unminimize"
             case .command: "Command Modifier"
-            case .leftHalf: "Left Half Snap"
-            case .rightHalf: "Right Half Snap"
-            case .leftThird: "Left Third Snap"
-            case .rightThird: "Right Third Snap"
+            case .leftCycleSnap: "Left Cycle Snap"
+            case .rightCycleSnap: "Right Cycle Snap"
             }
         }
 
@@ -99,7 +93,7 @@ extension CursorFeedbackOverlay {
             case .quit: [.white, .systemPurple]
             case .hide: [.black, .systemYellow]
             case .eject: [.white, .systemRed]
-            case .almost, .reasonable, .leftHalf, .rightHalf, .leftThird, .rightThird:
+            case .almost, .reasonable, .leftCycleSnap, .rightCycleSnap:
                 // Single Accent layer (the user's system accent colour), same as Maximize.
                 [.controlAccentColor]
             case .makeSmaller:
@@ -143,7 +137,7 @@ extension CursorFeedbackOverlay {
             case .minimize, .hide, .makeSmaller:
                 .shrinkDown
             case .maximize, .almost, .reasonable, .fullscreen, .unminimizeAll, .command,
-                 .leftHalf, .rightHalf, .leftThird, .rightThird:
+                 .leftCycleSnap, .rightCycleSnap:
                 .pulseExpand
             case .spaceRight:
                 .slideRight
@@ -155,7 +149,7 @@ extension CursorFeedbackOverlay {
         /// Base outline symbol displayed initially before smoothly morphing into the filled target symbol.
         var baseSymbol: String? {
             switch self {
-            case .almost, .reasonable, .maximize, .leftHalf, .rightHalf, .leftThird, .rightThird: "rectangle"
+            case .almost, .reasonable, .maximize, .leftCycleSnap, .rightCycleSnap: "rectangle"
             case .eject: "eject.circle"
             case .minimize: "minus.circle"
             case .hide: "eye.slash.circle"
@@ -186,7 +180,7 @@ extension CursorFeedbackOverlay {
             case .close, .quit, .newWindow: .bounceUpByLayer
             case .closeTab, .reopenTab, .newTab: .wiggleByLayer
             case .minimize, .hide, .eject, .almost, .reasonable, .makeSmaller, .maximize, .fullscreen, .spaceRight,
-                 .spaceLeft, .unminimizeAll, .command, .leftHalf, .rightHalf, .leftThird, .rightThird: nil
+                 .spaceLeft, .unminimizeAll, .command, .leftCycleSnap, .rightCycleSnap: nil
             }
         }
 
@@ -200,7 +194,7 @@ extension CursorFeedbackOverlay {
         var replaceTransition: ReplaceTransition? {
             switch self {
             case .almost, .reasonable, .maximize, .minimize, .hide, .unminimizeAll, .command,
-                 .leftHalf, .rightHalf, .leftThird, .rightThird: .downUpReveal
+                 .leftCycleSnap, .rightCycleSnap: .downUpReveal
             case .eject: .magicDownUpReveal
             case .spaceRight, .spaceLeft, .newTab: .replace
             case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil

@@ -98,24 +98,14 @@ struct ShortcutConfiguration {
         set { shortcutBindings[.makeSmaller] = newValue ? RoutedAction.makeSmaller.canonicalBinding : nil }
     }
 
-    var isLeftHalfSnapEnabled: Bool {
-        get { shortcutBindings[.leftHalfSnap] != nil }
-        set { shortcutBindings[.leftHalfSnap] = newValue ? RoutedAction.leftHalfSnap.canonicalBinding : nil }
+    var isLeftCycleSnapEnabled: Bool {
+        get { shortcutBindings[.leftCycleSnap] != nil }
+        set { shortcutBindings[.leftCycleSnap] = newValue ? RoutedAction.leftCycleSnap.canonicalBinding : nil }
     }
 
-    var isRightHalfSnapEnabled: Bool {
-        get { shortcutBindings[.rightHalfSnap] != nil }
-        set { shortcutBindings[.rightHalfSnap] = newValue ? RoutedAction.rightHalfSnap.canonicalBinding : nil }
-    }
-
-    var isLeftThirdSnapEnabled: Bool {
-        get { shortcutBindings[.leftThirdSnap] != nil }
-        set { shortcutBindings[.leftThirdSnap] = newValue ? RoutedAction.leftThirdSnap.canonicalBinding : nil }
-    }
-
-    var isRightThirdSnapEnabled: Bool {
-        get { shortcutBindings[.rightThirdSnap] != nil }
-        set { shortcutBindings[.rightThirdSnap] = newValue ? RoutedAction.rightThirdSnap.canonicalBinding : nil }
+    var isRightCycleSnapEnabled: Bool {
+        get { shortcutBindings[.rightCycleSnap] != nil }
+        set { shortcutBindings[.rightCycleSnap] = newValue ? RoutedAction.rightCycleSnap.canonicalBinding : nil }
     }
 
     var isMoveNextDesktopEnabled: Bool {

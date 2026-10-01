@@ -222,21 +222,13 @@ private extension GestureActionRouter {
             context.execute { [weak self] in
                 self?.actions.reasonableSizeAppAction.perform(app: app, service: context.service)
             }
-        case .leftHalfSnap:
+        case .leftCycleSnap:
             context.execute { [weak self] in
-                self?.actions.leftHalfSnapAppAction.perform(app: app, service: context.service)
+                self?.actions.leftCycleSnapAppAction.perform(app: app, service: context.service)
             }
-        case .rightHalfSnap:
+        case .rightCycleSnap:
             context.execute { [weak self] in
-                self?.actions.rightHalfSnapAppAction.perform(app: app, service: context.service)
-            }
-        case .leftThirdSnap:
-            context.execute { [weak self] in
-                self?.actions.leftThirdSnapAppAction.perform(app: app, service: context.service)
-            }
-        case .rightThirdSnap:
-            context.execute { [weak self] in
-                self?.actions.rightThirdSnapAppAction.perform(app: app, service: context.service)
+                self?.actions.rightCycleSnapAppAction.perform(app: app, service: context.service)
             }
         case .moveNextDesktop:
             context.execute { [weak self] in
@@ -335,29 +327,17 @@ private extension GestureActionRouter {
                       let window = context.service.getWindow(forWindowID: windowID) else { return }
                 self?.actions.makeSmallerAction.perform(window: window, at: context.point, service: context.service)
             }
-        case .leftHalfSnap:
+        case .leftCycleSnap:
             return context.execute { [weak self] in
                 guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                       let window = context.service.getWindow(forWindowID: windowID) else { return }
-                self?.actions.leftHalfSnapAction.perform(window: window, at: context.point, service: context.service)
+                self?.actions.leftCycleSnapAction.perform(window: window, at: context.point, service: context.service)
             }
-        case .rightHalfSnap:
+        case .rightCycleSnap:
             return context.execute { [weak self] in
                 guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                       let window = context.service.getWindow(forWindowID: windowID) else { return }
-                self?.actions.rightHalfSnapAction.perform(window: window, at: context.point, service: context.service)
-            }
-        case .leftThirdSnap:
-            return context.execute { [weak self] in
-                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
-                      let window = context.service.getWindow(forWindowID: windowID) else { return }
-                self?.actions.leftThirdSnapAction.perform(window: window, at: context.point, service: context.service)
-            }
-        case .rightThirdSnap:
-            return context.execute { [weak self] in
-                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
-                      let window = context.service.getWindow(forWindowID: windowID) else { return }
-                self?.actions.rightThirdSnapAction.perform(window: window, at: context.point, service: context.service)
+                self?.actions.rightCycleSnapAction.perform(window: window, at: context.point, service: context.service)
             }
         case .hideApp:
             return context.execute(overrideFeedbackMode: .hide) {
@@ -488,21 +468,13 @@ private extension GestureActionRouter {
             context.execute { [weak self] in
                 self?.actions.reasonableSizeAction.perform(at: context.point, service: context.service)
             }
-        case .leftHalfSnap:
+        case .leftCycleSnap:
             context.execute { [weak self] in
-                self?.actions.leftHalfSnapAction.perform(at: context.point, service: context.service)
+                self?.actions.leftCycleSnapAction.perform(at: context.point, service: context.service)
             }
-        case .rightHalfSnap:
+        case .rightCycleSnap:
             context.execute { [weak self] in
-                self?.actions.rightHalfSnapAction.perform(at: context.point, service: context.service)
-            }
-        case .leftThirdSnap:
-            context.execute { [weak self] in
-                self?.actions.leftThirdSnapAction.perform(at: context.point, service: context.service)
-            }
-        case .rightThirdSnap:
-            context.execute { [weak self] in
-                self?.actions.rightThirdSnapAction.perform(at: context.point, service: context.service)
+                self?.actions.rightCycleSnapAction.perform(at: context.point, service: context.service)
             }
         case .moveNextDesktop:
             context.execute { [weak self] in
@@ -535,10 +507,8 @@ private extension GestureActionRouter {
         case .moveNextDesktop: .spaceRight
         case .movePreviousDesktop: .spaceLeft
         case .unminimizeAll: .unminimizeAll
-        case .leftHalfSnap: .leftHalf
-        case .rightHalfSnap: .rightHalf
-        case .leftThirdSnap: .leftThird
-        case .rightThirdSnap: .rightThird
+        case .leftCycleSnap: .leftCycleSnap
+        case .rightCycleSnap: .rightCycleSnap
         }
     }
 }

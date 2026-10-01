@@ -31,13 +31,23 @@ class MCSCSettingsPane: SettingsPaneViewController {
 // MARK: - Shared helpers
 
 extension SettingsColumnSectionView {
-    /// Adds a checkbox with a description label beneath it — the dominant
+    /// Adds a checkbox with a description label beneath it, the dominant
     /// toggle pattern across panes. Returns the checkbox for outlet storage.
     @discardableResult
     func addDescribedCheckbox(title: String, description: String, target: AnyObject?, action: Selector?) -> NSButton {
         let checkbox = addCheckbox(title: title, target: target, action: action)
         addDescriptionLabel(description)
         return checkbox
+    }
+
+    /// Adds vertical spacing between distinct item rows in the section.
+    func addSpacing(_ height: CGFloat = 6) {
+        let spacer = NSView(frame: .zero)
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.heightAnchor.constraint(equalToConstant: height).isActive = true
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        addCustomView(spacer, verticalAlignment: .centerY)
     }
 }
 
