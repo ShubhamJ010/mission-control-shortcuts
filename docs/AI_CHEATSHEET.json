@@ -1,7 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "project": "MCSC",
-  "description": "Mac Shortcut Control - High performance, zero-footprint background utility for macOS",
+  "description": "Mac Shortcut Control - High performance, zero-footprint background utility for macOS 27",
+  "targetOS": "macOS 27.0+ (macOS 27 SDK)",
   "constraints": {
     "memoryCeilingMB": 13.0,
     "memoryBaselineMB": 12.4,

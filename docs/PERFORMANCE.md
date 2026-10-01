@@ -13,10 +13,10 @@ The project treats memory as a hard ceiling, not a target. AGENTS.md sets the
 operating limit at **13 MB** of baseline memory, and the app is designed to sit
 just under it. Typical observed runtime characteristics are:
 
-| Metric | Design target | Observed on-device (2026-08-22, macOS 15.7.3) |
+| Metric | Design target | Observed on-device (macOS 27 baseline) |
 | --- | --- | --- |
 | Idle CPU | ~0% | ~0% idle; 2-5% transient during HID (post-fix, see below) |
-| Baseline memory | ~12.4 MB | `0.5.2-beta (7)` → **11-13 MB `footprint` at launch**, 21-23 MB after HID (pre-fix `0.5.0-beta` was 41-46 MB idle, 86-90 MB peak) |
+| Baseline memory | ~12.4 MB | **11-13 MB `footprint` at launch**, 21-23 MB after HID (pre-fix `0.5.0-beta` was 41-46 MB idle, 86-90 MB peak) |
 | Dirty / heap | — | `heap` 2.7 MB / 22k nodes (post-fix) vs 13.0 MB / 102k pre-fix; `vmmap DIRTY` 7-12 MB at launch, `leaks` 0 bytes |
 | Battery impact | Negligible | Negligible at idle (`POWER 0.0`); no high-frequency polling at idle |
 

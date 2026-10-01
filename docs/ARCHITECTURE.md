@@ -15,7 +15,7 @@ One of the most foundational architectural choices in MCSC was committing to a p
 | **Control** | Declarative (Abstracted) | Imperative (Granular) |
 | **Lifecycle** | Managed by `@main` | Managed via `main.swift` & `AppDelegate` |
 
-**Memory Footprint:** For a background utility that lives in the menu bar and processes trackpad/keyboard events, SwiftUI's runtime introduces unnecessary allocations. By using `main.swift`, `NSApplication`, and lightweight Cocoa panels, MCSC maintains a baseline memory footprint under 13 MB.
+**Memory Footprint:** For a background utility that lives in the menu bar and processes trackpad/keyboard events, SwiftUI's runtime introduces unnecessary allocations. By using `main.swift`, `NSApplication`, and lightweight Cocoa panels, MCSC maintains a baseline memory footprint under 13 MB on macOS 27.
 
 > **Extended comparison:**
 

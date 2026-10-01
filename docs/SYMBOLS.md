@@ -56,10 +56,10 @@ replacement transition.
   (`basePaletteColors = [.white]`) so the pre-morph state reads as neutral
   before filling into the black/yellow palette.
 \*\*\* `.magicDownUpReveal` uses `.replace.magic(fallback: .downUp.wholeSymbol)`
-  on macOS 26+ and falls back to `.replace.downUp.wholeSymbol` on macOS 14/15.
-  `.downUpReveal` is `.replace.downUp.byLayer` (macOS 14+, no fallback).
+  (standard on macOS 26/27+).
+  `.downUpReveal` is `.replace.downUp.byLayer`.
   `.wiggleByLayer` (`.wiggle.byLayer`) and `.bounceUpByLayer`
-  (`.bounce.up.byLayer`) are available on macOS 14/15+ with no version gate.
+  (`.bounce.up.byLayer`) are native effects on macOS 27.
 
 **Source:** the `Mode` enum in `CursorFeedbackOverlay.swift`. `CaseIterable`
 lets the unit tests walk the whole set (see [§ 8](#8-verification)).

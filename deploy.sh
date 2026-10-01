@@ -3,9 +3,14 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
-# Ensure DEVELOPER_DIR is set if active xcode-select is CommandLineTools
+# Ensure DEVELOPER_DIR is set to Xcode 27+ with macOS 27 SDK support
 if [ -z "$DEVELOPER_DIR" ]; then
-    if ! xcodebuild -version >/dev/null 2>&1; then
+    # Prefer Xcode 27 if available
+    XCODE_27_APP=$(ls -d /Applications/Xcode-27*.app /Applications/Xcode*27*.app 2>/dev/null | head -n 1)
+    if [ -n "$XCODE_27_APP" ] && [ -d "$XCODE_27_APP/Contents/Developer" ]; then
+        export DEVELOPER_DIR="$XCODE_27_APP/Contents/Developer"
+        echo "Using Xcode 27 developer directory: $DEVELOPER_DIR"
+    elif ! xcodebuild -version >/dev/null 2>&1; then
         XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | head -n 1)
         if [ -n "$XCODE_APP" ] && [ -d "$XCODE_APP/Contents/Developer" ]; then
             export DEVELOPER_DIR="$XCODE_APP/Contents/Developer"
@@ -22,6 +27,7 @@ BUILT_APP_PATH="${DERIVED_DATA_PATH}/Build/Products/Release/${APP_NAME}.app"
 
 echo "========================================="
 echo "        MCSC Deploy & Launch Script      "
+echo "        Target: macOS 27 (SDK 27.0)      "
 echo "========================================="
 
 # 1. Quit the app if running
@@ -37,8 +43,8 @@ else
 fi
 
 # 2. Build Release configuration
-echo "\n--- 2. Building Release configuration ---"
-echo "Building scheme '$APP_NAME' with Release configuration..."
+echo "\n--- 2. Building Release configuration (macOS 27) ---"
+echo "Building scheme '$APP_NAME' with Release configuration (macOS 27 SDK)..."
 xcodebuild -project MCSC.xcodeproj -scheme "$APP_NAME" -configuration Release -derivedDataPath "$DERIVED_DATA_PATH" clean build
 
 if [ ! -d "$BUILT_APP_PATH" ]; then
