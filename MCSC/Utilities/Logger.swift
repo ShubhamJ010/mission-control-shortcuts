@@ -17,16 +17,16 @@ enum AppLogger {
     static let diagnostics = Logger(subsystem: subsystem, category: "diagnostics")
 
     #if DEBUG
-    @inline(__always)
-    static func debug(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
-        let text = message()
-        category.debug("\(text, privacy: .public)")
-    }
+        @inline(__always)
+        static func debug(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
+            let text = message()
+            category.debug("\(text, privacy: .public)")
+        }
     #else
-    @inline(__always)
-    static func debug(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
-        // Tree-shaken in production / release builds.
-    }
+        @inline(__always)
+        static func debug(_: @autoclosure () -> String, category _: Logger = AppLogger.missionControl) {
+            // Tree-shaken in production / release builds.
+        }
     #endif
 }
 

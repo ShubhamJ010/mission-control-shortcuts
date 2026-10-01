@@ -61,7 +61,8 @@ final class SpaceManagementService: SpaceManagementServiceProtocol {
 
     func spaceIDs(for windowID: CGWindowID) -> [Int] {
         let cid = Self.CGSMainConnectionID()
-        guard let spaces = Self.CGSCopySpacesForWindows(cid, 0x7, [NSNumber(value: windowID)] as CFArray) as? [Int] else {
+        guard let spaces = Self.CGSCopySpacesForWindows(cid, 0x7, [NSNumber(value: windowID)] as CFArray) as? [Int]
+        else {
             return []
         }
         return spaces
@@ -74,7 +75,9 @@ final class SpaceManagementService: SpaceManagementServiceProtocol {
             // fall back to currentSpaceID if available, else assume the window belongs to current space.
             guard let current = currentSpaceID() else { return true }
             let spaces = spaceIDs(for: windowID)
-            if spaces.isEmpty { return true }
+            if spaces.isEmpty {
+                return true
+            }
             return spaces.contains(current)
         }
         let spaces = spaceIDs(for: windowID)

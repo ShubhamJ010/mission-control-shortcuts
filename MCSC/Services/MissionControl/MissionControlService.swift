@@ -28,7 +28,7 @@ protocol MissionControlServiceProtocol: AnyObject {
 }
 
 extension MissionControlServiceProtocol {
-    func checkMissionControlActive(force: Bool) -> Bool {
+    func checkMissionControlActive(force _: Bool) -> Bool {
         checkMissionControlActive()
     }
 }
@@ -57,6 +57,7 @@ final class MissionControlService: MissionControlServiceProtocol {
     private var isStarted = false
 
     // MARK: - Polling Timer for Autonomous Activation Detection
+
     private var pollTimer: Timer?
     private let pollInterval: TimeInterval = 0.20
     private let pollTolerance: TimeInterval = 0.05
@@ -274,7 +275,9 @@ final class MissionControlService: MissionControlServiceProtocol {
             }
         }
 
-        debugLog("checkMissionControlActive(force: \(force)) -> \(isActive) (wmOverlay: \(hasWindowManagerOverlay), isDockMC: \(isDockMC))")
+        debugLog(
+            "checkMissionControlActive(force: \(force)) -> \(isActive) (wmOverlay: \(hasWindowManagerOverlay), isDockMC: \(isDockMC))"
+        )
 
         return isActive
     }

@@ -229,7 +229,7 @@ final class CycleTracker {
             let tolerance: CGFloat = 25.0
             for (index, position) in sequence.enumerated() {
                 let expected = position.frame(for: visibleBounds)
-                if abs(current.origin.x - expected.origin.x) <= tolerance &&
+                if abs(current.origin.x - expected.origin.x) <= tolerance,
                    abs(current.width - expected.width) <= tolerance {
                     selectedIdx = (index + 1) % sequence.count
                     break
@@ -253,7 +253,8 @@ private func performCycleSnapAction(
 ) {
     let currentFrame = service.getFrame(for: window)
     let anchor = currentFrame.map { CGPoint(x: $0.midX, y: $0.midY) } ?? point
-    guard let screen = ScreenGeometry.screenContaining(axPoint: point) ?? ScreenGeometry.screenContaining(axPoint: anchor) else { return }
+    guard let screen = ScreenGeometry.screenContaining(axPoint: point) ?? ScreenGeometry
+        .screenContaining(axPoint: anchor) else { return }
     let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
 
     var wid: CGWindowID = 0

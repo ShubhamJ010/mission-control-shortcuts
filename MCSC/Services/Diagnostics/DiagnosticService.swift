@@ -140,7 +140,8 @@ final class DiagnosticService: DiagnosticServiceProtocol {
             AppLogger.diagnostics.info("Live state successfully written to \(target.path, privacy: .public)")
             return target
         } catch {
-            AppLogger.diagnostics.error("Failed to write live state JSON: \(error.localizedDescription, privacy: .public)")
+            AppLogger.diagnostics
+                .error("Failed to write live state JSON: \(error.localizedDescription, privacy: .public)")
             return nil
         }
     }

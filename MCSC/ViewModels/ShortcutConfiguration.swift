@@ -177,7 +177,10 @@ struct ShortcutConfiguration {
     }
 
     var isCmdTwoFingerDoubleTapEnabled = true {
-        didSet { UserDefaults.standard.set(isCmdTwoFingerDoubleTapEnabled, forKey: Self.Keys.cmdTwoFingerDoubleTapEnabled) }
+        didSet { UserDefaults.standard.set(
+            isCmdTwoFingerDoubleTapEnabled,
+            forKey: Self.Keys.cmdTwoFingerDoubleTapEnabled
+        ) }
     }
 
     var isTwoFingerHoldEnabled = true {

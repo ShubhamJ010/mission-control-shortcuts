@@ -45,7 +45,10 @@ extension MissionControlHoverService {
     func handleKeyDown(keyCode: Int64, characters: String?, flags: CGEventFlags) -> Bool {
         guard isTracking else { return false }
 
-        debugLog("handleKeyDown: keyCode=\(keyCode), char=\(characters ?? "nil"), flags=\(flags.rawValue)", category: AppLogger.eventTap)
+        debugLog(
+            "handleKeyDown: keyCode=\(keyCode), char=\(characters ?? "nil"), flags=\(flags.rawValue)",
+            category: AppLogger.eventTap
+        )
 
         // Exit keys: F3 (99), Apple hardware MC key (160), Ctrl+Up (126 with control), Escape (53 with empty search
         // query).
@@ -54,7 +57,10 @@ extension MissionControlHoverService {
         let isEscapeEmptyQuery = (keyCode == 53 && searchSession.query.isEmpty)
 
         if isCtrlUp || isF3OrMCKey || isEscapeEmptyQuery {
-            debugLog("Exit key pressed (keyCode: \(keyCode)) - deactivating Mission Control", category: AppLogger.missionControl)
+            debugLog(
+                "Exit key pressed (keyCode: \(keyCode)) - deactivating Mission Control",
+                category: AppLogger.missionControl
+            )
             handleDeactivated()
             return false // Pass through so WindowServer exits Mission Control
         }
@@ -62,15 +68,17 @@ extension MissionControlHoverService {
         // Before consuming or routing any keystroke, verify that Mission Control is genuinely active.
         // If Mission Control was dismissed (via gesture, mouse click outside, space switch, etc.)
         // without an AX notification, tear down the keyboard session immediately and pass the event through.
-        let isMCActive: Bool
-        if let mcService = missionControlService {
-            isMCActive = mcService.checkMissionControlActive(force: true)
+        let isMCActive: Bool = if let mcService = missionControlService {
+            mcService.checkMissionControlActive(force: true)
         } else {
-            isMCActive = isMissionControlActiveProvider()
+            isMissionControlActiveProvider()
         }
 
         guard isMCActive else {
-            debugLog("Keystroke ignored outside Mission Control (keyCode: \(keyCode)) - stopping keyboard session", category: AppLogger.eventTap)
+            debugLog(
+                "Keystroke ignored outside Mission Control (keyCode: \(keyCode)) - stopping keyboard session",
+                category: AppLogger.eventTap
+            )
             handleDeactivated()
             return false
         }
@@ -88,7 +96,10 @@ extension MissionControlHoverService {
             windows: windows
         )
 
-        debugLog("searchSession effect: \(effect) for query '\(searchSession.query)'", category: AppLogger.missionControl)
+        debugLog(
+            "searchSession effect: \(effect) for query '\(searchSession.query)'",
+            category: AppLogger.missionControl
+        )
 
         switch effect {
         case .ignore:
@@ -171,13 +182,15 @@ extension MissionControlHoverService {
 
         let match = matches[index]
         HapticService.perform(.pinchIn)
-        let activationPoint: CGPoint
-        if let frame = currentPreviewFrame, !frame.isEmpty {
-            activationPoint = CGPoint(x: frame.midX, y: frame.midY)
+        let activationPoint: CGPoint = if let frame = currentPreviewFrame, !frame.isEmpty {
+            CGPoint(x: frame.midX, y: frame.midY)
         } else {
-            activationPoint = previewCenter(for: match)
+            previewCenter(for: match)
         }
-        debugLog("activateSelectedWindow: activating window at middle point \(activationPoint)", category: AppLogger.missionControl)
+        debugLog(
+            "activateSelectedWindow: activating window at middle point \(activationPoint)",
+            category: AppLogger.missionControl
+        )
         handleDeactivated()
         WindowActivationAction.performSyntheticClick(at: activationPoint)
     }

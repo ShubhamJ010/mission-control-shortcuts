@@ -181,7 +181,7 @@ enum WindowSelectionEngine {
         return CGPoint(x: rect.origin.x + inset, y: rect.origin.y + inset)
     }
 
-    nonisolated private static func numberToCGFloat(_ value: Any) -> CGFloat? {
+    private nonisolated static func numberToCGFloat(_ value: Any) -> CGFloat? {
         if let n = value as? NSNumber {
             return CGFloat(n.doubleValue)
         }

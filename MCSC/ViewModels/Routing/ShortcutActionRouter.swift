@@ -285,7 +285,10 @@ private extension ShortcutActionRouter {
                             hover.executeAction(mode: .minimize, on: windowInfo)
                         }
                     } else {
-                        MissionControlWindowActions.performMinimize(on: windowInfo, accessibilityService: context.service)
+                        MissionControlWindowActions.performMinimize(
+                            on: windowInfo,
+                            accessibilityService: context.service
+                        )
                     }
                 }
             }
@@ -325,7 +328,10 @@ private extension ShortcutActionRouter {
                             hover.executeAction(mode: .fullscreen, on: windowInfo)
                         }
                     } else {
-                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                        MissionControlWindowActions.performFullscreen(
+                            on: windowInfo,
+                            accessibilityService: context.service
+                        )
                     }
                 }
             }
@@ -444,9 +450,17 @@ private extension ShortcutActionRouter {
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
                     switch action {
                     case .leftCycleSnap:
-                        self?.actions.leftCycleSnapAction.perform(window: window, at: context.location, service: context.service)
+                        self?.actions.leftCycleSnapAction.perform(
+                            window: window,
+                            at: context.location,
+                            service: context.service
+                        )
                     case .rightCycleSnap:
-                        self?.actions.rightCycleSnapAction.perform(window: window, at: context.location, service: context.service)
+                        self?.actions.rightCycleSnapAction.perform(
+                            window: window,
+                            at: context.location,
+                            service: context.service
+                        )
                     default:
                         break
                     }
@@ -469,7 +483,11 @@ private extension ShortcutActionRouter {
                 return context.execute(feedbackMode: .maximize) { [weak self] in
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
-                    self?.actions.fillScreenAction.perform(window: window, at: context.location, service: context.service)
+                    self?.actions.fillScreenAction.perform(
+                        window: window,
+                        at: context.location,
+                        service: context.service
+                    )
                 }
             }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
@@ -486,7 +504,11 @@ private extension ShortcutActionRouter {
                 return context.execute(feedbackMode: .almost) { [weak self] in
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
-                    self?.actions.almostMaximizeAction.perform(window: window, at: context.location, service: context.service)
+                    self?.actions.almostMaximizeAction.perform(
+                        window: window,
+                        at: context.location,
+                        service: context.service
+                    )
                 }
             }
             return context.execute(feedbackMode: .almost, needsActivate: true) { [weak self] in
@@ -510,7 +532,11 @@ private extension ShortcutActionRouter {
                 return context.execute(feedbackMode: .reasonable) { [weak self] in
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
-                    self?.actions.reasonableSizeAction.perform(window: window, at: context.location, service: context.service)
+                    self?.actions.reasonableSizeAction.perform(
+                        window: window,
+                        at: context.location,
+                        service: context.service
+                    )
                 }
             }
             return context.execute(feedbackMode: .reasonable, needsActivate: true) { [weak self] in
@@ -527,7 +553,11 @@ private extension ShortcutActionRouter {
                 return context.execute(feedbackMode: .maximize) { [weak self] in
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
-                    self?.actions.makeLargerAction.perform(window: window, at: context.location, service: context.service)
+                    self?.actions.makeLargerAction.perform(
+                        window: window,
+                        at: context.location,
+                        service: context.service
+                    )
                 }
             }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
@@ -544,7 +574,11 @@ private extension ShortcutActionRouter {
                 return context.execute(feedbackMode: .makeSmaller) { [weak self] in
                     guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                           let window = context.service.getWindow(forWindowID: windowID) else { return }
-                    self?.actions.makeSmallerAction.perform(window: window, at: context.location, service: context.service)
+                    self?.actions.makeSmallerAction.perform(
+                        window: window,
+                        at: context.location,
+                        service: context.service
+                    )
                 }
             }
             return context.execute(feedbackMode: .makeSmaller, needsActivate: true) { [weak self] in

@@ -25,7 +25,11 @@ enum MissionControlWindowActions {
     }
 
     static func performClose(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
-        if pressWindowButton(attribute: kAXCloseButtonAttribute, on: windowInfo, accessibilityService: accessibilityService) {
+        if pressWindowButton(
+            attribute: kAXCloseButtonAttribute,
+            on: windowInfo,
+            accessibilityService: accessibilityService
+        ) {
             return
         }
 
@@ -58,7 +62,11 @@ enum MissionControlWindowActions {
     }
 
     static func performMinimize(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
-        if pressWindowButton(attribute: kAXMinimizeButtonAttribute, on: windowInfo, accessibilityService: accessibilityService) {
+        if pressWindowButton(
+            attribute: kAXMinimizeButtonAttribute,
+            on: windowInfo,
+            accessibilityService: accessibilityService
+        ) {
             return
         }
 
@@ -104,10 +112,18 @@ enum MissionControlWindowActions {
 
     /// Toggles a window's zoom/fullscreen state via its AX zoom button (`kAXZoomButtonAttribute`) or fullscreen button.
     static func performFullscreen(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
-        if pressWindowButton(attribute: kAXZoomButtonAttribute, on: windowInfo, accessibilityService: accessibilityService) {
+        if pressWindowButton(
+            attribute: kAXZoomButtonAttribute,
+            on: windowInfo,
+            accessibilityService: accessibilityService
+        ) {
             return
         }
-        if pressWindowButton(attribute: "AXFullScreenButton", on: windowInfo, accessibilityService: accessibilityService) {
+        if pressWindowButton(
+            attribute: "AXFullScreenButton",
+            on: windowInfo,
+            accessibilityService: accessibilityService
+        ) {
             return
         }
 

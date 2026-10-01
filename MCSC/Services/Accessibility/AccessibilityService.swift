@@ -226,7 +226,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
 
     /// Returns a cached `AXUIElement` for the WindowManager process.
     private func getWindowManagerAXElement() -> AXUIElement? {
-        guard let wmApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first
+        guard let wmApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager")
+            .first
         else { return nil }
         if cachedWindowManagerElement == nil || cachedWindowManagerPID != wmApp.processIdentifier {
             cachedWindowManagerElement = AXUIElementCreateApplication(wmApp.processIdentifier)
@@ -258,8 +259,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             // hit-test directly against the Dock application AXUIElement.
             if let dockElement = getDockAXElement() {
                 var dockChild: AXUIElement?
-                if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
-                   let dockChild {
+                if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) ==
+                    .success,
+                    let dockChild {
                     return dockChild
                 }
             }
@@ -345,7 +347,11 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             // If the element hit-tested at point belongs to another space or was masked,
             // scan WindowManager's preview tiles to find the matching tile on the active desktop.
             if let matchingWindowIDs {
-                if let preview = findMatchingPreviewTile(in: wmElement, at: point, matchingWindowIDs: matchingWindowIDs) {
+                if let preview = findMatchingPreviewTile(
+                    in: wmElement,
+                    at: point,
+                    matchingWindowIDs: matchingWindowIDs
+                ) {
                     return preview
                 }
             }
@@ -478,8 +484,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if let bounds = winDict[kCGWindowBounds as String] as? [String: CGFloat],
                let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"],
                let frame = getFrame(for: axWindow) {
-                if abs(frame.minX - x) < 2 && abs(frame.minY - y) < 2 &&
-                   abs(frame.width - w) < 2 && abs(frame.height - h) < 2 {
+                if abs(frame.minX - x) < 2, abs(frame.minY - y) < 2,
+                   abs(frame.width - w) < 2, abs(frame.height - h) < 2 {
                     return axWindow
                 }
             }
@@ -780,7 +786,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         let finalPosResult = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, posValue)
 
         let success = (finalPosResult == .success || finalPosResult == .cannotComplete) &&
-                      (sizeResult == .success || sizeResult == .cannotComplete)
+            (sizeResult == .success || sizeResult == .cannotComplete)
         if !success {
             AppLogger.accessibility.warning(
                 "setFrame failed (pos=\(finalPosResult.rawValue, privacy: .public), size=\(sizeResult.rawValue, privacy: .public))"

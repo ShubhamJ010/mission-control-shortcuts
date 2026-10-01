@@ -6,7 +6,7 @@ extension MissionControlHoverService {
         "AXExposeShowAllWindows",
         "AXExposeShowFrontWindows",
         "AXExposeExit",
-        "AXExposeShowDesktop",
+        "AXExposeShowDesktop"
     ]
 
     func setupDockObserver() {
@@ -18,7 +18,7 @@ extension MissionControlHoverService {
 
         let pid = dockApp.processIdentifier
         var observer: AXObserver?
-        let result = AXObserverCreate(pid, { _, element, notification, refcon in
+        let result = AXObserverCreate(pid, { _, _, notification, refcon in
             guard let refcon else { return }
             let service = Unmanaged<MissionControlHoverService>.fromOpaque(refcon).takeUnretainedValue()
             let notif = notification as String
@@ -104,5 +104,4 @@ extension MissionControlHoverService {
             break
         }
     }
-
 }

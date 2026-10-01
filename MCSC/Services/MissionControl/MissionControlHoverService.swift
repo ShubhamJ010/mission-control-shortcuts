@@ -240,6 +240,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     // MARK: - Dock AXObserver & Input Event Tap live in the `+Observers` /
+
     // `+InputTap` splits.
 
     // MARK: - Window Polling
@@ -375,7 +376,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         guard let rect = overlayRect, rect.contains(location), let window = hoveredWindow else {
-            debugLog("handleMouseDown: click at \(location) outside overlay - hiding overlays and preparing drag", category: AppLogger.missionControl)
+            debugLog(
+                "handleMouseDown: click at \(location) outside overlay - hiding overlays and preparing drag",
+                category: AppLogger.missionControl
+            )
             isMouseDown = true
             hideAllOverlays()
             return false
@@ -387,13 +391,13 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         return true
     }
 
-    func handleMouseDragged(at location: CGPoint) {
+    func handleMouseDragged(at _: CGPoint) {
         guard isTracking, isEnabled else { return }
         isDragging = true
         hideCloseOverlay()
     }
 
-    func handleMouseUp(at location: CGPoint) {
+    func handleMouseUp(at _: CGPoint) {
         guard isTracking, isEnabled else {
             isDragging = false
             isMouseDown = false
@@ -508,7 +512,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         // If there are no windows on the active desktop, never show the preview close overlay.
-        if windows.isEmpty && !isTestSeedingEnabled {
+        if windows.isEmpty, !isTestSeedingEnabled {
             hideCloseOverlay()
             return
         }
@@ -516,7 +520,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         // 3. macOS 27: Resolve the preview tile via Accessibility
         // (WindowManager exposes AXButton preview tiles with their exact visual frame and "wid" attribute).
         let currentWindowIDs = Set(windows.compactMap { $0[kCGWindowNumber as String] as? CGWindowID })
-        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(at: mouseLocation, matchingWindowIDs: currentWindowIDs) {
+        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(
+            at: mouseLocation,
+            matchingWindowIDs: currentWindowIDs
+        ) {
             guard isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid),
                   let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) else {
                 hideCloseOverlay()
@@ -610,7 +617,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             return (hovered, wid)
         }
 
-        if windows.isEmpty && !isTestSeedingEnabled {
+        if windows.isEmpty, !isTestSeedingEnabled {
             fetchWindows()
             if windows.isEmpty {
                 return nil
@@ -618,7 +625,10 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
 
         let currentWindowIDs = Set(windows.compactMap { $0[kCGWindowNumber as String] as? CGWindowID })
-        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(at: point, matchingWindowIDs: currentWindowIDs) {
+        if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(
+            at: point,
+            matchingWindowIDs: currentWindowIDs
+        ) {
             guard isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid),
                   let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) else {
                 return nil

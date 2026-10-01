@@ -582,7 +582,9 @@ private final class SettingsCardView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder _: NSCoder) {
+        fatalError()
+    }
 
     override func updateLayer() {
         super.updateLayer()
@@ -616,7 +618,9 @@ private final class SettingsDivider: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder _: NSCoder) {
+        fatalError()
+    }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -673,7 +677,9 @@ private final class GestureIconBadgeView: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder _: NSCoder) {
+        fatalError()
+    }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
@@ -705,7 +711,9 @@ private final class VerticalSeparator: NSView {
     }
 
     @available(*, unavailable)
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder _: NSCoder) {
+        fatalError()
+    }
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
