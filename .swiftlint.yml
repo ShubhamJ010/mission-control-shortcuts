@@ -7,6 +7,7 @@ included:
 
 analyzer_rules:
   - explicit_self
+  - unused_import
 
 line_length:
   warning: 160
@@ -44,7 +45,7 @@ function_body_length:
 
 type_body_length:
   warning: 350
-  error: 500
+  error: 700
 
 file_length:
   warning: 500
@@ -57,7 +58,7 @@ function_parameter_count:
 nesting:
   type_level:
     warning: 3
-  statement_level:
+  function_level:
     warning: 4
 
 large_tuple:
@@ -85,7 +86,6 @@ opt_in_rules:
   - last_where
   - sorted_first_last
   - toggle_bool
-  - unused_import
   - weak_delegate
 
 unused_import:

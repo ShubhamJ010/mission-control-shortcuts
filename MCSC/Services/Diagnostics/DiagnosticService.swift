@@ -154,7 +154,11 @@ final class DiagnosticService: DiagnosticServiceProtocol {
         let footprintMB = Double(footprintBytes) / (1024.0 * 1024.0)
 
         AppLogger.diagnostics.info(
-            "Diagnostic service started. PID: \(pid, privacy: .public), OS: \(osVersion, privacy: .public), AXTrusted: \(isTrusted, privacy: .public), Footprint: \(footprintMB, format: .fixed(precision: 2), privacy: .public) MB"
+            """
+            Diagnostic service started. PID: \(pid, privacy: .public), OS: \(osVersion, privacy: .public), \
+            AXTrusted: \(isTrusted, privacy: .public), \
+            Footprint: \(footprintMB, format: .fixed(precision: 2), privacy: .public) MB
+            """
         )
     }
 

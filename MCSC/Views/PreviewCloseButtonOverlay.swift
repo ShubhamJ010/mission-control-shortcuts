@@ -290,14 +290,15 @@ final class CloseButtonView: NSView {
         layer?.shadowPath = CGPath(ellipseIn: bounds, transform: nil)
 
         // On macOS 27+, apply Liquid Glass dynamic backdrop with interactive responsiveness
-        if #available(macOS 27.0, *) {
-            let glassView = NSGlassEffectView(frame: bounds)
+        if #available(macOS 27.0, *),
+           let glassClass = NSClassFromString("NSGlassEffectView") as? NSView.Type {
+            let glassView = glassClass.init(frame: bounds)
             glassView.wantsLayer = true
             glassView.layer?.cornerRadius = bounds.width / 2.0
             glassView.layer?.cornerCurve = .continuous
             glassView.layer?.masksToBounds = true
             glassView.autoresizingMask = [.width, .height]
-            glassView.effectIsInteractive = true
+            glassView.setValue(true, forKey: "effectIsInteractive")
             addSubview(glassView)
         }
 
