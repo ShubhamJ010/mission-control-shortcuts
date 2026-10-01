@@ -271,6 +271,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         at point: CGPoint,
         matchingWindowIDs: Set<CGWindowID>? = nil
     ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        if let matchingWindowIDs, matchingWindowIDs.isEmpty {
+            return nil
+        }
         // 1. Direct hit-test WindowManager first (it owns Mission Control layer 19 on macOS 27)
         if let wmElement = getWindowManagerAXElement() {
             var wmChild: AXUIElement?
@@ -289,7 +292,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
             // If the element hit-tested at point belongs to another space or was masked,
             // scan WindowManager's preview tiles to find the matching tile on the active desktop.
-            if let matchingWindowIDs, !matchingWindowIDs.isEmpty {
+            if let matchingWindowIDs {
                 if let preview = findMatchingPreviewTile(in: wmElement, at: point, matchingWindowIDs: matchingWindowIDs) {
                     return preview
                 }
@@ -408,9 +411,25 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         }
         for axWindow in axWindows {
             var axId: CGWindowID = 0
-            _AXUIElementGetWindow(axWindow, &axId)
-            if axId == windowID {
+            if _AXUIElementGetWindow(axWindow, &axId) == .success, axId == windowID {
                 return axWindow
+            }
+        }
+        // Fallback: match by title or frame when _AXUIElementGetWindow fails (e.g. Finder / custom AX)
+        let winName = winDict[kCGWindowName as String] as? String
+        for axWindow in axWindows {
+            if let winName, !winName.isEmpty {
+                if let title: String = getAttributeValue(kAXTitleAttribute, for: axWindow), title == winName {
+                    return axWindow
+                }
+            }
+            if let bounds = winDict[kCGWindowBounds as String] as? [String: CGFloat],
+               let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"],
+               let frame = getFrame(for: axWindow) {
+                if abs(frame.minX - x) < 2 && abs(frame.minY - y) < 2 &&
+                   abs(frame.width - w) < 2 && abs(frame.height - h) < 2 {
+                    return axWindow
+                }
             }
         }
         return nil

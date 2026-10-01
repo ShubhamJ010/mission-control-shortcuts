@@ -26,6 +26,20 @@ enum MissionControlWindowActions {
 
         guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t else { return }
 
+        // Finder windows (especially across spaces or desktop backgrounds) can be closed directly by window ID
+        if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+           let owner = windowInfo[kCGWindowOwnerName as String] as? String,
+           owner == "Finder" {
+            let script = "tell application \"Finder\" to close (every window whose id is \(windowID))"
+            if let appleScript = NSAppleScript(source: script) {
+                var err: NSDictionary?
+                appleScript.executeAndReturnError(&err)
+                if err == nil {
+                    return
+                }
+            }
+        }
+
         // Fallback: activate application and post ⌘W directly to target window/process
         if let app = NSRunningApplication(processIdentifier: pid) {
             _ = accessibilityService.activate(app: app, window: nil)
@@ -44,6 +58,20 @@ enum MissionControlWindowActions {
         }
 
         guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t else { return }
+
+        // Finder windows can be collapsed directly by window ID
+        if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+           let owner = windowInfo[kCGWindowOwnerName as String] as? String,
+           owner == "Finder" {
+            let script = "tell application \"Finder\" to set collapsed of (every window whose id is \(windowID)) to true"
+            if let appleScript = NSAppleScript(source: script) {
+                var err: NSDictionary?
+                appleScript.executeAndReturnError(&err)
+                if err == nil {
+                    return
+                }
+            }
+        }
 
         if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
            let window = accessibilityService.getWindow(forWindowID: windowID) {
@@ -79,7 +107,7 @@ enum MissionControlWindowActions {
         guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t else { return }
 
         if let app = NSRunningApplication(processIdentifier: pid) {
-            app.activate()
+            _ = accessibilityService.activate(app: app, window: nil)
         }
     }
 }

@@ -3,6 +3,7 @@ import Cocoa
 enum TargetResolution {
     case dock(NSRunningApplication)
     case window(AXUIElement)
+    case missionControlPreview(windowInfo: [String: Any], windowID: CGWindowID)
     case none
 }
 
@@ -56,6 +57,16 @@ final class ShortcutActionRouter {
         return keyCode == kKeySpace || boundKeyCodes.contains(keyCode)
     }
 
+    static func runOnMainActor(_ block: @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { block() }
+        } else {
+            DispatchQueue.main.sync {
+                MainActor.assumeIsolated { block() }
+            }
+        }
+    }
+
     init(actions: ActionRegistry = ActionRegistry()) {
         self.actions = actions
     }
@@ -69,6 +80,7 @@ final class ShortcutActionRouter {
         config: ShortcutConfiguration, isMissionControlActive: Bool,
         target: TargetResolution, service: AccessibilityServiceProtocol,
         volumeService: MountedVolumeServiceProtocol? = nil,
+        hoverService: MissionControlHoverServiceProtocol? = nil,
         isTitleBarHover: Bool = false, activateApp: @escaping (CGPoint) -> Void
     ) -> ResolvedShortcutAction {
         guard shouldHandle(flags: flags) else { return .ignore }
@@ -89,7 +101,9 @@ final class ShortcutActionRouter {
             app: resolveApp(from: target),
             config: config,
             service: service,
-            activateApp: activateApp
+            activateApp: activateApp,
+            target: target,
+            hoverService: hoverService
         )
         if includesShift {
             if let action = routeShiftShortcut(matched: matched, target: target, context: context) {
@@ -136,10 +150,17 @@ private extension ShortcutActionRouter {
     }
 
     private func resolveApp(from target: TargetResolution) -> NSRunningApplication? {
-        if case let .dock(app) = target {
+        switch target {
+        case let .dock(app):
             return app
+        case let .missionControlPreview(windowInfo, _):
+            if let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t {
+                return NSRunningApplication(processIdentifier: pid)
+            }
+            return nil
+        case .window, .none:
+            return nil
         }
-        return nil
     }
 
     struct Context {
@@ -148,6 +169,8 @@ private extension ShortcutActionRouter {
         let config: ShortcutConfiguration
         let service: AccessibilityServiceProtocol
         let activateApp: (CGPoint) -> Void
+        let target: TargetResolution
+        let hoverService: MissionControlHoverServiceProtocol?
 
         func execute(
             feedbackMode: CursorFeedbackOverlay.Mode,
@@ -210,6 +233,17 @@ private extension ShortcutActionRouter {
         context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.close) || (context.config.isTabShortcutsEnabled && matched.contains(.closeTab)) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .close) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .close, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .close, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 let scope: CloseScope = context.config.isTabShortcutsEnabled ? .activeTab : .window
@@ -223,6 +257,17 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.quit) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .quit) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .quit, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performForceQuit(on: windowInfo)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .quit) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -233,6 +278,17 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.minimize) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .minimize) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .minimize, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performMinimize(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .minimize) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -262,6 +318,17 @@ private extension ShortcutActionRouter {
         context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.fullscreen) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .fullscreen) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .fullscreen, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .fullscreen, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -398,6 +465,17 @@ private extension ShortcutActionRouter {
         context: Context
     ) -> ResolvedShortcutAction? {
         if matched.contains(.fillScreen) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .maximize) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .fullscreen, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -408,6 +486,17 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.almostMaximize) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .almost) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .fullscreen, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .almost, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -435,6 +524,17 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.makeLarger) {
+            if case let .missionControlPreview(windowInfo, _) = context.target {
+                return context.execute(feedbackMode: .maximize) {
+                    if let hover = context.hoverService {
+                        Self.runOnMainActor {
+                            hover.executeAction(mode: .fullscreen, on: windowInfo)
+                        }
+                    } else {
+                        MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                    }
+                }
+            }
             return context.execute(feedbackMode: .maximize, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -491,6 +591,10 @@ private extension ShortcutActionRouter {
         }
         if case let .window(window) = target {
             return service.getAppFromElement(window)
+        }
+        if case let .missionControlPreview(windowInfo, _) = target,
+           let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t {
+            return NSRunningApplication(processIdentifier: pid)
         }
         return nil
     }

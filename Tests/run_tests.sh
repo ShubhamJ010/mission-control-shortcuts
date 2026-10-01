@@ -108,6 +108,7 @@ swiftc \
   "${SCRIPT_DIR}/Mocks/MockAccessibilityService.swift" \
   "${SCRIPT_DIR}/Mocks/MockMissionControlService.swift" \
   "${SCRIPT_DIR}/Mocks/MockSpaceManagementService.swift" \
+  "${SCRIPT_DIR}/Mocks/MockMissionControlHoverService.swift" \
   "${SCRIPT_DIR}/PinchInRecognizerTests.swift" \
   "${SCRIPT_DIR}/CmdSwipeActionsTests.swift" \
   "${SCRIPT_DIR}/GestureEngineRoutingTests.swift" \

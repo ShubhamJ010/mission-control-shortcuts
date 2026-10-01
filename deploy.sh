@@ -3,6 +3,17 @@
 # Exit immediately if a command exits with a non-zero status
 set -e
 
+# Ensure DEVELOPER_DIR is set if active xcode-select is CommandLineTools
+if [ -z "$DEVELOPER_DIR" ]; then
+    if ! xcodebuild -version >/dev/null 2>&1; then
+        XCODE_APP=$(ls -d /Applications/Xcode*.app 2>/dev/null | head -n 1)
+        if [ -n "$XCODE_APP" ] && [ -d "$XCODE_APP/Contents/Developer" ]; then
+            export DEVELOPER_DIR="$XCODE_APP/Contents/Developer"
+            echo "Using Xcode developer directory: $DEVELOPER_DIR"
+        fi
+    fi
+fi
+
 APP_NAME="MCSC"
 BUNDLE_ID="sj010.MCSC"
 APP_PATH="/Applications/${APP_NAME}.app"

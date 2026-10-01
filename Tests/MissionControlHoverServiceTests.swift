@@ -680,4 +680,163 @@ final class MissionControlHoverServiceTests: XCTestCase {
         XCTAssertNotNil(resultAllowed)
         XCTAssertEqual(resultAllowed?.windowID, 101)
     }
+
+    func testEmptyMatchingWindowIDsReturnsNil() {
+        let dummyTile = AXUIElementCreateSystemWide()
+        mockService.mockElement = dummyTile
+        mockService.mockPreviewTile = (tileElement: dummyTile, windowID: CGWindowID(101))
+
+        // When matchingWindowIDs is empty set, it must return nil immediately
+        let result = mockService.getMissionControlPreviewTile(at: CGPoint(x: 100, y: 100), matchingWindowIDs: [])
+        XCTAssertNil(result)
+    }
+
+    func testEmptySpaceNeverShowsPreviewOverlay() {
+        let mockSpaceService = MockSpaceManagementService()
+        mockSpaceService.mockCurrentSpaceID = 2
+        mockSpaceService.mockWindowSpaces = [:]
+
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in self?.isMissionControlActive ?? false },
+            spaceService: mockSpaceService,
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        service.windows = []
+
+        let dummyTile101 = AXUIElementCreateSystemWide()
+        let previewRect101 = CGRect(x: 100, y: 100, width: 300, height: 200)
+        mockService.mockElement = dummyTile101
+        mockService.mockPreviewTile = (tileElement: dummyTile101, windowID: CGWindowID(101))
+        mockService.mockFrame = previewRect101
+
+        // Attempting to update overlay or query preview on empty space
+        service.updateOverlay(at: CGPoint(x: 150, y: 150))
+
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertNil(service.currentPreviewFrame)
+        XCTAssertNil(service.currentHoveredWindow)
+        XCTAssertNil(service.previewWindow(at: CGPoint(x: 150, y: 150)))
+    }
+
+    // MARK: - Drag Suppression
+
+    func testDraggingPreviewHidesCloseOverlay() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in
+                self?.isMissionControlActive ?? false
+            },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+
+        // 1. Move over the preview window -> overlay shows
+        service.handleMouseMoved(at: CGPoint(x: 200, y: 200))
+        XCTAssertTrue(overlay.isVisible)
+        XCTAssertFalse(service.isDragging)
+
+        // 2. Begin dragging the preview -> overlay hides immediately, isDragging is true
+        service.handleMouseDragged(at: CGPoint(x: 210, y: 210))
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertTrue(service.isDragging)
+
+        // 3. Continuing to drag keeps the overlay hidden even if dragging over the preview
+        service.handleMouseDragged(at: CGPoint(x: 250, y: 250))
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertTrue(service.isDragging)
+
+        // 4. Mouse moved events during drag must also be ignored/suppressed
+        service.handleMouseMoved(at: CGPoint(x: 260, y: 260))
+        XCTAssertFalse(overlay.isVisible)
+
+        // 5. Release mouse (drop) -> isDragging resets, overlay remains hidden until next mouse move
+        service.handleMouseUp(at: CGPoint(x: 260, y: 260))
+        XCTAssertFalse(service.isDragging)
+        XCTAssertFalse(overlay.isVisible)
+
+        // 6. After drag is complete, moving mouse over the window re-enables the overlay
+        service.handleMouseMoved(at: CGPoint(x: 200, y: 200))
+        XCTAssertTrue(overlay.isVisible)
+    }
+
+    func testMouseDownOutsideOverlayHidesCloseButtonAndPreparesDrag() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in
+                self?.isMissionControlActive ?? false
+            },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+
+        // Hover over window -> overlay is shown
+        service.handleMouseMoved(at: CGPoint(x: 200, y: 200))
+        XCTAssertTrue(overlay.isVisible)
+
+        // Mouse down on window preview (outside close button) -> overlay is hidden, returns false to allow drag
+        let handled = service.handleMouseDown(at: CGPoint(x: 200, y: 200))
+        XCTAssertFalse(handled)
+        XCTAssertFalse(overlay.isVisible)
+        XCTAssertTrue(service.isMouseDown)
+
+        // While mouse is held down, moving mouse does not flash the overlay
+        service.handleMouseMoved(at: CGPoint(x: 205, y: 205))
+        XCTAssertFalse(overlay.isVisible)
+
+        // Dragging ensues
+        service.handleMouseDragged(at: CGPoint(x: 220, y: 220))
+        XCTAssertTrue(service.isDragging)
+        XCTAssertFalse(overlay.isVisible)
+
+        // Mouse up ends drag
+        service.handleMouseUp(at: CGPoint(x: 220, y: 220))
+        XCTAssertFalse(service.isMouseDown)
+        XCTAssertFalse(service.isDragging)
+    }
+
+    func testDeactivationOrSpaceChangeWhileDraggingClearsDragState() {
+        let overlay = PreviewCloseButtonOverlay()
+        let service = MissionControlHoverService(
+            accessibilityService: mockService,
+            isMissionControlActiveProvider: { [weak self] in
+                self?.isMissionControlActive ?? false
+            },
+            overlay: overlay
+        )
+        service.start()
+        defer { service.stop() }
+
+        isMissionControlActive = true
+        service._testSeedWindows([makeWindowInfo(at: CGRect(x: 100, y: 100, width: 400, height: 300))])
+
+        service.handleMouseDragged(at: CGPoint(x: 150, y: 150))
+        XCTAssertTrue(service.isDragging)
+
+        service.handleDeactivated()
+        XCTAssertFalse(service.isDragging)
+        XCTAssertFalse(service.isMouseDown)
+
+        service.handleMouseDragged(at: CGPoint(x: 150, y: 150))
+        XCTAssertTrue(service.isDragging)
+
+        service.handleSpaceChange()
+        XCTAssertFalse(service.isDragging)
+        XCTAssertFalse(service.isMouseDown)
+    }
 }

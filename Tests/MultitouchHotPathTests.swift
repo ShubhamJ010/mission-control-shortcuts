@@ -240,4 +240,24 @@ final class MultitouchHotPathTests: XCTestCase {
             XCTFail("Gesture on title bar outside Mission Control must be executed")
         }
     }
+
+    func testResolveTargetReturnsMissionControlPreviewWhenMCActiveAndPreviewPresent() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(99),
+            kCGWindowOwnerPID as String: pid_t(200)
+        ]
+        mockHover.mockPreviewWindow = (windowInfo: windowInfo, windowID: 99)
+        viewModel.hoverService = mockHover
+        mockMissionControl.isMissionControlActive = true
+
+        let target = viewModel.resolveTarget(at: CGPoint(x: 300, y: 300))
+        switch target {
+        case let .missionControlPreview(info, wid):
+            XCTAssertEqual(wid, 99)
+            XCTAssertEqual(info[kCGWindowNumber as String] as? CGWindowID, 99)
+        default:
+            XCTFail("Expected .missionControlPreview target, got \(target)")
+        }
+    }
 }

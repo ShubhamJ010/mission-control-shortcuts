@@ -64,6 +64,7 @@ extension MissionControlHoverService {
         guard !isMissionControlActive else { return }
         debugLog("MissionControlHoverService.handleActivated called", category: AppLogger.missionControl)
         isMissionControlActive = true
+        lastKnownSpaceID = spaceService.currentSpaceID()
 
         guard isEnabled else { return }
 
@@ -79,6 +80,9 @@ extension MissionControlHoverService {
     func handleDeactivated() {
         debugLog("MissionControlHoverService.handleDeactivated called", category: AppLogger.missionControl)
         isMissionControlActive = false
+        isDragging = false
+        isMouseDown = false
+        lastKnownSpaceID = nil
         stopWindowFetchTimer()
         hideAllOverlays()
         stopKeyboardSession()

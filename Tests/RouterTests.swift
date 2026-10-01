@@ -1,6 +1,7 @@
 import Foundation
 import XCTest
 
+@MainActor
 final class RouterTests: XCTestCase {
     private var mockService: MockAccessibilityService!
     private var actionRegistry: ActionRegistry!
@@ -1024,6 +1025,263 @@ final class RouterTests: XCTestCase {
         let action = HideApplicationAction()
         action.perform(at: CGPoint(x: 500, y: 1000), service: mockService)
         XCTAssertEqual(mockService.getWindowCallCount, 1)
+    }
+
+    // MARK: - Mission Control Preview Routing Tests
+
+    @MainActor
+    func testShortcutRouterCmdWClosesMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyW,
+            flags: .maskCommand,
+            location: CGPoint(x: 200, y: 200),
+            config: ShortcutConfiguration(),
+            isMissionControlActive: true,
+            target: target,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(feedbackMode, action) = result else {
+            return XCTFail("Expected Cmd+W to consume and execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.close)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .close)
+        let wid = mockHover.executedActions.first?.windowInfo[kCGWindowNumber as String] as? CGWindowID
+        XCTAssertEqual(wid, 42)
+    }
+
+    @MainActor
+    func testShortcutRouterCmdQQuitsMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyQ,
+            flags: .maskCommand,
+            location: CGPoint(x: 200, y: 200),
+            config: ShortcutConfiguration(),
+            isMissionControlActive: true,
+            target: target,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(feedbackMode, action) = result else {
+            return XCTFail("Expected Cmd+Q to consume and execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.quit)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .quit)
+    }
+
+    @MainActor
+    func testShortcutRouterCmdMMinimizesMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyM,
+            flags: .maskCommand,
+            location: CGPoint(x: 200, y: 200),
+            config: ShortcutConfiguration(),
+            isMissionControlActive: true,
+            target: target,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(feedbackMode, action) = result else {
+            return XCTFail("Expected Cmd+M to consume and execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.minimize)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .minimize)
+    }
+
+    @MainActor
+    func testShortcutRouterCmdFFullscreensMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        var config = ShortcutConfiguration()
+        config.isCmdFEnabled = true
+
+        let result = shortcutRouter.routeShortcut(
+            keyCode: ShortcutActionRouter.kKeyF,
+            flags: .maskCommand,
+            location: CGPoint(x: 200, y: 200),
+            config: config,
+            isMissionControlActive: true,
+            target: target,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .consumeAndExecute(feedbackMode, action) = result else {
+            return XCTFail("Expected Cmd+F to consume and execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.fullscreen)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .fullscreen)
+    }
+
+    @MainActor
+    func testGestureRouterPinchInClosesMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: target,
+            isMissionControlActive: true,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .execute(feedbackMode, _, action) = result else {
+            return XCTFail("Expected pinchIn to execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.close)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .close)
+    }
+
+    @MainActor
+    func testGestureRouterSwipeDownMinimizesMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = gestureRouter.routeGesture(
+            .swipeDown(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: target,
+            isMissionControlActive: true,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .execute(feedbackMode, _, action) = result else {
+            return XCTFail("Expected swipeDown to execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.minimize)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .minimize)
+    }
+
+    @MainActor
+    func testGestureRouterSwipeUpFullscreensMissionControlPreview() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = gestureRouter.routeGesture(
+            .swipeUp(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: target,
+            isMissionControlActive: true,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case let .execute(feedbackMode, _, action) = result else {
+            return XCTFail("Expected swipeUp to execute on missionControlPreview")
+        }
+        XCTAssertEqual(feedbackMode, CursorFeedbackOverlay.Mode.fullscreen)
+        action()
+        let count = mockHover.executedActions.count
+        XCTAssertEqual(count, 1)
+        let mode = mockHover.executedActions.first?.mode
+        XCTAssertEqual(mode, .fullscreen)
+    }
+
+    @MainActor
+    func testGestureRouterIgnoredOnMissionControlPreviewWhenInactive() {
+        let mockHover = MockMissionControlHoverService()
+        let windowInfo: [String: Any] = [
+            kCGWindowNumber as String: CGWindowID(42),
+            kCGWindowOwnerPID as String: pid_t(100),
+            kCGWindowOwnerName as String: "Finder"
+        ]
+        let target = TargetResolution.missionControlPreview(windowInfo: windowInfo, windowID: 42)
+
+        let result = gestureRouter.routeGesture(
+            .pinchIn(atNormalized: (0.5, 0.5)),
+            at: CGPoint(x: 200, y: 200),
+            target: target,
+            isMissionControlActive: false,
+            service: mockService,
+            hoverService: mockHover,
+            activateApp: { _ in }
+        )
+
+        guard case .none = result else {
+            return XCTFail("Expected gesture to be ignored when Mission Control is inactive")
+        }
     }
 }
 

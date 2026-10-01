@@ -10,10 +10,21 @@ enum ResolvedGestureAction {
 final class GestureActionRouter {
     private let actions: ActionRegistry
 
+    static func runOnMainActor(_ block: @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { block() }
+        } else {
+            DispatchQueue.main.sync {
+                MainActor.assumeIsolated { block() }
+            }
+        }
+    }
+
     init(actions: ActionRegistry = ActionRegistry()) {
         self.actions = actions
     }
 
+    // swiftlint:disable:next function_parameter_count
     func routeGesture(
         _ result: GestureResult,
         at point: CGPoint,
@@ -21,6 +32,7 @@ final class GestureActionRouter {
         isMissionControlActive: Bool = true,
         service: AccessibilityServiceProtocol,
         volumeService: MountedVolumeServiceProtocol? = nil,
+        hoverService: MissionControlHoverServiceProtocol? = nil,
         isAutoEjectEnabled: Bool = true,
         config: ShortcutConfiguration = ShortcutConfiguration(),
         isTitleBarHover: Bool = false,
@@ -28,7 +40,7 @@ final class GestureActionRouter {
     ) -> ResolvedGestureAction {
         if !isMissionControlActive {
             switch target {
-            case .none:
+            case .none, .missionControlPreview:
                 return .none
             case .dock:
                 guard config.isDockActionsOutsideMCEnabled else { return .none }
@@ -86,6 +98,8 @@ final class GestureActionRouter {
             return dockAction(for: action, app: app, context: context)
         case .window:
             return windowAction(for: action, context: context)
+        case let .missionControlPreview(windowInfo, _):
+            return missionControlAction(for: action, windowInfo: windowInfo, context: context, hoverService: hoverService)
         }
     }
 }
@@ -242,6 +256,58 @@ private extension GestureActionRouter {
             return result
         }
         return windowSizingAction(for: action, context: context)
+    }
+
+    func missionControlAction(
+        for action: GestureAction,
+        windowInfo: [String: Any],
+        context: Context,
+        hoverService: MissionControlHoverServiceProtocol?
+    ) -> ResolvedGestureAction {
+        switch action {
+        case .closeWindow, .closeTab:
+            return context.execute(overrideFeedbackMode: .close) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .close, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        case .quitApp:
+            return context.execute(overrideFeedbackMode: .quit) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .quit, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performForceQuit(on: windowInfo)
+                }
+            }
+        case .minimize:
+            return context.execute(overrideFeedbackMode: .minimize) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .minimize, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performMinimize(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        case .toggleFullscreen, .fillScreen, .almostMaximize, .makeLarger:
+            return context.execute(overrideFeedbackMode: .fullscreen) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .fullscreen, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        default:
+            return .none
+        }
     }
 
     func windowLifecycleAction(for action: GestureAction, context: Context) -> ResolvedGestureAction? {

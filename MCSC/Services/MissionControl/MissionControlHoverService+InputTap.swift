@@ -11,8 +11,9 @@ extension MissionControlHoverService {
         guard eventTap == nil else { return }
 
         let mask = (1 << CGEventType.mouseMoved.rawValue)
-            | (1 << CGEventType.leftMouseDragged.rawValue)
             | (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.leftMouseDragged.rawValue)
+            | (1 << CGEventType.leftMouseUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
 
         guard let tap = CGEvent.tapCreate(
@@ -92,6 +93,32 @@ extension MissionControlHoverService {
                 dismissActions()
             } else {
                 DispatchQueue.main.async { dismissActions() }
+            }
+            return event
+        }
+
+        if type == .leftMouseDragged {
+            let location = event.location
+            let notifyDrag = { [weak self] in
+                self?.handleMouseDragged(at: location)
+            }
+            if Thread.isMainThread {
+                notifyDrag()
+            } else {
+                DispatchQueue.main.async { notifyDrag() }
+            }
+            return event
+        }
+
+        if type == .leftMouseUp {
+            let location = event.location
+            let notifyUp = { [weak self] in
+                self?.handleMouseUp(at: location)
+            }
+            if Thread.isMainThread {
+                notifyUp()
+            } else {
+                DispatchQueue.main.async { notifyUp() }
             }
             return event
         }

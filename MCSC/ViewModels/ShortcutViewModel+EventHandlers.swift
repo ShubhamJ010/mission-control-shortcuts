@@ -70,6 +70,7 @@ extension ShortcutViewModel {
                 target: target,
                 service: self.accessibilityService,
                 volumeService: self.volumeService,
+                hoverService: self.hoverService,
                 isTitleBarHover: isTitleBarHover,
                 activateApp: { [weak self] loc in self?.activateApp(for: target, at: loc) }
             )
@@ -120,6 +121,7 @@ extension ShortcutViewModel {
             isMissionControlActive: missionControlService.isMissionControlActive,
             service: accessibilityService,
             volumeService: volumeService,
+            hoverService: hoverService,
             isAutoEjectEnabled: config.isAutoEjectEnabled,
             config: config,
             isTitleBarHover: isTitleBarHover,
