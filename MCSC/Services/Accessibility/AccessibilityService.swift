@@ -14,6 +14,22 @@ protocol AccessibilityServiceProtocol {
     /// window, it is returned directly.
     func getWindow(for element: AXUIElement) -> AXUIElement?
 
+    /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
+    func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement?
+
+    /// Resolves a Mission Control preview tile element and its window ID if `element` (or an ancestor) represents one.
+    func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)?
+
+    /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
+    /// Optionally filters candidate tiles against `matchingWindowIDs` to isolate the active desktop space.
+    func getMissionControlPreviewTile(
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>?
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)?
+
+    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect?
+
     /// Performs a named AX action (e.g. `kAXPressAction`) on `element`.
     /// Returns `true` if the action was accepted by the target app.
     func performAction(_ action: String, on element: AXUIElement) -> Bool
@@ -75,6 +91,22 @@ protocol AccessibilityServiceProtocol {
     /// Activates `app`, optionally raising and focusing `window`.
     @discardableResult
     func activate(app: NSRunningApplication, window: AXUIElement?) -> Bool
+
+    /// Returns the application `AXUIElement` for the given process identifier, cached by PID.
+    func appElement(for pid: pid_t) -> AXUIElement
+
+    /// Returns the application `AXUIElement` for `app`, cached by PID.
+    func appElement(for app: NSRunningApplication) -> AXUIElement
+}
+
+extension AccessibilityServiceProtocol {
+    func getMissionControlPreviewTile(at point: CGPoint) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        getMissionControlPreviewTile(at: point, matchingWindowIDs: nil)
+    }
+
+    func appElement(for app: NSRunningApplication) -> AXUIElement {
+        appElement(for: app.processIdentifier)
+    }
 }
 
 final class AccessibilityService: AccessibilityServiceProtocol {
@@ -85,6 +117,14 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// relaunch invalidates it. Created lazily; see `getDockAXElement()`.
     private var cachedDockElement: AXUIElement?
     private var cachedDockPID: pid_t = 0
+
+    /// Cached `AXUIElement` for the WindowManager process, keyed by its pid.
+    private var cachedWindowManagerElement: AXUIElement?
+    private var cachedWindowManagerPID: pid_t = 0
+
+    /// Cached application element for `appElement(for:)`, keyed by PID.
+    private var cachedAppElement: AXUIElement?
+    private var cachedAppPID: pid_t = 0
 
     /// Cached frontmost-application element for `isFrontmostWindow`, keyed by
     /// pid. The title-bar hover path calls `isFrontmostWindow` up to 30×/s per
@@ -97,6 +137,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// screen-configuration changes to avoid per-frame AX queries.
     private var cachedDockFrame: CGRect?
     private var screenObserver: NSObjectProtocol?
+    private var purgeObserver: NSObjectProtocol?
 
     private let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
 
@@ -127,12 +168,47 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil, queue: .main
         ) { [weak self] _ in self?.cachedDockFrame = nil }
+
+        purgeObserver = NotificationCenter.default.addObserver(
+            forName: .mcscPurgeCaches,
+            object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.purgeCaches()
+        }
     }
 
     deinit {
         if let screenObserver {
             NotificationCenter.default.removeObserver(screenObserver)
         }
+        if let purgeObserver {
+            NotificationCenter.default.removeObserver(purgeObserver)
+        }
+    }
+
+    /// Purges cached AX elements and geometry frames to release memory when nearing ceiling.
+    func purgeCaches() {
+        cachedDockElement = nil
+        cachedDockPID = 0
+        cachedWindowManagerElement = nil
+        cachedWindowManagerPID = 0
+        cachedAppElement = nil
+        cachedAppPID = 0
+        cachedFrontmostAppElement = nil
+        cachedFrontmostAppPID = 0
+        cachedDockFrame = nil
+        AppLogger.accessibility.info("Accessibility caches purged.")
+    }
+
+    /// Returns the application `AXUIElement` for the given process identifier, cached by PID.
+    func appElement(for pid: pid_t) -> AXUIElement {
+        if cachedAppPID == pid, let element = cachedAppElement {
+            return element
+        }
+        let element = AXUIElementCreateApplication(pid)
+        cachedAppElement = element
+        cachedAppPID = pid
+        return element
     }
 
     /// Returns a cached `AXUIElement` for the Dock process, creating it on
@@ -148,25 +224,48 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return cachedDockElement
     }
 
+    /// Returns a cached `AXUIElement` for the WindowManager process.
+    private func getWindowManagerAXElement() -> AXUIElement? {
+        guard let wmApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.WindowManager").first
+        else { return nil }
+        if cachedWindowManagerElement == nil || cachedWindowManagerPID != wmApp.processIdentifier {
+            cachedWindowManagerElement = AXUIElementCreateApplication(wmApp.processIdentifier)
+            cachedWindowManagerPID = wmApp.processIdentifier
+        }
+        return cachedWindowManagerElement
+    }
+
     func getElement(at point: CGPoint) -> AXUIElement? {
-        var element: AXUIElement?
-        let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element)
+        AppSignpost.trace(AppSignpost.accessibility, "hitTest") {
+            var element: AXUIElement?
+            let result = AXUIElementCopyElementAtPosition(systemWide, Float(point.x), Float(point.y), &element)
 
-        if result == .success, let element {
-            return element
-        }
-
-        // When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on Dock,
-        // hit-test directly against the Dock application AXUIElement.
-        if let dockElement = getDockAXElement() {
-            var dockChild: AXUIElement?
-            if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
-               let dockChild {
-                return dockChild
+            if result == .success, let element {
+                return element
             }
-        }
 
-        return nil
+            // macOS 27: When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on WindowManager,
+            // hit-test directly against the WindowManager application AXUIElement.
+            if let wmElement = getWindowManagerAXElement() {
+                var wmChild: AXUIElement?
+                if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
+                   let wmChild {
+                    return wmChild
+                }
+            }
+
+            // When system-wide AX hit test returns -25200 (kAXErrorCannotComplete) on Dock,
+            // hit-test directly against the Dock application AXUIElement.
+            if let dockElement = getDockAXElement() {
+                var dockChild: AXUIElement?
+                if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
+                   let dockChild {
+                    return dockChild
+                }
+            }
+
+            return nil
+        }
     }
 
     func getWindow(for element: AXUIElement) -> AXUIElement? {
@@ -185,6 +284,206 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             return element
         }
 
+        // macOS 27+ / Modern Mission Control:
+        // WindowManager exposes Mission Control window preview buttons with a "wid" attribute.
+        if let preview = getMissionControlPreviewTile(for: element) {
+            if let resolved = getWindow(forWindowID: preview.windowID) {
+                return resolved
+            }
+        }
+
+        return nil
+    }
+
+    /// Mission Control preview tile attribute identifying the target window ID (used by WindowManager).
+    private static let axMissionControlWindowIDAttribute = "wid"
+
+    /// Resolves a Mission Control preview tile element and its window ID if `element` (or an ancestor) represents one.
+    func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        var current: AXUIElement? = element
+        var depth = 0
+        while let el = current, depth < 10 {
+            if let widNum: NSNumber = getAttributeValue(Self.axMissionControlWindowIDAttribute, for: el) {
+                return (el, CGWindowID(widNum.uint32Value))
+            }
+            var parent: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
+                  let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {
+                break
+            }
+            current = unsafeDowncast(parent, to: AXUIElement.self)
+            depth += 1
+        }
+        return nil
+    }
+
+    /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
+    /// When `matchingWindowIDs` is provided, candidate tiles are filtered to match the active desktop space.
+    func getMissionControlPreviewTile(
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>? = nil
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        if let matchingWindowIDs, matchingWindowIDs.isEmpty {
+            return nil
+        }
+        // 1. Direct hit-test WindowManager first (it owns Mission Control layer 19 on macOS 27)
+        if let wmElement = getWindowManagerAXElement() {
+            var wmChild: AXUIElement?
+            if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
+               let wmChild,
+               let preview = getMissionControlPreviewTile(for: wmChild) {
+                if let matchingWindowIDs {
+                    if matchingWindowIDs.contains(preview.windowID) {
+                        return preview
+                    }
+                } else {
+                    return preview
+                }
+            }
+
+            // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
+            // If the element hit-tested at point belongs to another space or was masked,
+            // scan WindowManager's preview tiles to find the matching tile on the active desktop.
+            if let matchingWindowIDs {
+                if let preview = findMatchingPreviewTile(in: wmElement, at: point, matchingWindowIDs: matchingWindowIDs) {
+                    return preview
+                }
+            }
+        }
+
+        // 2. Fall back to systemWide element hit-test
+        if let hitElement = getElement(at: point),
+           let preview = getMissionControlPreviewTile(for: hitElement) {
+            if let matchingWindowIDs {
+                if matchingWindowIDs.contains(preview.windowID) {
+                    return preview
+                }
+            } else {
+                return preview
+            }
+        }
+
+        // 3. Fall back to Dock element hit-test (classic Dock Exposé)
+        if let dockElement = getDockAXElement() {
+            var dockChild: AXUIElement?
+            if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
+               let dockChild,
+               let preview = getMissionControlPreviewTile(for: dockChild) {
+                if let matchingWindowIDs {
+                    if matchingWindowIDs.contains(preview.windowID) {
+                        return preview
+                    }
+                } else {
+                    return preview
+                }
+            }
+        }
+
+        return nil
+    }
+
+    private func findMatchingPreviewTile(
+        in parent: AXUIElement,
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>,
+        depth: Int = 0,
+        maxDepth: Int = 8
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        guard depth < maxDepth else { return nil }
+        var childrenRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+              let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
+              let children = childrenRef as? [AXUIElement] else {
+            return nil
+        }
+        for child in children {
+            if let preview = getMissionControlPreviewTile(for: child),
+               matchingWindowIDs.contains(preview.windowID) {
+                if let frame = getFrame(for: child), frame.contains(point) {
+                    return preview
+                }
+            }
+            if let found = findMatchingPreviewTile(
+                in: child,
+                at: point,
+                matchingWindowIDs: matchingWindowIDs,
+                depth: depth + 1,
+                maxDepth: maxDepth
+            ) {
+                return found
+            }
+        }
+        return nil
+    }
+
+    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect? {
+        if let closeBtn: AXUIElement = getAttributeValue(kAXCloseButtonAttribute, for: tileElement),
+           let frame = getFrame(for: closeBtn), !frame.isEmpty {
+            return frame
+        }
+        var childrenRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(tileElement, kAXChildrenAttribute as CFString, &childrenRef) == .success,
+           let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
+           let children = childrenRef as? [AXUIElement] {
+            for child in children {
+                let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: child)
+                if subrole == kAXCloseButtonSubrole {
+                    if let frame = getFrame(for: child), !frame.isEmpty {
+                        return frame
+                    }
+                }
+                let role: String? = getAttributeValue(kAXRoleAttribute, for: child)
+                if role == kAXButtonRole {
+                    let title: String? = getAttributeValue(kAXTitleAttribute, for: child)
+                    if let title, title.localizedCaseInsensitiveContains("close") {
+                        if let frame = getFrame(for: child), !frame.isEmpty {
+                            return frame
+                        }
+                    }
+                }
+            }
+        }
+        return nil
+    }
+
+    /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
+    func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement? {
+        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]],
+              let winDict = info.first,
+              let pid = winDict[kCGWindowOwnerPID as String] as? pid_t else {
+            return nil
+        }
+        let app = AXUIElementCreateApplication(pid)
+        var windowsRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
+              let windowsRef, CFGetTypeID(windowsRef) == CFArrayGetTypeID(),
+              let axWindows = windowsRef as? [AXUIElement] else {
+            return nil
+        }
+        for axWindow in axWindows {
+            var axId: CGWindowID = 0
+            if _AXUIElementGetWindow(axWindow, &axId) == .success, axId == windowID {
+                return axWindow
+            }
+        }
+        // Fallback: match by title or frame when _AXUIElementGetWindow fails (e.g. Finder / custom AX)
+        let winName = winDict[kCGWindowName as String] as? String
+        for axWindow in axWindows {
+            if let winName, !winName.isEmpty {
+                if let title: String = getAttributeValue(kAXTitleAttribute, for: axWindow), title == winName {
+                    return axWindow
+                }
+            }
+            if let bounds = winDict[kCGWindowBounds as String] as? [String: CGFloat],
+               let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"],
+               let frame = getFrame(for: axWindow) {
+                if abs(frame.minX - x) < 2 && abs(frame.minY - y) < 2 &&
+                   abs(frame.width - w) < 2 && abs(frame.height - h) < 2 {
+                    return axWindow
+                }
+            }
+        }
         return nil
     }
 
@@ -384,6 +683,12 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     }
 
     func getAppFromElement(_ element: AXUIElement) -> NSRunningApplication? {
+        if let window = getWindow(for: element), !CFEqual(window, element) {
+            var pid: pid_t = 0
+            if AXUIElementGetPid(window, &pid) == .success {
+                return NSRunningApplication(processIdentifier: pid)
+            }
+        }
         var pid: pid_t = 0
         let result = AXUIElementGetPid(element, &pid)
         guard result == .success else { return nil }
@@ -413,32 +718,50 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             _ = raiseWindow(window)
             _ = focusWindow(window)
         }
-        if #available(macOS 14.0, *) {
-            app.activate()
-        } else {
-            app.activate(options: .activateIgnoringOtherApps)
-        }
+        app.activate()
         return true
     }
 
     /// Retrieves the current frame (origin and size in Quartz AX coordinates) for an accessibility element.
     func getFrame(for element: AXUIElement) -> CGRect? {
-        var posVal: CFTypeRef?
-        var sizeVal: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posVal) == .success,
-              let posVal, CFGetTypeID(posVal) == AXValueGetTypeID(),
-              AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeVal) == .success,
-              let sizeVal, CFGetTypeID(sizeVal) == AXValueGetTypeID() else {
-            return nil
+        AppSignpost.trace(AppSignpost.accessibility, "getFrame") {
+            // Fast path: batch position and size into a single IPC round-trip
+            let attrs = [kAXPositionAttribute as CFString, kAXSizeAttribute as CFString]
+            var valuesRef: CFArray?
+            if AXUIElementCopyMultipleAttributeValues(element, attrs as CFArray, .stopOnError, &valuesRef) == .success,
+               let values = valuesRef as? [CFTypeRef],
+               values.count == 2 {
+                let posVal = values[0]
+                let sizeVal = values[1]
+                if CFGetTypeID(posVal) == AXValueGetTypeID(),
+                   CFGetTypeID(sizeVal) == AXValueGetTypeID() {
+                    var point = CGPoint.zero
+                    var size = CGSize.zero
+                    if AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+                       AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) {
+                        return CGRect(origin: point, size: size)
+                    }
+                }
+            }
+
+            // Fallback for elements/apps where multi-attribute IPC returns an error
+            var posVal: CFTypeRef?
+            var sizeVal: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(element, kAXPositionAttribute as CFString, &posVal) == .success,
+                  let posVal, CFGetTypeID(posVal) == AXValueGetTypeID(),
+                  AXUIElementCopyAttributeValue(element, kAXSizeAttribute as CFString, &sizeVal) == .success,
+                  let sizeVal, CFGetTypeID(sizeVal) == AXValueGetTypeID() else {
+                return nil
+            }
+            var point = CGPoint.zero
+            var size = CGSize.zero
+            // TypeIDs verified above; `as?` cannot check CF types.
+            guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
+                  AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
+                return nil
+            }
+            return CGRect(origin: point, size: size)
         }
-        var point = CGPoint.zero
-        var size = CGSize.zero
-        // TypeIDs verified above; `as?` cannot check CF types.
-        guard AXValueGetValue(unsafeDowncast(posVal, to: AXValue.self), .cgPoint, &point),
-              AXValueGetValue(unsafeDowncast(sizeVal, to: AXValue.self), .cgSize, &size) else {
-            return nil
-        }
-        return CGRect(origin: point, size: size)
     }
 
     func setFrame(_ frame: CGRect, for element: AXUIElement) -> Bool {

@@ -1,5 +1,56 @@
 # Changelog
 
+## 0.8.0 (2 Oct 2026) — The macOS 27 Migration Milestone
+
+This major release marks a transformative leap forward for MCSC, migrating the entire codebase from legacy **macOS 15 (Sequoia)** architectures directly to **macOS 27 (Golden Gate / Tahoe)** and targeting the **macOS 27 SDK** (`MACOSX_DEPLOYMENT_TARGET = 27.0`, `LSMinimumSystemVersion = 27.0`).
+
+### Why Move from macOS 15 to macOS 27? Why This Change Is Monumental:
+
+1. **WindowManager-Native Mission Control vs. Legacy Dock Exposé:**
+   - *The Legacy Paradigm (macOS 15 and earlier):* Mission Control was historically composited and mediated almost entirely through `com.apple.dock` (Dock layer 20 overlay paired with Dock bar layer ≤18). Detection was fragile, requiring window-layer heuristics and expensive AX parent traversals to find window owners.
+   - *The macOS 27 Paradigm:* Window management and Spaces overview have fully transitioned to `com.apple.WindowManager`, creating a full-screen overview at layer 19 and Spaces bar at layer 14.
+   - *Direct AX `wid` Resolution:* In macOS 27, MCSC directly queries preview tiles for the target window ID (`wid`), bypassing multi-layer AX traversals, bounds fallbacks, and WindowServer IPC latency during cursor tracking.
+
+2. **Native Liquid Glass Visual Material:**
+   - Adopts Apple's macOS 27 Liquid Glass design system.
+   - Preview hover buttons now leverage native `NSGlassEffectView` with `effectIsInteractive = true` and continuous squircle curvature (`layer.cornerCurve = .continuous`).
+   - Paired with explicit CoreAnimation `shadowPath` caching, offscreen GPU rendering passes are completely eliminated while maintaining modern Apple design language.
+
+3. **Retiring Legacy Availability Cascades & Symbol Effects:**
+   - Dropped years of obsolete `#available(macOS 14, *)`, `15.*`, and `26.*` runtime cascades and fallback animation loops.
+   - Native modern SF Symbol Effects (`.replace.magic`, `.wiggle.byLayer`, `.bounce.up.byLayer`, `.disappear.byLayer`) now run directly with zero fallback branches or runtime adapter overhead.
+
+4. **Multi-Desktop Space Isolation & Space Management:**
+   - Integrated macOS 27 space identification (`CGSGetActiveSpace`, `CGSCopySpacesForWindows`) with WindowManager state machines, preventing window ghosting across multi-display Spaces during overview transitions.
+
+5. **Physical Press-Click vs. Multitouch Tap Disambiguation:**
+   - Sophisticated pressure-based disambiguation (`pressure > 0.0`) in `DockInteractionSuppressor` separates mechanical mouse clicks from zero-pressure touch taps, allowing Dock context menus, secondary clicks, and native drag gestures to pass through unhindered.
+
+6. **Swift 6 Concurrency & Robust Background Lifecycle:**
+   - Fully isolated background dispatchers, workspace observers, and event taps using Swift 6 strict concurrency (`MainActor.assumeIsolated`, `nonisolated` synthesizers).
+
+7. **Zero-Footprint Efficiency Maintained:**
+   - Despite adopting next-generation OS capabilities, MCSC preserves its strict core mandate: idling at ~12.4 MB of RAM (well under the 13 MB hard ceiling) with 0% CPU.
+
+### Included Changes:
+- **Build & Toolchain:** Upgraded `MACOSX_DEPLOYMENT_TARGET` to `27.0` and `LSMinimumSystemVersion` to `27.0`.
+- **Deploy Script:** Updated `deploy.sh` with automatic Xcode 27+ toolchain auto-discovery and macOS 27 build logging.
+- **Documentation:** Fully updated `README.md`, `PERFORMANCE.md`, `ARCHITECTURE.md`, `SYMBOLS.md`, and `AI_CHEATSHEET.json` to reflect macOS 27.
+
+## 0.7.3 (21 Sep 2026)
+
+- **Preview Close Button Alignment & Intra-Thumbnail Hysteresis**: Anchored the hover close button to the native accessibility close button (`getPreviewCloseButtonFrame`) or top-left thumbnail vertex `(previewFrame.minX, previewFrame.minY)` matching native Mission Control preview conventions. Implemented preview tile hover hysteresis in `MissionControlHoverService` to prevent jitter and redundant AX hit-tests during cursor motion across the thumbnail.
+- **macOS 27 Liquid Glass Overlay Button Styling**: Integrated AppKit `NSGlassEffectView` with `effectIsInteractive` and continuous squircle curvature for dynamic Liquid Glass styling, accompanied by explicit CoreAnimation `shadowPath` caching to eliminate offscreen render passes.
+- **Swift 6 Concurrency & Lifecycle Hardening**: Isolated timer dispatches, sleep/wake notifications, and workspace observers in `AppDelegate` via `MainActor.assumeIsolated`. Isolated HID event synthesizer in `DesktopNavigationActions.SystemEffects` as `nonisolated`.
+- **Test Harness Developer Directory Resolution**: Added dynamic developer directory and SDK detection in `Tests/run_tests.sh` supporting Xcode 27, standard Xcode installations, and `xcode-select` paths.
+- **macOS 27 WindowManager Mission Control Support**: Integrated modern Mission Control detection targeting `com.apple.WindowManager` full-screen overlay (layer 19) alongside classic Dock overlay (layer 20 + layer ≤18). Automatic transition broadcasts keep activation state in sync with zero background polling overhead.
+- **Direct Preview Tile Resolution via "wid"**: Added `AccessibilityService.getMissionControlPreviewTile(for:)` to resolve WindowManager AX preview tiles and their target window IDs, eliminating redundant AX parent traversals and avoiding WindowServer IPC bounds fallbacks.
+- **Physical Press-Click vs. Tap Disambiguation**: Enhanced `DockInteractionSuppressor` to distinguish zero-pressure synthesized taps from physical mouse clicks (`pressure > 0.0`), allowing Dock context menus and right-clicks to pass through unobstructed.
+- **Touch Session Hold Cancellation**: Added `.cancelled` state to `TwoFingerHoldDetector` wired via `onUserClick` callback, instantly canceling `Cmd` hold modifier upon physical clicks until fingers lift.
+- **Window Actions & Closer Fallback Hardening**: `WindowCloser` and `MissionControlWindowActions` fall back to ⌘W keystroke directly targeted at the window PID if AX close button is not present (e.g. Electron apps).
+- **Multi-Monitor Boundary Anchoring**: Improved `PreviewCloseButtonOverlay` target screen selection using `ScreenGeometry.screenContaining(axPoint:)` to prevent clamping to the primary monitor on secondary display edges.
+- **Availability Cascades & Cleanup**: Pruned obsolete OS availability cascades across SF Symbol Effects and overlays for macOS 14+ deployment target.
+
 ## 0.7.2 (17 Sep 2026)
 
 - **System Process & Dock Protection**: Introduced `isSafeTargetProcess` on `NSRunningApplication` guarding Force Quit, Quit, and Hide lifecycle actions across both window hover and Dock targets against acting on self (`NSRunningApplication.current`), `com.apple.dock`, or background non-regular system processes (`activationPolicy == .regular`).

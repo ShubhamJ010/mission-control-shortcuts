@@ -1,12 +1,32 @@
 import Cocoa
 import Symbols
 
+/// Protocol governing the Mission Control close/action button overlay.
+@MainActor
+protocol PreviewCloseButtonOverlayProtocol: FloatingOverlayProtocol {
+    var currentAXRect: CGRect { get }
+    func show(for previewFrame: CGRect, closeButtonFrame: CGRect?, mode: PreviewCloseButtonOverlay.Mode)
+    func show(at windowBounds: CGRect, mode: PreviewCloseButtonOverlay.Mode)
+    func setMode(_ mode: PreviewCloseButtonOverlay.Mode)
+    func setHovered(_ isHovered: Bool)
+}
+
+extension PreviewCloseButtonOverlayProtocol {
+    func show(for previewFrame: CGRect, mode: PreviewCloseButtonOverlay.Mode = .close) {
+        show(for: previewFrame, closeButtonFrame: nil, mode: mode)
+    }
+
+    func show(at windowBounds: CGRect) {
+        show(at: windowBounds, mode: .close)
+    }
+}
+
 /// A lightweight, floating overlay panel that anchors an action button
 /// (`xmark.circle.fill` for Close, `minus.circle.fill` for Minimize, and a
-/// purple `xmark.circle.fill` with a white cross for Force Quit) to the
-/// top-left corner vertex of a Mission Control window preview.
+/// purple `xmark.circle.fill` with a white cross for Force Quit) cleanly
+/// aligned to Mission Control window preview cards.
 @MainActor
-final class PreviewCloseButtonOverlay {
+final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     /// The action the hover button represents, plus its visual treatment.
     ///
     /// Data-driven like `CursorFeedbackOverlay.Mode`: adding a new action is a
@@ -44,7 +64,7 @@ final class PreviewCloseButtonOverlay {
             switch self {
             case .close: nil
             case .minimize: [.black, .systemYellow]
-            case .quit: [.white, NSColor(red: 0.749, green: 0.353, blue: 0.949, alpha: 1.0)]
+            case .quit: [.white, .systemPurple]
             case .fullscreen: [.black, .systemGreen]
             }
         }
@@ -72,20 +92,10 @@ final class PreviewCloseButtonOverlay {
 
     private func setupPanel() {
         let contentRect = NSRect(x: 0, y: 0, width: Self.buttonDimension, height: Self.buttonDimension)
-        let panel = NSPanel(
+        let panel = OverlayPanelFactory.createPanel(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+            ignoresMouseEvents: false
         )
-
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
-        panel.ignoresMouseEvents = false
-        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
 
         let button = CloseButtonView(frame: contentRect, strategy: strategy)
 
@@ -94,8 +104,20 @@ final class PreviewCloseButtonOverlay {
         self.panel = panel
     }
 
-    /// Positions and displays the close button overlay centered directly over the top-left corner (x, y) of the window.
-    func show(at windowBounds: CGRect, mode: Mode = .close) {
+    /// Current button bounding box in AX/Quartz coordinates (for hit testing).
+    private(set) var currentAXRect: CGRect = .zero
+
+    /// Positions and displays the close button overlay.
+    ///
+    /// Centers the button over the native close button when `closeButtonFrame` is provided,
+    /// or centers over the top-left vertex `(previewFrame.minX, previewFrame.minY)` matching
+    /// macOS Mission Control preview thumbnail conventions. Clamps position within active screen bounds.
+    ///
+    /// - Parameters:
+    ///   - previewFrame: The visual bounds of the Mission Control preview tile in AX coordinates.
+    ///   - closeButtonFrame: Optional frame of the native close button for sub-pixel alignment.
+    ///   - mode: The action mode to display (e.g. `.close`, `.minimize`, `.quit`, `.fullscreen`).
+    func show(for previewFrame: CGRect, closeButtonFrame: CGRect? = nil, mode: Mode = .close) {
         // Lazily create the panel on first use so no GPU-backed layer
         // tree exists until the feature is actually triggered.
         if panel == nil {
@@ -103,24 +125,60 @@ final class PreviewCloseButtonOverlay {
         }
         guard let panel else { return }
 
-        let cocoaAnchor = ScreenGeometry.cocoaPoint(for: windowBounds.origin)
+        let primaryHeight = ScreenGeometry.primaryScreenHeight
         let halfDim = Self.buttonDimension / 2.0
 
-        let targetRect = NSRect(
-            x: cocoaAnchor.x - halfDim,
-            y: cocoaAnchor.y - halfDim,
+        let axX: CGFloat
+        let axY: CGFloat
+        if let closeButtonFrame, !closeButtonFrame.isEmpty {
+            axX = closeButtonFrame.midX - halfDim
+            axY = closeButtonFrame.midY - halfDim
+        } else {
+            axX = previewFrame.minX - halfDim
+            axY = previewFrame.minY - halfDim
+        }
+
+        let buttonAXRect = CGRect(
+            x: axX,
+            y: axY,
             width: Self.buttonDimension,
             height: Self.buttonDimension
         )
 
-        let isNewOrigin = !windowBounds.origin.equalTo(currentAnchorOrigin)
-        currentAnchorOrigin = windowBounds.origin
+        var cocoaX = buttonAXRect.origin.x
+        var cocoaY = primaryHeight - buttonAXRect.origin.y - Self.buttonDimension
+
+        let targetScreen = NSScreen.screens.first(where: {
+            ScreenGeometry.axBounds(for: $0, primaryHeight: primaryHeight).contains(previewFrame.origin)
+        }) ?? ScreenGeometry.screenContaining(axPoint: previewFrame.origin) ?? NSScreen.main ?? NSScreen.screens.first
+
+        if let screenFrame = targetScreen?.frame {
+            cocoaX = min(max(cocoaX, screenFrame.minX + 2), screenFrame.maxX - Self.buttonDimension - 2)
+            cocoaY = min(max(cocoaY, screenFrame.minY + 2), screenFrame.maxY - Self.buttonDimension - 2)
+        }
+
+        let targetRect = NSRect(
+            x: cocoaX,
+            y: cocoaY,
+            width: Self.buttonDimension,
+            height: Self.buttonDimension
+        )
+
+        currentAXRect = CGRect(
+            x: cocoaX,
+            y: primaryHeight - cocoaY - Self.buttonDimension,
+            width: Self.buttonDimension,
+            height: Self.buttonDimension
+        )
+
+        let isNewOrigin = !targetRect.origin.equalTo(currentAnchorOrigin)
+        currentAnchorOrigin = targetRect.origin
 
         panel.setFrame(targetRect, display: true)
         buttonView?.setMode(mode, animated: false)
 
+        panel.orderFrontRegardless()
         if !isVisible {
-            panel.orderFrontRegardless()
             isVisible = true
             if let buttonView {
                 strategy.applyAppear(on: buttonView, imageView: buttonView.imageView)
@@ -128,6 +186,11 @@ final class PreviewCloseButtonOverlay {
         } else if isNewOrigin, let buttonView {
             strategy.applyRelocationAppearance(on: buttonView, imageView: buttonView.imageView)
         }
+    }
+
+    /// Positions and displays the close button overlay for a window/preview frame.
+    func show(at windowBounds: CGRect, mode: Mode = .close) {
+        show(for: windowBounds, closeButtonFrame: nil, mode: mode)
     }
 
     func setMode(_ mode: Mode) {
@@ -147,6 +210,7 @@ final class PreviewCloseButtonOverlay {
         panel?.orderOut(nil)
         isVisible = false
         currentAnchorOrigin = .zero
+        currentAXRect = .zero
     }
 }
 
@@ -166,6 +230,14 @@ final class CloseButtonView: NSView {
         super.init(frame: frameRect)
         wantsLayer = true
         setupImageView()
+    }
+
+    private var colorChangeObserver: (any NSObjectProtocol)?
+
+    deinit {
+        if let colorChangeObserver {
+            NotificationCenter.default.removeObserver(colorChangeObserver)
+        }
     }
 
     /// Cache of rendered action symbols, keyed by mode. Populated lazily so
@@ -207,6 +279,28 @@ final class CloseButtonView: NSView {
     }
 
     private func setupImageView() {
+        wantsLayer = true
+        layer?.cornerRadius = bounds.width / 2.0
+        layer?.masksToBounds = false
+        layer?.shadowColor = NSColor.black.cgColor
+        layer?.shadowOpacity = 0.25
+        layer?.shadowRadius = 4.0
+        layer?.shadowOffset = CGSize(width: 0, height: -1)
+        // Explicit shadow path eliminates offscreen CoreAnimation render passes
+        layer?.shadowPath = CGPath(ellipseIn: bounds, transform: nil)
+
+        // On macOS 27+, apply Liquid Glass dynamic backdrop with interactive responsiveness
+        if #available(macOS 27.0, *) {
+            let glassView = NSGlassEffectView(frame: bounds)
+            glassView.wantsLayer = true
+            glassView.layer?.cornerRadius = bounds.width / 2.0
+            glassView.layer?.cornerCurve = .continuous
+            glassView.layer?.masksToBounds = true
+            glassView.autoresizingMask = [.width, .height]
+            glassView.effectIsInteractive = true
+            addSubview(glassView)
+        }
+
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
         imageView.image = image(for: .close)
@@ -220,6 +314,16 @@ final class CloseButtonView: NSView {
             imageView.widthAnchor.constraint(equalToConstant: 28),
             imageView.heightAnchor.constraint(equalToConstant: 28)
         ])
+
+        colorChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.imageCache.removeAll()
+            }
+        }
     }
 
     func setMode(_ mode: PreviewCloseButtonOverlay.Mode, animated: Bool = false) {
@@ -236,9 +340,7 @@ final class CloseButtonView: NSView {
 
     /// Cleans up symbol effects and image cache.
     func reset() {
-        if #available(macOS 14.0, *) {
-            imageView.removeAllSymbolEffects(animated: false)
-        }
+        imageView.removeAllSymbolEffects(animated: false)
         imageView.layer?.removeAllAnimations()
         layer?.removeAllAnimations()
         imageCache.removeAll()

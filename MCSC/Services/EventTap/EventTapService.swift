@@ -49,12 +49,17 @@ final class EventTapService: EventTapServiceProtocol {
                 service.reEnableTapIfDisabled(for: type)
 
                 if type == .keyDown {
-                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    let flags = event.flags
-                    let location = event.location
+                    let handled = AppSignpost.trace(AppSignpost.eventTap, "keyDownDispatch") { () -> Bool in
+                        let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
+                        let flags = event.flags
+                        let location = event.location
 
-                    if let callback = service.onShortcutDetected, callback(keyCode, flags, location) {
-                        // Return nil to consume the event
+                        if let callback = service.onShortcutDetected, callback(keyCode, flags, location) {
+                            return true
+                        }
+                        return false
+                    }
+                    if handled {
                         return nil
                     }
                 }

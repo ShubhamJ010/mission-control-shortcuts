@@ -138,28 +138,56 @@ struct ShortcutConfiguration {
         didSet { UserDefaults.standard.set(isPinchInEnabled, forKey: Self.Keys.pinchInEnabled) }
     }
 
+    var isCmdPinchInEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdPinchInEnabled, forKey: Self.Keys.cmdPinchInEnabled) }
+    }
+
     var isPinchOutEnabled = true {
         didSet { UserDefaults.standard.set(isPinchOutEnabled, forKey: Self.Keys.pinchOutEnabled) }
+    }
+
+    var isCmdPinchOutEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdPinchOutEnabled, forKey: Self.Keys.cmdPinchOutEnabled) }
     }
 
     var isSwipeLeftEnabled = true {
         didSet { UserDefaults.standard.set(isSwipeLeftEnabled, forKey: Self.Keys.swipeLeftEnabled) }
     }
 
+    var isCmdSwipeLeftEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdSwipeLeftEnabled, forKey: Self.Keys.cmdSwipeLeftEnabled) }
+    }
+
     var isSwipeRightEnabled = true {
         didSet { UserDefaults.standard.set(isSwipeRightEnabled, forKey: Self.Keys.swipeRightEnabled) }
+    }
+
+    var isCmdSwipeRightEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdSwipeRightEnabled, forKey: Self.Keys.cmdSwipeRightEnabled) }
     }
 
     var isSwipeDownEnabled = true {
         didSet { UserDefaults.standard.set(isSwipeDownEnabled, forKey: Self.Keys.swipeDownEnabled) }
     }
 
+    var isCmdSwipeDownEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdSwipeDownEnabled, forKey: Self.Keys.cmdSwipeDownEnabled) }
+    }
+
     var isSwipeUpEnabled = true {
         didSet { UserDefaults.standard.set(isSwipeUpEnabled, forKey: Self.Keys.swipeUpEnabled) }
     }
 
+    var isCmdSwipeUpEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdSwipeUpEnabled, forKey: Self.Keys.cmdSwipeUpEnabled) }
+    }
+
     var isTwoFingerDoubleTapEnabled = true {
         didSet { UserDefaults.standard.set(isTwoFingerDoubleTapEnabled, forKey: Self.Keys.twoFingerDoubleTapEnabled) }
+    }
+
+    var isCmdTwoFingerDoubleTapEnabled = true {
+        didSet { UserDefaults.standard.set(isCmdTwoFingerDoubleTapEnabled, forKey: Self.Keys.cmdTwoFingerDoubleTapEnabled) }
     }
 
     var isTwoFingerHoldEnabled = true {
@@ -260,12 +288,19 @@ struct ShortcutConfiguration {
         (\.isTitleBarActionsOutsideMCEnabled, Keys.titleBarActionsOutsideMC, false),
         (\.isGesturesEnabled, Keys.gesturesEnabled, true),
         (\.isPinchInEnabled, Keys.pinchInEnabled, true),
+        (\.isCmdPinchInEnabled, Keys.cmdPinchInEnabled, true),
         (\.isPinchOutEnabled, Keys.pinchOutEnabled, true),
+        (\.isCmdPinchOutEnabled, Keys.cmdPinchOutEnabled, true),
         (\.isSwipeLeftEnabled, Keys.swipeLeftEnabled, true),
+        (\.isCmdSwipeLeftEnabled, Keys.cmdSwipeLeftEnabled, true),
         (\.isSwipeRightEnabled, Keys.swipeRightEnabled, true),
+        (\.isCmdSwipeRightEnabled, Keys.cmdSwipeRightEnabled, true),
         (\.isSwipeDownEnabled, Keys.swipeDownEnabled, true),
+        (\.isCmdSwipeDownEnabled, Keys.cmdSwipeDownEnabled, true),
         (\.isSwipeUpEnabled, Keys.swipeUpEnabled, true),
+        (\.isCmdSwipeUpEnabled, Keys.cmdSwipeUpEnabled, true),
         (\.isTwoFingerDoubleTapEnabled, Keys.twoFingerDoubleTapEnabled, true),
+        (\.isCmdTwoFingerDoubleTapEnabled, Keys.cmdTwoFingerDoubleTapEnabled, true),
         (\.isTwoFingerHoldEnabled, Keys.twoFingerHoldEnabled, true),
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
         (\.isQuitAppIfNoWindowsEnabled, Keys.quitAppIfNoWindowsEnabled, false),
@@ -318,6 +353,54 @@ struct ShortcutConfiguration {
     mutating func resetGestureMappings() {
         gestureActions = GestureDefaults.plainDefaults
         cmdGestureActions = GestureDefaults.cmdDefaults
+    }
+
+    func isGestureEnabled(_ kind: GestureKind, isCmd: Bool) -> Bool {
+        if isCmd {
+            switch kind {
+            case .pinchIn: isCmdPinchInEnabled
+            case .pinchOut: isCmdPinchOutEnabled
+            case .swipeLeft: isCmdSwipeLeftEnabled
+            case .swipeRight: isCmdSwipeRightEnabled
+            case .swipeDown: isCmdSwipeDownEnabled
+            case .swipeUp: isCmdSwipeUpEnabled
+            case .twoFingerDoubleTap: isCmdTwoFingerDoubleTapEnabled
+            }
+        } else {
+            switch kind {
+            case .pinchIn: isPinchInEnabled
+            case .pinchOut: isPinchOutEnabled
+            case .swipeLeft: isSwipeLeftEnabled
+            case .swipeRight: isSwipeRightEnabled
+            case .swipeDown: isSwipeDownEnabled
+            case .swipeUp: isSwipeUpEnabled
+            case .twoFingerDoubleTap: isTwoFingerDoubleTapEnabled
+            }
+        }
+    }
+
+    mutating func setGestureEnabled(_ kind: GestureKind, isCmd: Bool, enabled: Bool) {
+        if isCmd {
+            switch kind {
+            case .pinchIn: isCmdPinchInEnabled = enabled
+            case .pinchOut: isCmdPinchOutEnabled = enabled
+            case .swipeLeft: isCmdSwipeLeftEnabled = enabled
+            case .swipeRight: isCmdSwipeRightEnabled = enabled
+            case .swipeDown: isCmdSwipeDownEnabled = enabled
+            case .swipeUp: isCmdSwipeUpEnabled = enabled
+            case .twoFingerDoubleTap: isCmdTwoFingerDoubleTapEnabled = enabled
+            }
+        } else {
+            switch kind {
+            case .pinchIn: isPinchInEnabled = enabled
+            case .pinchOut: isPinchOutEnabled = enabled
+            case .swipeLeft: isSwipeLeftEnabled = enabled
+            case .swipeRight: isSwipeRightEnabled = enabled
+            case .swipeDown: isSwipeDownEnabled = enabled
+            case .swipeUp: isSwipeUpEnabled = enabled
+            case .twoFingerDoubleTap: isTwoFingerDoubleTapEnabled = enabled
+            }
+        }
     }
 
     /// Resets all toggles to defaults (single source of truth for Restore Defaults).
@@ -503,12 +586,19 @@ private extension ShortcutConfiguration {
         /// Gestures
         static let gesturesEnabled = "mcsc.gestures.enabled",
                    pinchInEnabled = "mcsc.gestures.pinchIn.enabled",
+                   cmdPinchInEnabled = "mcsc.gestures.cmdPinchIn.enabled",
                    pinchOutEnabled = "mcsc.gestures.pinchOut.enabled",
+                   cmdPinchOutEnabled = "mcsc.gestures.cmdPinchOut.enabled",
                    swipeLeftEnabled = "mcsc.gestures.swipeLeft.enabled",
+                   cmdSwipeLeftEnabled = "mcsc.gestures.cmdSwipeLeft.enabled",
                    swipeRightEnabled = "mcsc.gestures.swipeRight.enabled",
+                   cmdSwipeRightEnabled = "mcsc.gestures.cmdSwipeRight.enabled",
                    swipeDownEnabled = "mcsc.gestures.swipeDown.enabled",
+                   cmdSwipeDownEnabled = "mcsc.gestures.cmdSwipeDown.enabled",
                    swipeUpEnabled = "mcsc.gestures.swipeUp.enabled",
+                   cmdSwipeUpEnabled = "mcsc.gestures.cmdSwipeUp.enabled",
                    twoFingerDoubleTapEnabled = "mcsc.gestures.twoFingerDoubleTap.enabled",
+                   cmdTwoFingerDoubleTapEnabled = "mcsc.gestures.cmdTwoFingerDoubleTap.enabled",
                    twoFingerHoldEnabled = "mcsc.gestures.twoFingerHold.enabled",
                    twoFingerHoldDuration = "mcsc.gestures.twoFingerHold.duration",
                    gestureActions = "mcsc.gestures.actions",

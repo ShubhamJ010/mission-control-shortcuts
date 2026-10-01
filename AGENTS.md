@@ -6,6 +6,7 @@ This document outlines the strict architectural and performance standards for th
 The primary goal of MCSC is to remain a "zero-footprint" utility. 
 - **Memory Ceiling:** The baseline memory usage is currently **12.4 MB**. No feature addition or refactoring should push the memory usage beyond **13 MB** under normal operation.
 - **Evaluation:** Every new feature must be evaluated for memory impact *before* implementation. If a feature requires a heavy framework or large data structures, it must be rejected or redesigned.
+- **No Tests:** Do not add or write automated unit, integration, or UI tests; this codebase maintains zero test files.
 
 ## Architectural Standards: MVVM
 We follow a strict Model-View-ViewModel pattern to ensure testability and separation of concerns.

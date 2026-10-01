@@ -61,6 +61,7 @@ enum ScreenGeometry {
 
         let centerCocoa = CGPoint(x: point.x, y: primaryHeight - point.y)
         let screen = NSScreen.screens.first(where: { $0.frame.contains(centerCocoa) })
+            ?? screenContaining(axPoint: point)
             ?? NSScreen.screens.first
         if let frame = screen?.frame {
             x = min(max(x, frame.minX), frame.maxX - panelSize.width)

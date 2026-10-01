@@ -6,12 +6,21 @@ import os
 struct TouchPoint {
     /// Stable per-finger identifier across frames within a touch cycle.
     let identifier: Int32
-    /// Raw Multitouch state: 2=starting, 3=hovering, 4=touching, 5=staying, 7=lifting.
+    /// Raw Multitouch state: see `MultitouchFingerState`.
     let state: Int32
     let normalizedX: Float
     let normalizedY: Float
     /// Contact size, higher = firmer press.
     let size: Float
+}
+
+enum MultitouchFingerState {
+    static let starting: Int32 = 2
+    static let hovering: Int32 = 3
+    /// Contact firmly made with trackpad surface
+    static let touching: Int32 = 4
+    static let staying: Int32 = 5
+    static let lifting: Int32 = 7
 }
 
 /// Thin wrapper around MultitouchSupport.framework.
@@ -141,7 +150,7 @@ final class MultitouchService {
 /// Shared throttle gate for the framework's C callback. Process-global because
 /// the callback is a free function; reset whenever listening starts so a stale
 /// pre-sleep timestamp cannot drop fresh post-wake frames.
-let multitouchFrameGate = MultitouchFrameGate()
+nonisolated let multitouchFrameGate = MultitouchFrameGate()
 
 /// Lock-protected timestamp gate used to throttle high-frequency trackpad
 /// frames *before* they cross to the main thread.
@@ -157,7 +166,7 @@ let multitouchFrameGate = MultitouchFrameGate()
 /// Thread-safety: the framework callback can run on arbitrary threads, so the
 /// last-forwarded timestamp is guarded by a lock. Internal (not private) so
 /// `PerformanceTests` can verify the rate-limit behavior directly.
-final class MultitouchFrameGate {
+nonisolated final class MultitouchFrameGate: @unchecked Sendable {
     /// Matches the consumer-side throttle in `ShortcutViewModel` (30 Hz).
     static let minimumInterval: Double = 1.0 / 30.0
 
@@ -203,13 +212,31 @@ private nonisolated func multitouchCallback(
     guard let fingers, count > 0 else { return 0 }
 
     let fingerPtr = fingers.assumingMemoryBound(to: Finger.self)
+
+    // Fast pre-filter: check if any finger is active without allocating heap memory
+    var hasActiveFinger = false
+    for i in 0 ..< Int(count) {
+        if fingerPtr[i].state >= MultitouchFingerState.touching {
+            hasActiveFinger = true
+            break
+        }
+    }
+
+    // Throttle BEFORE the main-queue hop and before array allocation:
+    // only ~30 non-empty frames/s cross threads. Empty frames bypass the gate
+    // so recognizers observe finger-lift immediately (end-of-gesture state must
+    // not be delayed by up to 33 ms).
+    if hasActiveFinger, !multitouchFrameGate.shouldForward(timestamp: timestamp) {
+        return 0
+    }
+
     var points: [TouchPoint] = []
     points.reserveCapacity(Int(count))
 
     for i in 0 ..< Int(count) {
         let f = fingerPtr[i]
         // Only include fingers that are actively touching/hovering
-        if f.state >= 4 {
+        if f.state >= MultitouchFingerState.touching {
             points.append(TouchPoint(
                 identifier: f.identifier,
                 state: f.state,
@@ -220,16 +247,11 @@ private nonisolated func multitouchCallback(
         }
     }
 
-    // Throttle BEFORE the main-queue hop: only ~30 non-empty frames/s cross
-    // threads. Empty frames bypass the gate so recognizers observe finger-lift
-    // immediately (end-of-gesture state must not be delayed by up to 33 ms).
-    if !points.isEmpty, !multitouchFrameGate.shouldForward(timestamp: timestamp) {
-        return 0
-    }
-
     DispatchQueue.main.async {
         if let service = MultitouchService.shared {
-            service.onFrame?(points, timestamp)
+            AppSignpost.trace(AppSignpost.multitouch, "onFrame") {
+                service.onFrame?(points, timestamp)
+            }
         }
     }
     return 0

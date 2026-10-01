@@ -74,28 +74,35 @@ final class CursorFeedbackOverlay {
         )
     }
 
+    private var colorChangeObserver: (any NSObjectProtocol)?
+
     init(strategy: OverlayAnimationStrategy) {
         self.strategy = strategy
         // Panel creation is deferred to the first show() call so no
         // NSPanel (and its layer tree) is allocated until feedback is displayed.
+        colorChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSColor.systemColorsDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.imageCache.removeAll()
+            }
+        }
+    }
+
+    deinit {
+        if let colorChangeObserver {
+            NotificationCenter.default.removeObserver(colorChangeObserver)
+        }
     }
 
     private func setupPanel() {
         let contentRect = NSRect(x: 0, y: 0, width: Self.dimension, height: Self.dimension)
-        let panel = NSPanel(
+        let panel = OverlayPanelFactory.createPanel(
             contentRect: contentRect,
-            styleMask: [.borderless, .nonactivatingPanel],
-            backing: .buffered,
-            defer: false
+            ignoresMouseEvents: true
         )
-
-        panel.isOpaque = false
-        panel.backgroundColor = .clear
-        panel.hasShadow = false
-        panel.level = NSWindow.Level(Int(CGWindowLevelForKey(.screenSaverWindow)))
-        panel.ignoresMouseEvents = true
-        panel.collectionBehavior = [.transient, .ignoresCycle, .fullScreenAuxiliary]
-        panel.isReleasedWhenClosed = false
         panel.alphaValue = 0.0
 
         let imageView = NSImageView(frame: contentRect)
@@ -133,9 +140,7 @@ final class CursorFeedbackOverlay {
         // Apply symbol entry before making panel visible to eliminate stale frame flicker
         strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
 
-        if !panel.isVisible {
-            panel.orderFrontRegardless()
-        }
+        panel.orderFrontRegardless()
         NSAnimationContext.beginGrouping()
         NSAnimationContext.current.duration = 0
         panel.animator().alphaValue = 1.0
@@ -154,9 +159,7 @@ final class CursorFeedbackOverlay {
         imageView?.image = nil
         imageView?.layer?.transform = CATransform3DIdentity
         imageView?.layer?.removeAllAnimations()
-        if #available(macOS 14.0, *) {
-            imageView?.removeAllSymbolEffects(animated: false)
-        }
+        imageView?.removeAllSymbolEffects(animated: false)
     }
 
     private func scheduleDismiss() {
@@ -181,9 +184,8 @@ final class CursorFeedbackOverlay {
     /// Converts a Quartz/AX screen point (origin top-left of the primary
     /// display) into a Cocoa screen origin (bottom-left) that centers a panel
     /// of `panelSize` on the point, clamped so the panel never leaves the
-    /// display that contains it. Pure math — kept `nonisolated` so it is
-    /// testable without a main actor.
-    nonisolated static func cocoaAnchorPoint(for point: CGPoint, panelSize: CGSize) -> CGPoint {
+    /// display that contains it.
+    static func cocoaAnchorPoint(for point: CGPoint, panelSize: CGSize) -> CGPoint {
         ScreenGeometry.cocoaAnchorPoint(for: point, panelSize: panelSize)
     }
 }

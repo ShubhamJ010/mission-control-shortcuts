@@ -21,26 +21,32 @@ surface. Scoping keeps the app predictable.
 
 ## How detection works
 
-`MissionControlService` uses a two-pronged approach:
+`MissionControlService` uses a multi-layered approach:
 
 - **Distributed Dock notifications.** It observes names such as
   `com.apple.MissionControl.start` and `com.apple.expose.start`. On current
   macOS versions these notifications often do not reach a standalone process, so
   this is only a fast path, not the source of truth.
-- **Window-list heuristic.** It calls `CGWindowListCopyWindowInfo` and inspects
-  the layers of empty-named Dock windows. Mission Control exposes a full-screen
-  Dock overlay at **layer 20** together with the Dock bar at **layer 18 or
-  below**. The combination of those two signatures is what identifies Mission
-  Control.
+- **Authoritative Dock AXObserver transitions.** `MissionControlHoverService`
+  listens for Dock AX notifications (`AXExposeShowAllWindows`, `AXExposeExit`) and
+  immediately synchronizes state with `MissionControlService.markActive(_:)`.
+- **Window-list heuristic (Dock + WindowManager).** It calls `CGWindowListCopyWindowInfo`
+  and inspects on-screen window layers:
+  - **Modern macOS (macOS 27+ / WindowManager):** Mission Control composition is
+    managed by `com.apple.WindowManager`, identified by its full-screen overlay at
+    **layer 19** (along with the spaces bar at **layer 14**).
+  - **Dock-managed Mission Control:** Mission Control exposes a full-screen Dock
+    overlay at **layer 20** together with the Dock bar at **layer 18 or below**.
+  - Transitions detected during scans automatically trigger `onActivated` and `onDeactivated` callbacks.
 
-The result is cached for **200 ms** so that gesture frames never trigger a fresh
-window-list scan on every trackpad event.
+The result is cached for **350 ms** (`detectionCacheInterval`) so that gesture
+frames never pay for a redundant WindowServer IPC scan on every trackpad event.
 
 > [!NOTE]
-> The heuristic intentionally excludes two look-alikes. **Launchpad** draws its
+> The heuristic intentionally excludes look-alikes. **Launchpad** draws its
 > overlay at layers 27 to 29, which is above the Mission Control signature. An
 > expanded **Finder folder stack** shows only the overlay window and lacks the
-> Dock bar, so it fails the second condition. Both are correctly ignored.
+> Dock bar or WindowManager signature, so both are correctly ignored.
 
 ---
 
@@ -92,18 +98,19 @@ Capturing keyboard events while Mission Control is open presents a unique macOS 
 
 ```mermaid
 flowchart TB
-  N{Notification?} -->|rare| YES
-  N -->|no| C{Cache <200ms?}
-  C -->|yes| CACHED
+  N{Dock AX/Notif?} -->|authoritative| YES[MC active]
+  N -->|no| C{Cache <350ms?}
+  C -->|yes| CACHED[Use cached state]
   C -->|no| SCAN[CGWindowListCopyWindowInfo]
-  SCAN --> CHECK{layer 20 && <=18?}
+  SCAN --> CHECK{WM layer 19 OR<br/>Dock 20 + <=18?}
   CHECK -->|yes| MC[MC active]
   CHECK -->|no| NO[inactive]
 ```
 
-| Surface | Layers | Result |
-|---------|--------|--------|
-| Mission Control | 20 + ≤18 | ✅ active |
-| Launchpad | 27-29 | ❌ |
-| Finder stack | only overlay | ❌ |
+| Surface | Layers / Process | Result |
+|---------|------------------|--------|
+| Mission Control (macOS 27+) | `WindowManager` layer 19 | ✅ active |
+| Mission Control (Classic) | `Dock` layer 20 + ≤18 | ✅ active |
+| Launchpad | `Dock` layers 27-29 | ❌ inactive |
+| Finder folder stack | only overlay (no Dock bar / WM overlay) | ❌ inactive |
 

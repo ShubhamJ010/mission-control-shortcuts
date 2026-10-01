@@ -37,6 +37,21 @@ extension ShortcutViewModel {
     }
 
     func resolveTarget(at point: CGPoint) -> TargetResolution {
+        if missionControlService.isMissionControlActive {
+            if let (windowInfo, wid) = hoverService.previewWindow(at: point) {
+                return .missionControlPreview(windowInfo: windowInfo, windowID: wid)
+            }
+            if accessibilityService.isDockRegion(at: point) {
+                if let element = accessibilityService.getElement(at: point),
+                   accessibilityService.isDockItem(element),
+                   let app = accessibilityService.getAppFromDockItem(element) {
+                    return .dock(app)
+                }
+                return .none
+            }
+            return .none
+        }
+
         guard let element = accessibilityService.getElement(at: point) else { return .none }
         if accessibilityService.isDockItem(element) {
             if let app = accessibilityService.getAppFromDockItem(element) {
@@ -69,6 +84,13 @@ extension ShortcutViewModel {
                 return app
             }
             return activateAppIfNeeded(at: point)
+        case let .missionControlPreview(windowInfo, _):
+            if let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+               let app = NSRunningApplication(processIdentifier: pid) {
+                accessibilityService.activate(app: app, window: nil)
+                return app
+            }
+            return nil
         case .none:
             return activateAppIfNeeded(at: point)
         }

@@ -10,10 +10,21 @@ enum ResolvedGestureAction {
 final class GestureActionRouter {
     private let actions: ActionRegistry
 
+    static func runOnMainActor(_ block: @MainActor () -> Void) {
+        if Thread.isMainThread {
+            MainActor.assumeIsolated { block() }
+        } else {
+            DispatchQueue.main.sync {
+                MainActor.assumeIsolated { block() }
+            }
+        }
+    }
+
     init(actions: ActionRegistry = ActionRegistry()) {
         self.actions = actions
     }
 
+    // swiftlint:disable:next function_parameter_count
     func routeGesture(
         _ result: GestureResult,
         at point: CGPoint,
@@ -21,6 +32,7 @@ final class GestureActionRouter {
         isMissionControlActive: Bool = true,
         service: AccessibilityServiceProtocol,
         volumeService: MountedVolumeServiceProtocol? = nil,
+        hoverService: MissionControlHoverServiceProtocol? = nil,
         isAutoEjectEnabled: Bool = true,
         config: ShortcutConfiguration = ShortcutConfiguration(),
         isTitleBarHover: Bool = false,
@@ -28,7 +40,7 @@ final class GestureActionRouter {
     ) -> ResolvedGestureAction {
         if !isMissionControlActive {
             switch target {
-            case .none:
+            case .none, .missionControlPreview:
                 return .none
             case .dock:
                 guard config.isDockActionsOutsideMCEnabled else { return .none }
@@ -38,6 +50,7 @@ final class GestureActionRouter {
         }
 
         let (kind, isCmd) = result.kindAndModifier
+        guard config.isGestureEnabled(kind, isCmd: isCmd) else { return .none }
         let haptic = kind.haptic(isCmd: isCmd)
 
         // Eject intercept (Finder window with ejectable volume) takes priority for
@@ -85,6 +98,8 @@ final class GestureActionRouter {
             return dockAction(for: action, app: app, context: context)
         case .window:
             return windowAction(for: action, context: context)
+        case let .missionControlPreview(windowInfo, _):
+            return missionControlAction(for: action, windowInfo: windowInfo, context: context, hoverService: hoverService)
         }
     }
 }
@@ -241,6 +256,153 @@ private extension GestureActionRouter {
             return result
         }
         return windowSizingAction(for: action, context: context)
+    }
+
+    func missionControlAction(
+        for action: GestureAction,
+        windowInfo: [String: Any],
+        context: Context,
+        hoverService: MissionControlHoverServiceProtocol?
+    ) -> ResolvedGestureAction {
+        switch action {
+        case .closeWindow, .closeTab:
+            return context.execute(overrideFeedbackMode: .close) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .close, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        case .quitApp:
+            return context.execute(overrideFeedbackMode: .quit) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .quit, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performForceQuit(on: windowInfo)
+                }
+            }
+        case .minimize:
+            return context.execute(overrideFeedbackMode: .minimize) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .minimize, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performMinimize(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        case .toggleFullscreen:
+            return context.execute(overrideFeedbackMode: .fullscreen) {
+                if let hoverService {
+                    Self.runOnMainActor {
+                        hoverService.executeAction(mode: .fullscreen, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performFullscreen(on: windowInfo, accessibilityService: context.service)
+                }
+            }
+        case .fillScreen:
+            return context.execute(overrideFeedbackMode: .maximize) { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.fillScreenAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .almostMaximize:
+            return context.execute(overrideFeedbackMode: .maximize) { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.almostMaximizeAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .makeLarger:
+            return context.execute(overrideFeedbackMode: .maximize) { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.makeLargerAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .reasonableSize:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.reasonableSizeAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .makeSmaller:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.makeSmallerAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .leftHalfSnap:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.leftHalfSnapAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .rightHalfSnap:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.rightHalfSnapAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .leftThirdSnap:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.leftThirdSnapAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .rightThirdSnap:
+            return context.execute { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                self?.actions.rightThirdSnapAction.perform(window: window, at: context.point, service: context.service)
+            }
+        case .hideApp:
+            return context.execute(overrideFeedbackMode: .hide) {
+                guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid),
+                      app.isSafeTargetProcess else { return }
+                app.hide()
+            }
+        case .unminimizeAll:
+            return context.execute(overrideFeedbackMode: .unminimizeAll) { [weak self] in
+                guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid) else { return }
+                self?.actions.unminimizeAllWindowsAction.perform(app: app, service: context.service)
+            }
+        case .newWindow:
+            return context.execute(overrideFeedbackMode: .newWindow) { [weak self] in
+                guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid) else { return }
+                _ = context.service.activate(app: app, window: nil)
+                self?.actions.newWindowAction.perform(at: context.point, service: context.service)
+            }
+        case .newTab:
+            return context.execute(overrideFeedbackMode: .newTab) { [weak self] in
+                guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid) else { return }
+                _ = context.service.activate(app: app, window: nil)
+                self?.actions.newTabAction.perform(at: context.point, service: context.service)
+            }
+        case .reopenTab:
+            return context.execute(overrideFeedbackMode: .reopenTab) { [weak self] in
+                guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t,
+                      let app = NSRunningApplication(processIdentifier: pid) else { return }
+                _ = context.service.activate(app: app, window: nil)
+                self?.actions.reopenTabAction.perform(at: context.point, service: context.service)
+            }
+        case .moveNextDesktop, .movePreviousDesktop:
+            return context.execute(overrideFeedbackMode: action == .moveNextDesktop ? .spaceRight : .spaceLeft) { [weak self] in
+                guard let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                      let window = context.service.getWindow(forWindowID: windowID) else { return }
+                let moveAction = action == .moveNextDesktop ? self?.actions.moveNextDesktopAction : self?.actions.movePreviousDesktopAction
+                moveAction?.perform(window: window, service: context.service)
+            }
+        default:
+            return .none
+        }
     }
 
     func windowLifecycleAction(for action: GestureAction, context: Context) -> ResolvedGestureAction? {

@@ -15,4 +15,24 @@ enum AppLogger {
     static let volume = Logger(subsystem: subsystem, category: "volume")
     static let missionControl = Logger(subsystem: subsystem, category: "missionControl")
     static let diagnostics = Logger(subsystem: subsystem, category: "diagnostics")
+
+    #if DEBUG
+    @inline(__always)
+    static func debug(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
+        let text = message()
+        category.debug("\(text, privacy: .public)")
+    }
+    #else
+    @inline(__always)
+    static func debug(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
+        // Tree-shaken in production / release builds.
+    }
+    #endif
+}
+
+/// Convenience global debug logger: delegates to `AppLogger.debug` (DRY & KISS).
+/// In Release builds, this compiles away with zero overhead.
+@inline(__always)
+func debugLog(_ message: @autoclosure () -> String, category: Logger = AppLogger.missionControl) {
+    AppLogger.debug(message(), category: category)
 }

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "project": "MCSC",
+  "description": "Mac Shortcut Control - High performance, zero-footprint background utility for macOS 27",
+  "targetOS": "macOS 27.0+ (macOS 27 SDK)",
+  "constraints": {
+    "memoryCeilingMB": 13.0,
+    "memoryBaselineMB": 12.4,
+    "leakToleranceBytes": 0,
+    "automatedTestsAllowed": false,
+    "uiFramework": "AppKit only (SwiftUI strictly forbidden in core logic)",
+    "loggingStandard": "Apple Unified Logging (AppLogger.* / os.Logger)"
+  },
+  "safetyDirectives": [
+    "Machine is a regular user machine, NOT a disposable test sandbox.",
+    "AI agents must NEVER execute destructive shortcuts (Cmd+W, Cmd+Q, window closer) without explicit user permission.",
+    "Always use read-only diagnostic tools (dump-state.sh, stream-logs.sh, profile-benchmark.sh)."
+  ],
+  "diagnosticTools": {
+    "dumpLiveState": "./scripts/dump-state.sh",
+    "streamLogs": "./scripts/stream-logs.sh",
+    "profileBenchmark": "./scripts/profile-benchmark.sh",
+    "traceSignposts": "./scripts/trace-signposts.sh 5",
+    "safeSimulation": "./scripts/simulate.sh"
+  },
+  "keyArchitectureFiles": {
+    "appDelegate": "MCSC/App/AppDelegate.swift",
+    "shortcutViewModel": "MCSC/ViewModels/ShortcutViewModel.swift",
+    "diagnosticService": "MCSC/Services/Diagnostics/DiagnosticService.swift",
+    "accessibilityService": "MCSC/Services/Accessibility/AccessibilityService.swift",
+    "eventTapService": "MCSC/Services/EventTap/EventTapService.swift",
+    "multitouchService": "MCSC/Services/Multitouch/MultitouchService.swift",
+    "missionControlService": "MCSC/Services/MissionControl/MissionControlService.swift",
+    "missionControlHoverService": "MCSC/Services/MissionControl/MissionControlHoverService.swift",
+    "windowSelectionEngine": "MCSC/Models/WindowSelectionEngine.swift",
+    "signposter": "MCSC/Utilities/Signposter.swift",
+    "logger": "MCSC/Utilities/Logger.swift"
+  }
+}

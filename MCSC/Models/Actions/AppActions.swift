@@ -36,10 +36,12 @@ struct UnminimizeAllWindowsAction {
 
 extension NSRunningApplication {
     /// Safe to target for destructive or hiding lifecycle operations (force quit, hide, etc.).
-    /// Excludes current app self, Dock, and background / non-regular system processes.
+    /// Excludes current app self, Dock, WindowManager, and background / non-regular system processes.
     var isSafeTargetProcess: Bool {
         processIdentifier != NSRunningApplication.current.processIdentifier &&
             bundleIdentifier != "com.apple.dock" &&
+            bundleIdentifier != "com.apple.WindowManager" &&
+            bundleIdentifier != "com.apple.WindowServer" &&
             activationPolicy == .regular
     }
 }
@@ -69,7 +71,7 @@ struct FillScreenAppAction {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axBounds = ScreenGeometry.axBounds(for: screen)
+            let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
             _ = service.setFrame(axBounds, for: window)
         }
     }
@@ -86,7 +88,7 @@ struct MakeLargerAppAction {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axBounds(for: screen)
+            let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
 
             let targetWidth = (currentFrame.width * scaleFactor).rounded()
             let targetHeight = (currentFrame.height * scaleFactor).rounded()
@@ -125,7 +127,7 @@ struct MakeSmallerAppAction {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axBounds(for: screen)
+            let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
 
             let targetWidth = max((currentFrame.width * scaleFactor).rounded(), minWidth)
             let targetHeight = max((currentFrame.height * scaleFactor).rounded(), minHeight)
@@ -191,7 +193,6 @@ struct AlmostMaximizeAppAction {
 
 struct ToggleFullscreenAppAction {
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        _ = coreDockSendNotification("com.apple.expose.awake" as CFString, 0)
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else { return }

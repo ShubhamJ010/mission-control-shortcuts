@@ -41,6 +41,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                       missionControlService: missionControl,
                                       launchAtLoginService: launchAtLogin)
 
+        DiagnosticService.shared.liveStateProvider = { [weak self] in
+            guard let self, let vm = self.viewModel else { return [:] }
+            return [
+                "isMissionControlActive": vm.missionControlService.isMissionControlActive,
+                "isKeyboardNavigationEnabled": vm.config.isKeyboardNavigationEnabled,
+                "isAutoEjectEnabled": vm.config.isAutoEjectEnabled,
+                "isHoverTracking": vm.hoverService.isTracking
+            ]
+        }
+
         // Build the status bar menu after the ViewModel exists so every toggle
         // reflects real configuration. This runs exactly once — calling
         // `statusItem(withLength:)` again would leak a second menu bar icon.
@@ -50,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // needed). The ViewModel only starts listening once trusted.
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
         let isTrusted = AXIsProcessTrustedWithOptions(options as CFDictionary)
+        updateStatusBar(isTrusted: isTrusted)
 
         if isTrusted {
             viewModel?.start()
@@ -58,10 +69,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Poll for trust so the app boots the moment the user grants
             // permission in System Settings, without requiring a relaunch.
             accessibilityPollTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
-                if AXIsProcessTrusted() {
-                    self?.viewModel?.start()
-                    self?.accessibilityPollTimer = nil
-                    timer.invalidate()
+                MainActor.assumeIsolated {
+                    if AXIsProcessTrusted() {
+                        self?.updateStatusBar(isTrusted: true)
+                        self?.viewModel?.start()
+                        self?.accessibilityPollTimer = nil
+                        timer.invalidate()
+                    }
                 }
             }
         }
@@ -72,8 +86,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            AppLogger.app.info("System sleeping - stopping event tap")
-            self?.viewModel?.stop()
+            MainActor.assumeIsolated {
+                AppLogger.app.info("System sleeping - stopping event tap")
+                self?.viewModel?.stop()
+            }
         }
 
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
@@ -81,8 +97,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            AppLogger.app.info("System woke up - restarting event tap")
-            self?.viewModel?.start()
+            MainActor.assumeIsolated {
+                AppLogger.app.info("System woke up - restarting event tap")
+                self?.viewModel?.start()
+            }
         }
     }
 
@@ -91,28 +109,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     /// the menu only exposes Settings and Quit to stay minimal (AGENTS.md: lightweight).
     private func setupStatusBar() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        updateStatusBar(isTrusted: AXIsProcessTrusted())
+    }
 
+    private func updateStatusBar(isTrusted: Bool) {
         if let button = statusItem?.button {
-            button.image = NSImage(systemSymbolName: "command.circle", accessibilityDescription: "MCSC")
+            let symbolName = isTrusted ? "command.circle" : "command.circle.fill"
+            button.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "MCSC")
+            button.toolTip = isTrusted ? "MCSC" : "MCSC (Accessibility Permission Required)"
         }
 
         let menu = NSMenu()
+
+        if !isTrusted {
+            let warningItem = NSMenuItem(
+                title: "⚠️ Accessibility Permission Required",
+                action: #selector(openAccessibilitySettings),
+                keyEquivalent: ""
+            )
+            warningItem.target = self
+            menu.addItem(warningItem)
+
+            let grantItem = NSMenuItem(
+                title: "Open System Settings…",
+                action: #selector(openAccessibilitySettings),
+                keyEquivalent: ""
+            )
+            grantItem.target = self
+            menu.addItem(grantItem)
+            menu.addItem(NSMenuItem.separator())
+        }
 
         let aboutItem = NSMenuItem(
             title: "About MCSC",
             action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)),
             keyEquivalent: ""
         )
+        aboutItem.target = NSApp
         menu.addItem(aboutItem)
 
         let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showSettings), keyEquivalent: ",")
         settingsItem.keyEquivalentModifierMask = [.command]
+        settingsItem.target = self
         menu.addItem(settingsItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(NSMenuItem(title: "Quit MCSC", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
 
         statusItem?.menu = menu
+    }
+
+    @objc private func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     @objc private func showSettings() {

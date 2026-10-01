@@ -54,7 +54,7 @@ struct WindowCloser {
                 return
             }
 
-            let appElement = AXUIElementCreateApplication(app.processIdentifier)
+            let appElement = service.appElement(for: app)
 
             // Act on the app's key window (the one being targeted from the Dock).
             if let keyWindow: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement),
@@ -78,7 +78,7 @@ struct WindowCloser {
             _ = service.focusWindow(window)
 
             var pid: pid_t = 0
-            guard AXUIElementGetPid(element, &pid) == .success else { return }
+            guard AXUIElementGetPid(window, &pid) == .success else { return }
             KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
         }
     }
@@ -93,6 +93,17 @@ struct WindowCloser {
             if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
                 return
             }
+            let appElement = service.appElement(for: app)
+            if let keyWindow: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement) {
+                pressRedCloseButton(of: keyWindow, service: service)
+                return
+            }
+            if let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
+               let first = windows.first {
+                pressRedCloseButton(of: first, service: service)
+                return
+            }
+            return
         }
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element) else { return }
@@ -105,7 +116,7 @@ struct WindowCloser {
     ) {
         guard let app,
               app.processIdentifier != NSRunningApplication.current.processIdentifier else { return }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
 
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else {
@@ -125,7 +136,7 @@ struct WindowCloser {
         service: AccessibilityServiceProtocol
     ) -> Bool {
         guard app.isSafeTargetProcess else { return false }
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
         let windows: [AXUIElement]? = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
         if windows == nil || windows?.isEmpty == true {
             ForceQuitAppAction().perform(app: app)
@@ -135,8 +146,16 @@ struct WindowCloser {
     }
 
     private func pressRedCloseButton(of window: AXUIElement, service: AccessibilityServiceProtocol) {
-        if let closeButton: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window) {
-            _ = service.performAction(kAXPressAction, on: closeButton)
+        if let closeButton: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window),
+           service.performAction(kAXPressAction, on: closeButton) {
+            return
+        }
+
+        // Fallback to ⌘W for windows without a standard AX close button (e.g. Electron, custom titlebars)
+        var pid: pid_t = 0
+        if AXUIElementGetPid(window, &pid) == .success {
+            _ = service.focusWindow(window)
+            KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
         }
     }
 }

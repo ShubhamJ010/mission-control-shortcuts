@@ -96,7 +96,7 @@ extension CursorFeedbackOverlay {
             switch self {
             case .close: nil
             case .minimize: [.black, .systemYellow]
-            case .quit: [.white, NSColor(red: 0.749, green: 0.353, blue: 0.949, alpha: 1.0)]
+            case .quit: [.white, .systemPurple]
             case .hide: [.black, .systemYellow]
             case .eject: [.white, .systemRed]
             case .almost, .reasonable, .leftHalf, .rightHalf, .leftThird, .rightThird:

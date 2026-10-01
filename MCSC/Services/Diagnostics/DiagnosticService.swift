@@ -7,6 +7,15 @@ protocol DiagnosticServiceProtocol: AnyObject {
     func stop()
     func dumpRecentDiagnostics(to destination: URL?, timeInterval: TimeInterval) -> URL?
     func recordDiagnosticEvent(category: String, message: String)
+    @discardableResult
+    func evaluateMemoryCeiling() -> (footprintMB: Double, underBudget: Bool)
+    var liveStateProvider: (() -> [String: Any])? { get set }
+    @discardableResult
+    func dumpLiveState(to destination: URL?) -> URL?
+}
+
+extension Notification.Name {
+    static let mcscPurgeCaches = Notification.Name("mcscPurgeCaches")
 }
 
 extension DiagnosticServiceProtocol {
@@ -30,6 +39,8 @@ final class DiagnosticService: DiagnosticServiceProtocol {
     private let crashURL: URL
     private var isStarted = false
     private var terminateObserver: NSObjectProtocol?
+    private var usr1Source: DispatchSourceSignal?
+    var liveStateProvider: (() -> [String: Any])?
 
     private static var previousUncaughtExceptionHandler: (@convention(c) (NSException) -> Void)?
     private static var crashLogFilePathCString: [CChar]?
@@ -57,6 +68,7 @@ final class DiagnosticService: DiagnosticServiceProtocol {
         isStarted = true
 
         setupCrashAndExceptionHandlers()
+        setupSignalSource()
         setupTerminationObserver()
         logSystemEnvironment()
     }
@@ -65,6 +77,9 @@ final class DiagnosticService: DiagnosticServiceProtocol {
     func stop() {
         guard isStarted else { return }
         isStarted = false
+
+        usr1Source?.cancel()
+        usr1Source = nil
 
         if let terminateObserver {
             NotificationCenter.default.removeObserver(terminateObserver)
@@ -78,16 +93,68 @@ final class DiagnosticService: DiagnosticServiceProtocol {
         signal(SIGABRT, SIG_DFL)
         signal(SIGBUS, SIG_DFL)
         signal(SIGILL, SIG_DFL)
+        signal(SIGUSR1, SIG_DFL)
     }
 
-    /// Logs initial environment context (PID, OS, AX permissions) for AI auditability.
+    /// Listens for non-destructive `SIGUSR1` to dump live state on demand.
+    private func setupSignalSource() {
+        signal(SIGUSR1, SIG_IGN)
+        let source = DispatchSource.makeSignalSource(signal: SIGUSR1, queue: .main)
+        source.setEventHandler { [weak self] in
+            AppLogger.diagnostics.info("Received SIGUSR1 - dumping live state.")
+            _ = self?.dumpLiveState(to: nil)
+        }
+        source.resume()
+        self.usr1Source = source
+    }
+
+    /// Dumps a non-destructive snapshot of the application's live state to a JSON file.
+    /// Completely safe to call on regular user machines during operation.
+    @discardableResult
+    func dumpLiveState(to destination: URL? = nil) -> URL? {
+        let target = destination ?? URL(fileURLWithPath: "/tmp/mcsc-live.json")
+        let (footprintMB, underBudget) = evaluateMemoryCeiling()
+        let footprintBytes = Self.physicalFootprint()
+
+        var state: [String: Any] = [
+            "pid": ProcessInfo.processInfo.processIdentifier,
+            "os": ProcessInfo.processInfo.operatingSystemVersionString,
+            "axTrusted": AXIsProcessTrusted(),
+            "physicalFootprintBytes": footprintBytes,
+            "physicalFootprintMB": Double(String(format: "%.2f", footprintMB)) ?? footprintMB,
+            "budgetCeilingMB": 13.0,
+            "underBudget": underBudget,
+            "timestamp": ISO8601DateFormatter().string(from: Date())
+        ]
+
+        if let provider = liveStateProvider {
+            let extra = provider()
+            for (k, v) in extra {
+                state[k] = v
+            }
+        }
+
+        do {
+            let data = try JSONSerialization.data(withJSONObject: state, options: [.prettyPrinted])
+            try data.write(to: target, options: .atomic)
+            AppLogger.diagnostics.info("Live state successfully written to \(target.path, privacy: .public)")
+            return target
+        } catch {
+            AppLogger.diagnostics.error("Failed to write live state JSON: \(error.localizedDescription, privacy: .public)")
+            return nil
+        }
+    }
+
+    /// Logs initial environment context (PID, OS, AX permissions, memory) for AI auditability.
     private func logSystemEnvironment() {
         let pid = ProcessInfo.processInfo.processIdentifier
         let osVersion = ProcessInfo.processInfo.operatingSystemVersionString
         let isTrusted = AXIsProcessTrusted()
+        let footprintBytes = Self.physicalFootprint()
+        let footprintMB = Double(footprintBytes) / (1024.0 * 1024.0)
 
         AppLogger.diagnostics.info(
-            "Diagnostic service started. PID: \(pid, privacy: .public), OS: \(osVersion, privacy: .public), AXTrusted: \(isTrusted, privacy: .public)"
+            "Diagnostic service started. PID: \(pid, privacy: .public), OS: \(osVersion, privacy: .public), AXTrusted: \(isTrusted, privacy: .public), Footprint: \(footprintMB, format: .fixed(precision: 2), privacy: .public) MB"
         )
     }
 
@@ -216,6 +283,37 @@ final class DiagnosticService: DiagnosticServiceProtocol {
             )
             return nil
         }
+    }
+
+    /// Returns current physical memory footprint in bytes via Darwin's `task_vm_info`.
+    /// Zero allocations, microsecond execution.
+    static func physicalFootprint() -> UInt64 {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let kr = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        guard kr == KERN_SUCCESS else { return 0 }
+        return UInt64(info.phys_footprint)
+    }
+
+    /// Evaluates current memory against the 13 MB ceiling and triggers a cache purge if nearing limit.
+    @discardableResult
+    func evaluateMemoryCeiling() -> (footprintMB: Double, underBudget: Bool) {
+        let bytes = Self.physicalFootprint()
+        let mb = Double(bytes) / (1024.0 * 1024.0)
+        let underBudget = mb < 13.0
+
+        if mb >= 12.8 {
+            AppLogger.diagnostics.notice(
+                "Memory footprint nearing ceiling (\(mb, format: .fixed(precision: 2), privacy: .public) MB >= 12.8 MB). Broadcasting cache purge."
+            )
+            NotificationCenter.default.post(name: .mcscPurgeCaches, object: nil)
+        }
+
+        return (mb, underBudget)
     }
 
     /// Helper to record explicit diagnostic events from services.

@@ -14,8 +14,8 @@ struct MinimizeWindowAction: ShortcutAction {
 struct HideApplicationAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
-              service.getWindow(for: element) != nil,
-              let app = service.getAppFromElement(element),
+              let window = service.getWindow(for: element),
+              let app = service.getAppFromElement(window),
               app.isSafeTargetProcess else { return }
 
         app.hide()
@@ -25,8 +25,8 @@ struct HideApplicationAction: ShortcutAction {
 struct ForceQuitAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let element = service.getElement(at: point),
-              service.getWindow(for: element) != nil,
-              let app = service.getAppFromElement(element),
+              let window = service.getWindow(for: element),
+              let app = service.getAppFromElement(window),
               app.isSafeTargetProcess else { return }
 
         app.forceTerminate()
@@ -34,15 +34,8 @@ struct ForceQuitAction: ShortcutAction {
 }
 
 /// Toggles fullscreen/zoom for the window at `point`.
-///
-/// Wakens Mission Control's Exposé layer via `coreDockSendNotification` before
-/// pressing the AX zoom button (`kAXZoomButtonAttribute`), mirroring
-/// `MissionControlWindowActions.performFullscreen` and
-/// `PreviewCloseButtonOverlay` Control→fullscreen. Service-layer abstraction
-/// keeps `GestureActionRouter` free of raw Dock SPI / CF calls.
 struct ToggleFullscreenAction: ShortcutAction {
     func perform(at point: CGPoint, service: AccessibilityServiceProtocol) {
-        _ = coreDockSendNotification("com.apple.expose.awake" as CFString, 0)
         guard let element = service.getElement(at: point),
               let window = service.getWindow(for: element),
               let zoomButton: AXUIElement = service.getAttributeValue(kAXZoomButtonAttribute, for: window)

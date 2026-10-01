@@ -14,7 +14,7 @@ import Cocoa
 /// The hold → switch → release sequence takes ~1.7s and runs on a utility
 /// queue; nothing is retained, so there is no state to clean up.
 struct MoveWindowToDesktopAction: ShortcutAction {
-    enum Direction {
+    nonisolated enum Direction: Sendable {
         case next
         case previous
 
@@ -67,9 +67,15 @@ struct MoveWindowToDesktopAction: ShortcutAction {
     /// Dock-target entry point: moves the app's focused window, matching the
     /// dock parity of `ToggleFullscreenAppAction`.
     func perform(app: NSRunningApplication, service: AccessibilityServiceProtocol) {
-        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        let appElement = service.appElement(for: app)
         guard let window: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement),
               let frame = service.getFrame(for: window) else { return }
+        performMove(window: window, frame: frame, service: service)
+    }
+
+    /// Direct window entry point (used by Mission Control router where window is resolved by ID).
+    func perform(window: AXUIElement, service: AccessibilityServiceProtocol) {
+        guard let frame = service.getFrame(for: window) else { return }
         performMove(window: window, frame: frame, service: service)
     }
 
@@ -115,7 +121,7 @@ struct MoveWindowToDesktopAction: ShortcutAction {
 }
 
 /// Production side effects for `MoveWindowToDesktopAction`.
-private enum SystemEffects {
+private nonisolated enum SystemEffects {
     /// `.hidSystemState` + `.cghidEventTap`: WindowServer sees the synthetic
     /// move before Exposé (same path as `WindowActivationAction`).
     static func postMouse(_ type: CGEventType, _ at: CGPoint) {

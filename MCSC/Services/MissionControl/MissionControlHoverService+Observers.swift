@@ -1,47 +1,46 @@
 import ApplicationServices
 import Cocoa
 
-/// Dock AXObserver for `MissionControlHoverService`: the Dock exposes
-/// Exposé/Mission Control state transitions as AX notifications on its
-/// application element (`AXExposeShowAllWindows`, `AXExposeExit`, …).
-/// Split from the main file to stay under the SwiftLint `file_length` budget.
-@MainActor
 extension MissionControlHoverService {
     static let dockNotifications = [
         "AXExposeShowAllWindows",
         "AXExposeShowFrontWindows",
+        "AXExposeExit",
         "AXExposeShowDesktop",
-        "AXExposeExit"
     ]
 
     func setupDockObserver() {
         guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
         else {
+            AppLogger.dock.error("Dock process not found for AXObserver")
             return
         }
 
         let pid = dockApp.processIdentifier
-        let dockElement = AXUIElementCreateApplication(pid)
-        self.dockAXElement = dockElement
-
         var observer: AXObserver?
-        let callback: AXObserverCallback = { _, _, notification, refcon in
+        let result = AXObserverCreate(pid, { _, element, notification, refcon in
             guard let refcon else { return }
             let service = Unmanaged<MissionControlHoverService>.fromOpaque(refcon).takeUnretainedValue()
-            let notifName = notification as String
-
-            DispatchQueue.main.async {
-                service.handleDockNotification(notifName)
+            let notif = notification as String
+            MainActor.assumeIsolated {
+                service.handleDockNotification(notif)
             }
-        }
+        }, &observer)
 
-        guard AXObserverCreate(pid, callback, &observer) == .success, let obs = observer else {
+        guard result == .success, let obs = observer else {
+            AppLogger.dock.error("Failed to create AXObserver for Dock: \(result.rawValue)")
             return
         }
 
-        let selfPtr = Unmanaged.passUnretained(self).toOpaque()
+        let dockElement = AXUIElementCreateApplication(pid)
+        self.dockAXElement = dockElement
+
+        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         for notif in Self.dockNotifications {
-            AXObserverAddNotification(obs, dockElement, notif as CFString, selfPtr)
+            let addResult = AXObserverAddNotification(obs, dockElement, notif as CFString, refcon)
+            if addResult != .success {
+                AppLogger.dock.warning("Failed to add observer for \(notif): \(addResult.rawValue)")
+            }
         }
 
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
@@ -49,9 +48,11 @@ extension MissionControlHoverService {
     }
 
     func stopDockObserver() {
-        if let obs = axObserver, let dockElement = dockAXElement {
-            for notif in Self.dockNotifications {
-                AXObserverRemoveNotification(obs, dockElement, notif as CFString)
+        if let obs = axObserver {
+            if let dockElement = dockAXElement {
+                for notif in Self.dockNotifications {
+                    AXObserverRemoveNotification(obs, dockElement, notif as CFString)
+                }
             }
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
             self.axObserver = nil
@@ -59,39 +60,49 @@ extension MissionControlHoverService {
         }
     }
 
+    func handleActivated() {
+        guard !isMissionControlActive else { return }
+        debugLog("MissionControlHoverService.handleActivated called", category: AppLogger.missionControl)
+        isMissionControlActive = true
+        lastKnownSpaceID = spaceService.currentSpaceID()
+
+        guard isEnabled else { return }
+
+        fetchWindows()
+        startWindowFetchTimer()
+        startKeyboardSession()
+
+        if let mouseLocation = CGEvent(source: nil)?.location {
+            updateOverlay(at: mouseLocation)
+        }
+    }
+
+    func handleDeactivated() {
+        debugLog("MissionControlHoverService.handleDeactivated called", category: AppLogger.missionControl)
+        isMissionControlActive = false
+        isDragging = false
+        isMouseDown = false
+        lastKnownSpaceID = nil
+        stopWindowFetchTimer()
+        hideAllOverlays()
+        stopKeyboardSession()
+        windows = []
+        currentMatches = []
+        searchSession = WindowSearchSession()
+    }
+
     func handleDockNotification(_ notification: String) {
+        debugLog("handleDockNotification: \(notification)", category: AppLogger.dock)
         switch notification {
         case "AXExposeExit", "AXExposeShowDesktop":
-            isMissionControlActive = false
             missionControlService?.markActive(false)
-            stopWindowFetchTimer()
-            hideOverlay()
-            stopKeyboardSession()
-            // Drop the previous session's window list immediately so no stale
-            // entries persist before the next open's `fetchWindows()` refresh.
-            windows = []
+            handleDeactivated()
         case "AXExposeShowAllWindows", "AXExposeShowFrontWindows":
-            isMissionControlActive = true
-            // Push the authoritative open transition into the shared detector so
-            // every consumer of `MissionControlService.isMissionControlActive`
-            // (gesture/shortcut handlers, dock suppressor) sees the instant
-            // signal instead of the lagging 350 ms window-list scan.
             missionControlService?.markActive(true)
-
-            // When the feature is disabled, track Mission Control state
-            // (other services depend on it) but do NOT create the overlay,
-            // start window polling, or install the keyboard tap.
-            guard isEnabled else { return }
-
-            fetchWindows()
-            startWindowFetchTimer()
-            startKeyboardSession()
-
-            if let mouseLocation = CGEvent(source: nil)?.location {
-                updateOverlay(at: mouseLocation)
-            }
+            handleActivated()
         default:
             break
         }
     }
+
 }

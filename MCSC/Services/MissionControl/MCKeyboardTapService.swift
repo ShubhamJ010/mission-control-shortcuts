@@ -73,6 +73,8 @@ final class MCKeyboardTapService: MCKeyboardTapServiceProtocol {
                     DispatchQueue.main.sync(execute: invoke)
                 }
 
+                debugLog("MCKeyboardTapService: keyCode=\(keyCode), char=\(characters ?? "nil"), swallowed=\(swallowed)", category: AppLogger.eventTap)
+
                 return swallowed ? nil : Unmanaged.passUnretained(event)
             },
             userInfo: Unmanaged.passUnretained(self).toOpaque()
@@ -85,6 +87,7 @@ final class MCKeyboardTapService: MCKeyboardTapServiceProtocol {
         runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), runLoopSource, .commonModes)
         CGEvent.tapEnable(tap: eventTap, enable: true)
+        debugLog("MCKeyboardTapService: tap created and enabled", category: AppLogger.eventTap)
     }
 
     private func reEnableTapIfDisabled(for type: CGEventType) {
@@ -92,6 +95,7 @@ final class MCKeyboardTapService: MCKeyboardTapServiceProtocol {
         guard let eventTap else { return }
         CGEvent.tapEnable(tap: eventTap, enable: true)
         AppLogger.eventTap.info("Mission Control keyboard tap was disabled by the system; re-enabled.")
+        debugLog("MCKeyboardTapService: re-enabled after system disable (type=\(type.rawValue))", category: AppLogger.eventTap)
     }
 
     func stop() {
@@ -105,6 +109,7 @@ final class MCKeyboardTapService: MCKeyboardTapServiceProtocol {
         }
         eventTap = nil
         runLoopSource = nil
+        debugLog("MCKeyboardTapService: tap stopped and invalidated", category: AppLogger.eventTap)
     }
 
     deinit {

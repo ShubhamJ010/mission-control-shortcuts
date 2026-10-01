@@ -6,13 +6,14 @@
 
 ### Keyboard shortcuts and trackpad gestures for Mission Control
 
-[![Platform](https://img.shields.io/badge/platform-macOS-000000)](https://www.apple.com/macos/)
+[![Platform](https://img.shields.io/badge/platform-macOS%2027-000000)](https://www.apple.com/macos/)
+[![SDK](https://img.shields.io/badge/SDK-macOS%2027-007AFF)](https://developer.apple.com/macos/)
 [![Language](https://img.shields.io/badge/language-Swift-FA7343)](https://swift.org)
 [![License](https://img.shields.io/badge/license-MIT-blue)](https://opensource.org/licenses/MIT)
 
 A free, open-source menu bar app that turns Mission Control previews into
-windows you can act on. Type to find one, swipe or press to close,
-minimize, tile, quit, or eject it.
+windows you can act on. Migrated and developed for **macOS 27**, type to find one,
+swipe or press to close, minimize, tile, quit, or eject it.
 
 [Features](#features) · [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Tests](#tests)
 
@@ -30,8 +31,8 @@ It listens only while Mission Control is open. On the desktop, in Launchpad,
 and inside Finder folder stacks it stays completely silent, so your normal
 shortcuts never change. A keystroke pre-filter ensures typing in other apps
 costs MCSC zero Accessibility IPC. Everything runs event-driven in a
-single AppKit process that idles around 12 MB of RAM with 0% CPU (measured on
-macOS 15.7.3 with Mission Control open and closed; see
+single AppKit process that idles around 12 MB of RAM with 0% CPU (migrated and
+measured on macOS 27 with Mission Control open and closed; see
 [PERFORMANCE.md](./docs/PERFORMANCE.md)).
 
 ## Features
@@ -46,6 +47,9 @@ macOS 15.7.3 with Mission Control open and closed; see
 - **Configurable**: Toggle individual shortcuts and gestures from the menu bar, or enable launch at login.
 
 ## Installation
+
+> [!NOTE]
+> MCSC is migrated and developed specifically for **macOS 27** (macOS 27 SDK). macOS 27.0 or later is required.
 
 MCSC needs the Accessibility permission to inspect windows and intercept
 input while Mission Control is open:
@@ -86,6 +90,10 @@ codesign -dv --verbose=4 MCSC.app
 ```
 
 ### Build from source
+
+**Requirements:**
+- macOS 27.0 or later
+- Xcode 27+ with the macOS 27 SDK
 
 ```bash
 git clone https://github.com/ShubhamJ010/mission-control-shortcuts.git
@@ -146,16 +154,6 @@ Force Quit (`Command`) without touching the keyboard.
 - [SYMBOLS.md](./docs/SYMBOLS.md) - The SF Symbol map behind feedback overlays.
 - [PERFORMANCE.md](./docs/PERFORMANCE.md) - The memory and CPU budget, profiling recipes, and measured numbers.
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - MVVM design, event taps, and low-level choices.
-
-## Tests
-
-127 unit and performance tests, including wall-clock budget tests that fail
-on hot-path regressions (frame-throttle rate, keystroke pre-filter cost,
-detection-cache short-circuit, and window-list matching):
-
-```bash
-./Tests/run_tests.sh
-```
 
 ## Credits
 

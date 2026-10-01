@@ -31,12 +31,15 @@ final class ShortcutViewModel {
             ? OptimizedOverlayAnimationStrategy()
             : NativeSymbolEffectAnimationStrategy()
 
+    lazy var spaceService: SpaceManagementServiceProtocol = SpaceManagementService()
+
     lazy var hoverService: MissionControlHoverServiceProtocol = MissionControlHoverService(
         accessibilityService: accessibilityService,
         isMissionControlActiveProvider: { [weak self] in
             self?.missionControlService.isMissionControlActive ?? false
         },
         missionControlService: missionControlService,
+        spaceService: spaceService,
         animationStrategy: animationStrategy,
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
@@ -59,6 +62,12 @@ final class ShortcutViewModel {
         suppressor.isEnabledProvider = { [weak self] in
             guard let self else { return false }
             return !self.missionControlService.isMissionControlActive && self.config.isDockActionsOutsideMCEnabled
+        }
+        suppressor.onUserClick = { [weak self] in
+            guard let self else { return }
+            self.holdDetector.cancelForCurrentTouchSession()
+            self.cursorFeedback.hide()
+            self.twoFingerTapRecognizer?.reset()
         }
         return suppressor
     }()
@@ -102,6 +111,8 @@ final class ShortcutViewModel {
 
     /// Prevents gestures from firing right after Mission Control opens via 3-finger swipe.
     private var isCoolingDown = false
+    /// Tracks 3+ finger contact so touch lift can immediately sync Mission Control activation state.
+    private var hadThreeOrMoreTouches = false
     /// Throttles `MultitouchService` 60-120 Hz frames to at most 30 Hz so
     /// `isMissionControlActive` / `isDockHovered()` (both WindowServer/AX IPC)
     /// do not run per-frame. Keeps gesture latency <33ms.
@@ -126,12 +137,16 @@ final class ShortcutViewModel {
         holdDetector.config.holdDuration = config.twoFingerHoldDuration
         setupCallbacks()
 
-        // Cooldown after Mission Control activates to avoid false gesture detection
+        // Cooldown after Mission Control activates to avoid false gesture detection, and notify hoverService.
         missionControlService.onActivated = { [weak self] in
             self?.isCoolingDown = true
+            self?.hoverService.handleActivated()
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
                 self?.isCoolingDown = false
             }
+        }
+        missionControlService.onDeactivated = { [weak self] in
+            self?.hoverService.handleDeactivated()
         }
     }
 
@@ -158,7 +173,10 @@ final class ShortcutViewModel {
         }
         let twoFingerTapRecognizer = TwoFingerDoubleTapRecognizer()
         twoFingerTapRecognizer.isCmdHeld = cmdHeldProvider
-        twoFingerTapRecognizer.isEnabled = { [weak self] in self?.config.isTwoFingerDoubleTapEnabled ?? false }
+        twoFingerTapRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isTwoFingerDoubleTapEnabled || self.config.isCmdTwoFingerDoubleTapEnabled
+        }
         twoFingerTapRecognizer.onStateChanged = { [weak self] isInProgress in
             guard let self else { return }
             let mcActive = self.missionControlService.isMissionControlActive
@@ -172,32 +190,51 @@ final class ShortcutViewModel {
 
         let pinchInRecognizer = PinchInRecognizer()
         pinchInRecognizer.isCmdHeld = cmdHeldProvider
-        pinchInRecognizer.isEnabled = { [weak self] in self?.config.isPinchInEnabled ?? false }
+        pinchInRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isPinchInEnabled || self.config.isCmdPinchInEnabled
+        }
         gestureEngine.register(pinchInRecognizer)
 
         let pinchOutRecognizer = PinchOutRecognizer()
         pinchOutRecognizer.isCmdHeld = cmdHeldProvider
-        pinchOutRecognizer.isEnabled = { [weak self] in self?.config.isPinchOutEnabled ?? false }
+        pinchOutRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isPinchOutEnabled || self.config.isCmdPinchOutEnabled
+        }
         gestureEngine.register(pinchOutRecognizer)
 
         let swipeLeftRecognizer = TwoFingerSwipeLeftRecognizer()
         swipeLeftRecognizer.isCmdHeld = cmdHeldProvider
-        swipeLeftRecognizer.isEnabled = { [weak self] in self?.config.isSwipeLeftEnabled ?? false }
+        swipeLeftRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeLeftEnabled || self.config.isCmdSwipeLeftEnabled
+        }
         gestureEngine.register(swipeLeftRecognizer)
 
         let swipeRightRecognizer = TwoFingerSwipeRightRecognizer()
         swipeRightRecognizer.isCmdHeld = cmdHeldProvider
-        swipeRightRecognizer.isEnabled = { [weak self] in self?.config.isSwipeRightEnabled ?? false }
+        swipeRightRecognizer.isEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeRightEnabled || self.config.isCmdSwipeRightEnabled
+        }
         gestureEngine.register(swipeRightRecognizer)
 
         let swipeRecognizer = SwipeRecognizer()
         swipeRecognizer.isCmdHeld = cmdHeldProvider
         swipeRecognizer.isEnabled = { [weak self] in
             guard let self else { return false }
-            return self.config.isSwipeDownEnabled || self.config.isSwipeUpEnabled
+            return self.config.isSwipeDownEnabled || self.config.isCmdSwipeDownEnabled
+                || self.config.isSwipeUpEnabled || self.config.isCmdSwipeUpEnabled
         }
-        swipeRecognizer.isSwipeDownEnabled = { [weak self] in self?.config.isSwipeDownEnabled ?? false }
-        swipeRecognizer.isSwipeUpEnabled = { [weak self] in self?.config.isSwipeUpEnabled ?? false }
+        swipeRecognizer.isSwipeDownEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeDownEnabled || self.config.isCmdSwipeDownEnabled
+        }
+        swipeRecognizer.isSwipeUpEnabled = { [weak self] in
+            guard let self else { return false }
+            return self.config.isSwipeUpEnabled || self.config.isCmdSwipeUpEnabled
+        }
         gestureEngine.register(swipeRecognizer)
     }
 
@@ -217,10 +254,14 @@ final class ShortcutViewModel {
                   self.config.isGesturesEnabled,
                   !self.isCoolingDown else { return }
 
-            // Instantly hide Mission Control close overlay on 3+ finger contact (MC swipe down / space switch)
-            // Evaluated before throttling so dismissal is immediate.
-            if touches.count >= 3 && self.hoverService.isTracking {
-                self.hoverService.hideOverlay()
+            // Track 3+ finger contact (MC swipe up/down or space switch).
+            // Instantly hide Mission Control close/search overlays so they don't linger during transitions.
+            if touches.count >= 3 {
+                self.hadThreeOrMoreTouches = true
+                if self.hoverService.isMissionControlActive {
+                    self.hoverService.hideOverlay()
+                    self.hoverService.clearSearch()
+                }
             }
 
             // Handle touch lift immediately without throttling or AX overhead
@@ -229,6 +270,16 @@ final class ShortcutViewModel {
                 self.gestureEngine.processFrame([], timestamp: timestamp)
                 if !(self.twoFingerTapRecognizer?.isGestureInProgress ?? false) {
                     self.dockSuppressor.isSuppressing = false
+                }
+                if self.hadThreeOrMoreTouches {
+                    self.hadThreeOrMoreTouches = false
+                    // Multitouch gesture ended. If the user swiped up, Mission Control has opened;
+                    // if swiped down, Mission Control has closed.
+                    // Scan immediately and again after transition settles (~150ms).
+                    _ = self.missionControlService.checkMissionControlActive(force: true)
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
+                        _ = self?.missionControlService.checkMissionControlActive(force: true)
+                    }
                 }
                 return
             }

@@ -123,9 +123,17 @@ swipes, two-finger double-tap) also fire while hovering a Dock icon in normal
 desktop mode, without Mission Control open. While 2+ fingers touch the trackpad
 over the Dock, a dedicated Quartz event tap (`DockInteractionSuppressor`)
 swallows system gesture events (`smartMagnify`, `magnify`, `swipe`) so macOS
-App Exposé never opens mid-gesture, plus any synthesized clicks during the
-gesture window.
+App Exposé never opens mid-gesture, while disambiguating synthesized tap-clicks
+from physical mechanical / Force Touch press-clicks.
 
+- **Tap-to-click vs. physical press-click disambiguation:** Only zero-pressure
+  synthesized tap clicks within the suppression window are swallowed. Physical
+  clicks (`mouseEventPressure > 0.0`) pass through unconditionally to preserve
+  Dock right-click context menus.
+- **Hold detector session cancellation:** Physical mouse clicks trigger an
+  immediate `onUserClick` callback that cancels hold detection
+  (`TwoFingerHoldDetector.cancelForCurrentTouchSession()`), preventing lingering
+  touch contact after a physical click from falsely latching the `Cmd` modifier.
 - **Toggle:** Settings → General **Dock Gestures & Shortcuts**
   (`ShortcutConfiguration.isDockActionsOutsideMCEnabled`, default `false`) —
   shared with the keyboard shortcuts described in [SHORTCUTS.md](./SHORTCUTS.md).

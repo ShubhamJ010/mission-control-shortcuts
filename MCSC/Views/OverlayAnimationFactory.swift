@@ -144,13 +144,12 @@ enum OverlayAnimationFactory {
             panel.animator().alphaValue = 0.0
             imageView.animator().layer?.transform = CATransform3DMakeScale(0.82, 0.82, 1.0)
         } completionHandler: {
-            if panel.alphaValue == 0.0 {
-                panel.orderOut(nil)
-                imageView.layer?.transform = CATransform3DIdentity
-                imageView.layer?.removeAllAnimations()
-                imageView.image = nil
-                completion()
-            }
+            panel.alphaValue = 0.0
+            panel.orderOut(nil)
+            imageView.layer?.transform = CATransform3DIdentity
+            imageView.layer?.removeAllAnimations()
+            imageView.image = nil
+            completion()
         }
     }
 
