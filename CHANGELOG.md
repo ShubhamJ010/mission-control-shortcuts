@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.1 (2 Oct 2026)
+
+- **Consolidated Window Cycle Snapping**: Replaced discrete half and third snap actions with `LeftCycleSnap` and `RightCycleSnap`. Cycling naturally sequences from Half Screen (50%) to Two-Thirds (66.6%) to One-Third (33.3%), with automatic memory and reset hysteresis (2.5 seconds) or current-frame inspection.
+- **Unified Shortcuts Settings**: Merged the previously separate `Window` and `App` shortcuts settings panes into a clean, unified `ShortcutsPane` (`MCSC/Views/Settings/Panes/ShortcutsPane.swift`), grouping controls logically under Tab, Window, App, and Sizing sections.
+- **Tab Shortcuts Grouping**: Relocated `New Tab` and `Reopen Tab` recorder rows directly under the `Tab` section alongside `Close Tab`, tying their UI enablement state to the "Enable Tab Shortcuts" toggle.
+- **WindowServer Frame Clamping Fix**: Enhanced `AccessibilityService.setFrame(_:for:)` to re-apply the position attribute immediately after sizing, ensuring windows shrinking or moving rightward/downward are not clamped to previous dimensions by WindowServer. Added tolerance for `kAXErrorCannotComplete` during rapid animations.
+- **Settings Defaults Restoration**: Fixed `GeneralSettingsPane.restoreDefaults` to properly reset `isQuitAppIfNoWindowsEnabled` to `false`.
+- **UI Label Modernization**: Renamed "Reasonable Size" to "Small and Center" across settings panes, gesture menus, and feedback overlays to more accurately convey the 60% centered window sizing action.
+
 ## 0.8.0 (2 Oct 2026) — The macOS 27 Migration Milestone
 
 This major release marks a transformative leap forward for MCSC, migrating the entire codebase from legacy **macOS 15 (Sequoia)** architectures directly to **macOS 27 (Golden Gate / Tahoe)** and targeting the **macOS 27 SDK** (`MACOSX_DEPLOYMENT_TARGET = 27.0`, `LSMinimumSystemVersion = 27.0`).
