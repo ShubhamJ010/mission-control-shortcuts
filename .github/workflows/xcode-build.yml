@@ -1,4 +1,4 @@
-name: Xcode - Build, Analyze and Test
+name: Xcode - Build and Analyze
 
 on:
   push:
@@ -34,11 +34,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Pin Xcode to match the local development toolchain
+      # Pin Xcode to match the local development toolchain (macOS 27 SDK)
       - name: Set Xcode Version
         uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: '26.0'
+          xcode-version: '27.0'
 
       - name: Set Default Scheme
         run: |
