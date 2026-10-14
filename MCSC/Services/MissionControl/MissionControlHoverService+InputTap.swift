@@ -15,6 +15,7 @@ extension MissionControlHoverService {
             | (1 << CGEventType.leftMouseDragged.rawValue)
             | (1 << CGEventType.leftMouseUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
+            | (1 << CGEventType.scrollWheel.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cghidEventTap,
@@ -106,6 +107,21 @@ extension MissionControlHoverService {
                 notifyDrag()
             } else {
                 DispatchQueue.main.async { notifyDrag() }
+            }
+            return event
+        }
+
+        if type == .scrollWheel {
+            let deltaX = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
+            if abs(deltaX) > 0.05 {
+                let notifyScroll = { [weak self] in
+                    self?.beginSpaceTransition()
+                }
+                if Thread.isMainThread {
+                    notifyScroll()
+                } else {
+                    DispatchQueue.main.async { notifyScroll() }
+                }
             }
             return event
         }

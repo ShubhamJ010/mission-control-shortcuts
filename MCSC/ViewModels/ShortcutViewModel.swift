@@ -41,6 +41,10 @@ final class ShortcutViewModel {
         missionControlService: missionControlService,
         spaceService: spaceService,
         animationStrategy: animationStrategy,
+        volumeService: volumeService,
+        isAutoEjectEnabledProvider: { [weak self] in
+            self?.config.isAutoEjectEnabled ?? false
+        },
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
         }
@@ -259,8 +263,7 @@ final class ShortcutViewModel {
             if touches.count >= 3 {
                 self.hadThreeOrMoreTouches = true
                 if self.hoverService.isMissionControlActive {
-                    self.hoverService.hideOverlay()
-                    self.hoverService.clearSearch()
+                    self.hoverService.beginSpaceTransition()
                 }
             }
 

@@ -39,7 +39,7 @@ enum MissionControlWindowActions {
         if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
            let owner = windowInfo[kCGWindowOwnerName as String] as? String,
            owner == "Finder" {
-            let script = "tell application \"Finder\" to close (every window whose id is \(windowID))"
+            let script = "tell application \"Finder\" to close window id \(windowID)"
             if let appleScript = NSAppleScript(source: script) {
                 var err: NSDictionary?
                 appleScript.executeAndReturnError(&err)
@@ -76,7 +76,7 @@ enum MissionControlWindowActions {
         if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
            let owner = windowInfo[kCGWindowOwnerName as String] as? String,
            owner == "Finder" {
-            let script = "tell application \"Finder\" to set collapsed of (every window whose id is \(windowID)) to true"
+            let script = "tell application \"Finder\" to set collapsed of window id \(windowID) to true"
             if let appleScript = NSAppleScript(source: script) {
                 var err: NSDictionary?
                 appleScript.executeAndReturnError(&err)

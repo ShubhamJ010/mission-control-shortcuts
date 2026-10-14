@@ -82,6 +82,9 @@ extension MissionControlHoverService {
         isMissionControlActive = false
         isDragging = false
         isMouseDown = false
+        isSpaceTransitioning = false
+        spaceTransitionTimeoutTimer?.invalidate()
+        spaceTransitionTimeoutTimer = nil
         lastKnownSpaceID = nil
         stopWindowFetchTimer()
         hideAllOverlays()

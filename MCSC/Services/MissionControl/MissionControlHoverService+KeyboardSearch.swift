@@ -65,6 +65,15 @@ extension MissionControlHoverService {
             return false // Pass through so WindowServer exits Mission Control
         }
 
+        // Space navigation keys: Ctrl + Left Arrow (123), Ctrl + Right Arrow (124), or Ctrl + 1..9
+        let isCtrlLeftOrRight = flags.contains(.maskControl) && (keyCode == 123 || keyCode == 124)
+        let isCtrlNumber = flags.contains(.maskControl) && ((keyCode >= 18 && keyCode <= 21) || keyCode == 23 || keyCode == 22 || keyCode == 26 || keyCode == 28 || keyCode == 25)
+        if isCtrlLeftOrRight || isCtrlNumber {
+            debugLog("Space switch key pressed (keyCode: \(keyCode)) - beginning space transition", category: AppLogger.missionControl)
+            beginSpaceTransition()
+            return false // Pass through to WindowServer to change space
+        }
+
         // Before consuming or routing any keystroke, verify that Mission Control is genuinely active.
         // If Mission Control was dismissed (via gesture, mouse click outside, space switch, etc.)
         // without an AX notification, tear down the keyboard session immediately and pass the event through.

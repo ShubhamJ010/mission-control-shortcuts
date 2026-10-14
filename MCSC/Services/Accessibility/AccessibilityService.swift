@@ -308,6 +308,10 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if let widNum: NSNumber = getAttributeValue(Self.axMissionControlWindowIDAttribute, for: el) {
                 return (el, CGWindowID(widNum.uint32Value))
             }
+            var axWid: CGWindowID = 0
+            if _AXUIElementGetWindow(el, &axWid) == .success, axWid > 0 {
+                return (el, axWid)
+            }
             var parent: CFTypeRef?
             guard AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
                   let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {

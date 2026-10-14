@@ -43,12 +43,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         DiagnosticService.shared.liveStateProvider = { [weak self] in
             guard let self, let vm = self.viewModel else { return [:] }
-            return [
+            var state: [String: Any] = [
                 "isMissionControlActive": vm.missionControlService.isMissionControlActive,
                 "isKeyboardNavigationEnabled": vm.config.isKeyboardNavigationEnabled,
                 "isAutoEjectEnabled": vm.config.isAutoEjectEnabled,
-                "isHoverTracking": vm.hoverService.isTracking
+                "isHoverTracking": vm.hoverService.isTracking,
+                "isHoverEnabled": vm.hoverService.isEnabled,
+                "isDragging": vm.hoverService.isDragging,
+                "trackedWindowsCount": vm.hoverService.trackedWindowsCount
             ]
+            if let hovered = vm.hoverService.currentHoveredWindow {
+                state["hoveredWindowOwner"] = hovered[kCGWindowOwnerName as String] as? String ?? ""
+                state["hoveredWindowID"] = hovered[kCGWindowNumber as String] as? CGWindowID ?? 0
+            }
+            if let frame = vm.hoverService.currentHoveredWindowFrame {
+                state["currentPreviewFrame"] = ["x": frame.origin.x, "y": frame.origin.y, "w": frame.width, "h": frame.height]
+            }
+            return state
         }
 
         // Build the status bar menu after the ViewModel exists so every toggle

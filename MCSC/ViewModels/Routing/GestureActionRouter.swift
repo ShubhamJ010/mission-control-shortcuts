@@ -60,23 +60,53 @@ final class GestureActionRouter {
         case (.swipeLeft, false): true
         default: false
         }
-        if shouldCheckEject,
-           isAutoEjectEnabled,
-           case let .window(window) = target,
-           let volumeService,
-           let targetApp = service.getAppFromElement(window),
-           targetApp.bundleIdentifier == "com.apple.finder",
-           let mountPath = volumeService.ejectableVolumePath(
-               forDocumentPath: service.getDocumentPath(for: window),
-               windowTitle: service.getWindowTitle(for: window)
-           ) {
-            return .execute(feedbackMode: .eject, haptic: haptic) { [weak self] in
-                self?.actions.ejectVolumeAction.perform(
-                    window: window,
-                    mountPath: mountPath,
-                    service: service,
-                    volumeService: volumeService
-                )
+        if shouldCheckEject, isAutoEjectEnabled, let volumeService {
+            switch target {
+            case let .window(window):
+                if let targetApp = service.getAppFromElement(window),
+                   targetApp.bundleIdentifier == "com.apple.finder",
+                   let mountPath = volumeService.ejectableVolumePath(
+                       forDocumentPath: service.getDocumentPath(for: window),
+                       windowTitle: service.getWindowTitle(for: window)
+                   ) {
+                    return .execute(feedbackMode: .eject, haptic: haptic) { [weak self] in
+                        self?.actions.ejectVolumeAction.perform(
+                            window: window,
+                            mountPath: mountPath,
+                            service: service,
+                            volumeService: volumeService
+                        )
+                    }
+                }
+            case let .missionControlPreview(windowInfo, _):
+                if let owner = windowInfo[kCGWindowOwnerName as String] as? String,
+                   owner == "Finder" {
+                    let docPath: String?
+                    let winTitle: String?
+                    if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                       let axWin = service.getWindow(forWindowID: windowID) {
+                        docPath = service.getDocumentPath(for: axWin)
+                        winTitle = service.getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
+                    } else {
+                        docPath = nil
+                        winTitle = windowInfo[kCGWindowName as String] as? String
+                    }
+                    if let mountPath = volumeService.ejectableVolumePath(
+                        forDocumentPath: docPath,
+                        windowTitle: winTitle
+                    ) {
+                        return .execute(feedbackMode: .eject, haptic: haptic) { [weak self] in
+                            self?.actions.ejectVolumeAction.perform(
+                                windowInfo: windowInfo,
+                                mountPath: mountPath,
+                                service: service,
+                                volumeService: volumeService
+                            )
+                        }
+                    }
+                }
+            case .dock, .none:
+                break
             }
         }
 

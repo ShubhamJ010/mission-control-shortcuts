@@ -16,4 +16,18 @@ struct EjectVolumeAction {
         // 2. Eject the mounted volume asynchronously
         volumeService.ejectVolume(at: mountPath) { _ in }
     }
+
+    func perform(
+        windowInfo: [String: Any],
+        mountPath: String,
+        service: AccessibilityServiceProtocol,
+        volumeService: MountedVolumeServiceProtocol
+    ) {
+        // 1. Close the Finder window using Mission Control action
+        MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: service)
+
+        // 2. Eject the mounted volume asynchronously
+        volumeService.ejectVolume(at: mountPath) { _ in }
+    }
 }
+

@@ -194,22 +194,58 @@ private extension ShortcutActionRouter {
         volumeService: MountedVolumeServiceProtocol?
     ) -> ResolvedShortcutAction? {
         guard config.isAutoEjectEnabled,
-              case let .window(window) = target,
               let volumeService,
-              matched.contains(.close) || matched.contains(.quit),
-              let targetApp = service.getAppFromElement(window),
+              matched.contains(.close) || matched.contains(.quit) else {
+            return nil
+        }
 
-              targetApp.bundleIdentifier == "com.apple.finder",
-              let mountPath = volumeService.ejectableVolumePath(
-                  forDocumentPath: service.getDocumentPath(for: window),
-                  windowTitle: service.getWindowTitle(for: window)
-              )
-        else { return nil }
-        return .consumeAndExecute(feedbackMode: .eject) { [weak self] in
-            guard let self else { return }
-            self.actions.ejectVolumeAction.perform(
-                window: window, mountPath: mountPath, service: service, volumeService: volumeService
-            )
+        switch target {
+        case let .window(window):
+            guard let targetApp = service.getAppFromElement(window),
+                  targetApp.bundleIdentifier == "com.apple.finder",
+                  let mountPath = volumeService.ejectableVolumePath(
+                      forDocumentPath: service.getDocumentPath(for: window),
+                      windowTitle: service.getWindowTitle(for: window)
+                  ) else {
+                return nil
+            }
+            return .consumeAndExecute(feedbackMode: .eject) { [weak self] in
+                guard let self else { return }
+                self.actions.ejectVolumeAction.perform(
+                    window: window, mountPath: mountPath, service: service, volumeService: volumeService
+                )
+            }
+
+        case let .missionControlPreview(windowInfo, _):
+            guard let owner = windowInfo[kCGWindowOwnerName as String] as? String,
+                  owner == "Finder" else {
+                return nil
+            }
+            let docPath: String?
+            let winTitle: String?
+            if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+               let axWin = service.getWindow(forWindowID: windowID) {
+                docPath = service.getDocumentPath(for: axWin)
+                winTitle = service.getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
+            } else {
+                docPath = nil
+                winTitle = windowInfo[kCGWindowName as String] as? String
+            }
+            guard let mountPath = volumeService.ejectableVolumePath(
+                forDocumentPath: docPath,
+                windowTitle: winTitle
+            ) else {
+                return nil
+            }
+            return .consumeAndExecute(feedbackMode: .eject) { [weak self] in
+                guard let self else { return }
+                self.actions.ejectVolumeAction.perform(
+                    windowInfo: windowInfo, mountPath: mountPath, service: service, volumeService: volumeService
+                )
+            }
+
+        case .dock, .none:
+            return nil
         }
     }
 

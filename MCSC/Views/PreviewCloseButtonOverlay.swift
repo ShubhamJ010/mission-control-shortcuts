@@ -37,6 +37,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         case minimize
         case quit
         case fullscreen
+        case eject
 
         /// SF Symbol name rendered by `NSImage(systemSymbolName:)`.
         var symbolName: String {
@@ -45,6 +46,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
             case .minimize: "minus.circle.fill"
             case .quit: "xmark.circle.fill"
             case .fullscreen: "arrow.down.left.and.arrow.up.right.circle.fill"
+            case .eject: "eject.circle.fill"
             }
         }
 
@@ -55,6 +57,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
             case .minimize: "Minimize Window"
             case .quit: "Force Quit"
             case .fullscreen: "Toggle Fullscreen"
+            case .eject: "Eject Volume"
             }
         }
 
@@ -66,6 +69,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
             case .minimize: [.black, .systemYellow]
             case .quit: [.white, .systemPurple]
             case .fullscreen: [.black, .systemGreen]
+            case .eject: [.white, .systemOrange]
             }
         }
     }
