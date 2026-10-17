@@ -57,7 +57,15 @@ struct ForceQuitAppAction {
 
 struct ReopenTabAppAction {
     func perform(app: NSRunningApplication) {
+        app.activate()
         KeyboardEventPoster.postShortcut(virtualKey: 0x11, flags: [.maskCommand, .maskShift], to: app.processIdentifier)
+    }
+}
+
+struct NewWindowAppAction {
+    func perform(app: NSRunningApplication) {
+        app.activate()
+        KeyboardEventPoster.postShortcut(virtualKey: 0x2D, flags: .maskCommand, to: app.processIdentifier)
     }
 }
 

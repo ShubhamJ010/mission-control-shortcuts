@@ -276,7 +276,7 @@ struct ShortcutConfiguration {
         (\.isCmdSpaceEnabled, Keys.cmdSpaceEnabled, true),
 
         (\.isKeyboardNavigationEnabled, Keys.keyboardNavigation, true),
-        (\.isTabShortcutsEnabled, Keys.tabShortcutsEnabled, true),
+        (\.isSmartTabCloseEnabled, Keys.smartTabCloseEnabled, true),
         (\.isDockActionsOutsideMCEnabled, Keys.dockActionsOutsideMC, false),
         (\.isTitleBarActionsOutsideMCEnabled, Keys.titleBarActionsOutsideMC, false),
         (\.isGesturesEnabled, Keys.gesturesEnabled, true),
@@ -413,22 +413,30 @@ struct ShortcutConfiguration {
         shortcutBindings[action]
     }
 
-    /// When `true`, shortcuts and gestures on the window tab strip close/reopen tabs.
-    /// When `false`, tab strip checks are bypassed and fallback window actions execute.
-    var isTabShortcutsEnabled = true {
-        didSet { UserDefaults.standard.set(isTabShortcutsEnabled, forKey: Self.Keys.tabShortcutsEnabled) }
+    /// When `true`, Close and Close Tab share a synchronized shortcut combination, and closing
+    /// tries the active tab first before closing the window.
+    /// When `false`, Close and Close Tab can be assigned separate, independent shortcuts.
+    var isSmartTabCloseEnabled = true {
+        didSet {
+            UserDefaults.standard.set(isSmartTabCloseEnabled, forKey: Self.Keys.smartTabCloseEnabled)
+            if isSmartTabCloseEnabled {
+                shortcutBindings[.closeTab] = shortcutBindings[.close]
+            }
+        }
     }
 
     /// Assigns (or clears) an action's combination and persists the change.
     ///
     /// Rules:
-    /// 1. `.close` and `.closeTab` are linked twins: changing or clearing one
+    /// 1. When `isSmartTabCloseEnabled` is true, `.close` and `.closeTab` are linked twins: changing or clearing one
     ///    automatically changes or clears the other.
-    /// 2. Except for `.close` and `.closeTab`, every shortcut combination must be
-    ///    unique across all actions. Assigning an existing combination to another
+    /// 2. When `isSmartTabCloseEnabled` is false, `.close` and `.closeTab` are independent actions with their own
+    /// bindings.
+    /// 3. Every shortcut combination must be unique across non-linked actions. Assigning an existing combination to
+    /// another
     ///    action unassigns it from its previous owner.
     mutating func setBinding(_ binding: ShortcutBinding?, for action: RoutedAction) {
-        if action == .close || action == .closeTab {
+        if isSmartTabCloseEnabled, action == .close || action == .closeTab {
             if let binding {
                 // Clear this combination from any other non-close action
                 for (otherAction, otherBinding) in shortcutBindings
@@ -447,9 +455,9 @@ struct ShortcutConfiguration {
         }
 
         if let binding {
-            // Displace any existing action claiming this binding (including close/closeTab)
+            // Displace any existing action claiming this binding (including close/closeTab if linked)
             for (otherAction, otherBinding) in shortcutBindings where otherBinding == binding {
-                if otherAction == .close || otherAction == .closeTab {
+                if isSmartTabCloseEnabled, otherAction == .close || otherAction == .closeTab {
                     shortcutBindings.removeValue(forKey: .close)
                     shortcutBindings.removeValue(forKey: .closeTab)
                 } else {
@@ -573,7 +581,7 @@ private extension ShortcutConfiguration {
                    movePreviousDesktopEnabled = "mcsc.shortcuts.movePreviousDesktop.enabled"
         /// Feature toggles
         static let keyboardNavigation = "mcsc.keyboardNavigation.enabled",
-                   tabShortcutsEnabled = "mcsc.tabShortcuts.enabled",
+                   smartTabCloseEnabled = "mcsc.shortcuts.smartTabCloseEnabled",
                    dockActionsOutsideMC = "mcsc.dockActionsOutsideMC.enabled",
                    titleBarActionsOutsideMC = "mcsc.titleBarActionsOutsideMC.enabled"
         /// Gestures

@@ -261,9 +261,11 @@ final class ShortcutViewModel {
             // Track 3+ finger contact (MC swipe up/down or space switch).
             // Instantly hide Mission Control close/search overlays so they don't linger during transitions.
             if touches.count >= 3 {
-                self.hadThreeOrMoreTouches = true
-                if self.hoverService.isMissionControlActive {
-                    self.hoverService.beginSpaceTransition()
+                if !self.hadThreeOrMoreTouches {
+                    self.hadThreeOrMoreTouches = true
+                    if self.hoverService.isMissionControlActive {
+                        self.hoverService.beginSpaceTransition(duration: 0.35)
+                    }
                 }
             }
 
@@ -276,6 +278,9 @@ final class ShortcutViewModel {
                 }
                 if self.hadThreeOrMoreTouches {
                     self.hadThreeOrMoreTouches = false
+                    if self.hoverService.isMissionControlActive {
+                        self.hoverService.beginSpaceTransition()
+                    }
                     // Multitouch gesture ended. If the user swiped up, Mission Control has opened;
                     // if swiped down, Mission Control has closed.
                     // Scan immediately and again after transition settles (~150ms).

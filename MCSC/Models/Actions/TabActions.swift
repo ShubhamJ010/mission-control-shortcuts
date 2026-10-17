@@ -7,6 +7,11 @@ struct ReopenTabAction: ShortcutAction {
 
         var pid: pid_t = 0
         guard AXUIElementGetPid(window, &pid) == .success else { return }
+        if let targetApp = NSRunningApplication(processIdentifier: pid) {
+            _ = service.activate(app: targetApp, window: window)
+        } else {
+            _ = service.focusWindow(window)
+        }
         KeyboardEventPoster.postShortcut(virtualKey: 0x11, flags: [.maskCommand, .maskShift], to: pid)
     }
 }
@@ -19,6 +24,11 @@ struct NewWindowAction: ShortcutAction {
 
         var pid: pid_t = 0
         guard AXUIElementGetPid(target, &pid) == .success else { return }
+        if let targetApp = NSRunningApplication(processIdentifier: pid) {
+            _ = service.activate(app: targetApp, window: target)
+        } else {
+            _ = service.focusWindow(target)
+        }
         KeyboardEventPoster.postShortcut(virtualKey: 0x2D, flags: .maskCommand, to: pid)
     }
 }
@@ -31,6 +41,11 @@ struct NewTabAction: ShortcutAction {
 
         var pid: pid_t = 0
         guard AXUIElementGetPid(target, &pid) == .success else { return }
+        if let targetApp = NSRunningApplication(processIdentifier: pid) {
+            _ = service.activate(app: targetApp, window: target)
+        } else {
+            _ = service.focusWindow(target)
+        }
         KeyboardEventPoster.postShortcut(virtualKey: 0x11, flags: .maskCommand, to: pid)
     }
 }

@@ -45,7 +45,7 @@ fi
 # 2. Build Release configuration
 echo "\n--- 2. Building Release configuration (macOS 27) ---"
 echo "Building scheme '$APP_NAME' with Release configuration (macOS 27 SDK)..."
-xcodebuild -project MCSC.xcodeproj -scheme "$APP_NAME" -configuration Release -derivedDataPath "$DERIVED_DATA_PATH" clean build
+xcodebuild -project MCSC.xcodeproj -scheme "$APP_NAME" -configuration Release -derivedDataPath "$DERIVED_DATA_PATH" CODE_SIGN_IDENTITY="-" clean build
 
 if [ ! -d "$BUILT_APP_PATH" ]; then
     echo "Error: Build succeeded but app binary was not found at: $BUILT_APP_PATH"

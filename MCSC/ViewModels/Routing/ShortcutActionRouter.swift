@@ -105,20 +105,29 @@ final class ShortcutActionRouter {
             target: target,
             hoverService: hoverService
         )
-        if includesShift {
-            if let action = routeShiftShortcut(matched: matched, target: target, context: context) {
-                return action
-            }
-        } else {
-            if let action = routeEjectIfNeeded(
-                matched: matched, config: config, target: target,
-                service: service, volumeService: volumeService
-            ) {
-                return action
-            }
-            if let action = routePureCmdShortcut(matched: matched, context: context) {
-                return action
-            }
+        if let action = routeEjectIfNeeded(
+            matched: matched, config: config, target: target,
+            service: service, volumeService: volumeService
+        ) {
+            return action
+        }
+        if let action = routeCoreShortcuts(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeWindowShortcuts(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeTabActions(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeWindowSizeActions(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeDesktopActions(matched: matched, context: context) {
+            return action
+        }
+        if let action = routeAppGroupActions(matched: matched, target: target, context: context) {
+            return action
         }
         return .ignore
     }
@@ -249,48 +258,79 @@ private extension ShortcutActionRouter {
         }
     }
 
-    /// Complexity note: the dispatch is split across `routePureCmdCoreShortcuts`
-    /// (close/quit/minimize/hide) and `routePureCmdWindowShortcuts`
-    /// (fullscreen/new tab/new window) to keep each function's cyclomatic
-    /// complexity under the SwiftLint budget. `matched` arrives in
-    /// `RoutedAction.routeOrder` precedence.
-    func routePureCmdShortcut(
+    private func routeCloseShortcut(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
-        if let action = routePureCmdCoreShortcuts(matched: matched, context: context) {
-            return action
-        }
-        return routePureCmdWindowShortcuts(matched: matched, context: context)
-    }
+        let targetScope: CloseScope
+        let feedback: CursorFeedbackOverlay.Mode
 
-    func routePureCmdCoreShortcuts(
-        matched: [RoutedAction],
-        context: Context
-    ) -> ResolvedShortcutAction? {
-        if matched.contains(.close) || (context.config.isTabShortcutsEnabled && matched.contains(.closeTab)) {
-            if case let .missionControlPreview(windowInfo, _) = context.target {
-                return context.execute(feedbackMode: .close) {
-                    if let hover = context.hoverService {
-                        Self.runOnMainActor {
-                            hover.executeAction(mode: .close, on: windowInfo)
-                        }
-                    } else {
-                        MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: context.service)
+        if context.config.isSmartTabCloseEnabled {
+            guard matched.contains(.close) || matched.contains(.closeTab) else { return nil }
+            targetScope = .smartClose
+            feedback = .close
+        } else if matched.contains(.closeTab) {
+            targetScope = .activeTab
+            feedback = .closeTab
+        } else if matched.contains(.close) {
+            targetScope = .window
+            feedback = .close
+        } else {
+            return nil
+        }
+
+        if case let .missionControlPreview(windowInfo, _) = context.target {
+            return context.execute(feedbackMode: feedback) {
+                let shouldTryTab: Bool
+                if targetScope == .activeTab {
+                    shouldTryTab = true
+                } else if targetScope == .smartClose {
+                    let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t
+                    let app = pid.flatMap { NSRunningApplication(processIdentifier: $0) }
+                    shouldTryTab = WindowCloser.isTabbedApplication(app)
+                } else {
+                    shouldTryTab = false
+                }
+
+                if shouldTryTab {
+                    MissionControlWindowActions.performCloseTab(
+                        on: windowInfo,
+                        accessibilityService: context.service
+                    )
+                } else if let hover = context.hoverService {
+                    Self.runOnMainActor {
+                        hover.executeAction(mode: .close, on: windowInfo)
                     }
+                } else {
+                    MissionControlWindowActions.performClose(
+                        on: windowInfo,
+                        accessibilityService: context.service
+                    )
                 }
             }
-            return context.execute(feedbackMode: .close, needsActivate: true) { [weak self] in
-                guard let self else { return }
-                let scope: CloseScope = context.config.isTabShortcutsEnabled ? .activeTab : .window
-                self.actions.close.perform(
-                    scope,
-                    at: context.location,
-                    fromApp: context.app,
-                    service: context.service,
-                    quitIfNoWindows: context.config.isQuitAppIfNoWindowsEnabled
-                )
-            }
+        }
+        return context.execute(feedbackMode: feedback, needsActivate: true) { [weak self] in
+            guard let self else { return }
+            // Architectural rule: Dock targeting (inside MC or outside MC) acts at the App level
+            // (all windows belonging to the app), while window previews and title bars act on a singular window.
+            let scope: CloseScope = (context.app != nil && targetScope == .window) ? .wholeApp : targetScope
+            self.actions.close.perform(
+                scope,
+                at: context.location,
+                fromApp: context.app,
+                service: context.service,
+                quitIfNoWindows: context.config.isQuitAppIfNoWindowsEnabled
+            )
+        }
+    }
+
+    /// Routes core lifecycle shortcuts (close, quit, minimize, hide) based on target resolution.
+    func routeCoreShortcuts(
+        matched: [RoutedAction],
+        context: Context
+    ) -> ResolvedShortcutAction? {
+        if let closeAction = routeCloseShortcut(matched: matched, context: context) {
+            return closeAction
         }
         if matched.contains(.quit) {
             if case let .missionControlPreview(windowInfo, _) = context.target {
@@ -352,7 +392,8 @@ private extension ShortcutActionRouter {
         return nil
     }
 
-    func routePureCmdWindowShortcuts(
+    /// Routes window-level chrome actions (fullscreen, new tab, new window).
+    func routeWindowShortcuts(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
@@ -380,12 +421,12 @@ private extension ShortcutActionRouter {
                 }
             }
         }
-        if context.config.isTabShortcutsEnabled, matched.contains(.newTab) {
+        if matched.contains(.newTab) {
             let mode: CursorFeedbackOverlay.Mode = (context.app != nil) ? .newWindow : .newTab
             return context.execute(feedbackMode: mode, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                if context.app != nil {
-                    self.actions.newWindowAction.perform(at: context.location, service: context.service)
+                if let app = context.app {
+                    self.actions.newWindowAppAction.perform(app: app)
                 } else {
                     self.actions.newTabAction.perform(at: context.location, service: context.service)
                 }
@@ -394,37 +435,21 @@ private extension ShortcutActionRouter {
         if matched.contains(.newWindow) {
             return context.execute(feedbackMode: .newWindow, needsActivate: true) { [weak self] in
                 guard let self else { return }
-                self.actions.newWindowAction.perform(at: context.location, service: context.service)
+                if let app = context.app {
+                    self.actions.newWindowAppAction.perform(app: app)
+                } else {
+                    self.actions.newWindowAction.perform(at: context.location, service: context.service)
+                }
             }
         }
         return nil
     }
 
-    private func routeShiftShortcut(
-        matched: [RoutedAction],
-        target: TargetResolution,
-        context: Context
-    ) -> ResolvedShortcutAction? {
-        if let action = routeShiftTabActions(matched: matched, context: context) {
-            return action
-        }
-        if let action = routeShiftAppGroupActions(matched: matched, target: target, context: context) {
-            return action
-        }
-        if let action = routeShiftWindowSizeActions(matched: matched, context: context) {
-            return action
-        }
-        if let action = routeShiftDesktopActions(matched: matched, context: context) {
-            return action
-        }
-        return nil
-    }
-
-    private func routeShiftTabActions(
+    /// Routes tab-level actions (reopen tab).
+    func routeTabActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
-        guard context.config.isTabShortcutsEnabled else { return nil }
         if matched.contains(.reopenTab) {
             return context.execute(feedbackMode: .reopenTab, needsActivate: true) { [weak self] in
                 guard let self else { return }
@@ -438,23 +463,23 @@ private extension ShortcutActionRouter {
         return nil
     }
 
-    /// Complexity note: split across `routeShiftFillActions` (fill/almost) and
-    /// `routeShiftResizeActions` (reasonable/larger/smaller) to keep each
-    /// function's cyclomatic complexity under the SwiftLint budget.
-    func routeShiftWindowSizeActions(
+    /// Complexity note: split across `routeFillActions` (fill/almost),
+    /// `routeSnapActions` (cycle snaps), and `routeResizeActions` (reasonable/larger/smaller)
+    /// to keep each function's cyclomatic complexity under the SwiftLint budget.
+    func routeWindowSizeActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
-        if let action = routeShiftFillActions(matched: matched, context: context) {
+        if let action = routeFillActions(matched: matched, context: context) {
             return action
         }
-        if let action = routeShiftSnapActions(matched: matched, context: context) {
+        if let action = routeSnapActions(matched: matched, context: context) {
             return action
         }
-        return routeShiftResizeActions(matched: matched, context: context)
+        return routeResizeActions(matched: matched, context: context)
     }
 
-    func routeShiftSnapActions(
+    func routeSnapActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
@@ -510,7 +535,7 @@ private extension ShortcutActionRouter {
         return nil
     }
 
-    func routeShiftFillActions(
+    func routeFillActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
@@ -559,7 +584,7 @@ private extension ShortcutActionRouter {
         return nil
     }
 
-    func routeShiftResizeActions(
+    func routeResizeActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {
@@ -632,7 +657,7 @@ private extension ShortcutActionRouter {
     /// Minimize/Unminimize *all* windows of the hovered app. The target may be
     /// either its Dock icon or any of its windows — both resolve to the owning
     /// application, since the effect is app-wide rather than per-window.
-    private func routeShiftAppGroupActions(
+    func routeAppGroupActions(
         matched: [RoutedAction],
         target: TargetResolution,
         context: Context
@@ -671,7 +696,7 @@ private extension ShortcutActionRouter {
         return nil
     }
 
-    private func routeShiftDesktopActions(
+    func routeDesktopActions(
         matched: [RoutedAction],
         context: Context
     ) -> ResolvedShortcutAction? {

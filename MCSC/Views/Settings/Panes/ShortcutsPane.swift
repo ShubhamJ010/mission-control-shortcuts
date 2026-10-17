@@ -8,7 +8,7 @@ final class ShortcutsPane: MCSCSettingsPane {
     /// Recorder fields keyed by the action they configure. `refresh()` reads
     /// state back into these.
     private var recorders: [RoutedAction: ShortcutRecorderField] = [:]
-    private var tabShortcutsCheckbox: NSButton?
+    private var smartTabCloseCheckbox: NSButton?
 
     override func loadView() {
         view = NSView()
@@ -25,14 +25,15 @@ final class ShortcutsPane: MCSCSettingsPane {
         refresh()
     }
 
-    /// Tab section: gates tab-targeted shortcuts when hovering a tab strip.
+    /// Tab section: tab-targeted shortcuts and smart tab closing.
     private func buildTabSection(on layoutView: SettingsLayoutView) {
         let tabSection = layoutView.addColumnSection(label: "Tab", itemColumnMaximumWidth: 340)
-        tabShortcutsCheckbox = tabSection.addDescribedCheckbox(
-            title: "Enable Tab Shortcuts",
-            description: "When enabled, hovering a window's tab strip uses tab-targeted shortcuts instead of closing the entire window.",
+        smartTabCloseCheckbox = tabSection.addDescribedCheckbox(
+            title: "Close Tab Before Window",
+            description: "When enabled, Close Window and Close Tab share a shortcut and try closing tabs first. "
+                + "When disabled, both actions can have separate shortcuts.",
             target: self,
-            action: #selector(toggleTabShortcuts(_:))
+            action: #selector(toggleSmartTabClose(_:))
         )
 
         recorders[.closeTab] = addShortcutRow(
@@ -133,23 +134,15 @@ final class ShortcutsPane: MCSCSettingsPane {
     }
 
     override func refresh() {
-        tabShortcutsCheckbox?.state = viewModel.isTabShortcutsEnabled ? .on : .off
-        updateTabRecordersEnabledState()
+        smartTabCloseCheckbox?.state = viewModel.isSmartTabCloseEnabled ? .on : .off
         for (action, recorder) in recorders {
             recorder.binding = viewModel.config.binding(for: action)
         }
     }
 
-    @objc private func toggleTabShortcuts(_ sender: NSButton) {
-        viewModel.isTabShortcutsEnabled = sender.state == .on
-        updateTabRecordersEnabledState()
-    }
-
-    private func updateTabRecordersEnabledState() {
-        let isEnabled = viewModel.isTabShortcutsEnabled
-        recorders[.closeTab]?.isEnabled = isEnabled
-        recorders[.reopenTab]?.isEnabled = isEnabled
-        recorders[.newTab]?.isEnabled = isEnabled
+    @objc private func toggleSmartTabClose(_ sender: NSButton) {
+        viewModel.isSmartTabCloseEnabled = sender.state == .on
+        refresh()
     }
 }
 

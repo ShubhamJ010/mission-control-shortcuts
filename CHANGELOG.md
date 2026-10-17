@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.2 (18 Oct 2026)
+
+- **Unified Shortcut Routing Across Modifiers**: Fixed an issue in `ShortcutActionRouter` where window sizing shortcuts (`Fill Screen`, `Small and Center`, `Larger`, `Smaller`, `Left Cycle Snap`, `Right Cycle Snap`) and desktop navigation (`Next Desktop`, `Previous Desktop`) failed to trigger when assigned without Shift (e.g. `⌘ Return`, `⌘ '`, `⌘ =`, `⌘ -`, `⌘ ←`, `⌘ →`, `⌘ L`, `⌘ K`). Decomposed and unified action dispatch so all configured actions route reliably with or without Shift.
+- **Desktop Navigation Grab Point Calibration**: Refined the synthetic cursor grab location in `MoveWindowToDesktopAction` (`DesktopNavigationActions.swift`) when dragging a window between Spaces. The synthetic cursor dynamically resolves the window's traffic lights via Accessibility and grabs directly to the right of the green zoom/fullscreen button (`maxX + 5`), centered vertically in the title bar. This resolves cursor misplacement on the far-left border and avoids window resize handles without overlapping controls.
+- **Decoupled Tab Actions & Smart Tab Closing**: Replaced legacy `isTabShortcutsEnabled` with `isSmartTabCloseEnabled`. When enabled, `Close Tab` and `Close Window` share the same shortcut; when disabled, users can bind `Close Tab`, `New Tab`, and `Reopen Tab` independently. Enforced strict `TargetingScope` resolution (`.singular` for windows/tabs, `.wholeApp` for Dock icons) and added `NewWindowAppAction` with foreground process activation before shortcut posting.
+- **Mission Control Two-Finger Swipe & Multi-Space Isolation**: Restored two-finger trackpad swipe gestures in Mission Control by decoupling trackpad hardware deltas from Space transition suppression, while maintaining strict macOS 27 SkyLight multi-display Space isolation (`CGSMainConnectionID`, `CGSCopySpacesForWindows`).
+
 ## 0.8.1 (2 Oct 2026)
 
 - **Consolidated Window Cycle Snapping**: Replaced discrete half and third snap actions with `LeftCycleSnap` and `RightCycleSnap`. Cycling naturally sequences from Half Screen (50%) to Two-Thirds (66.6%) to One-Third (33.3%), with automatic memory and reset hysteresis (2.5 seconds) or current-frame inspection.

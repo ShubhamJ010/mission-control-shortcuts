@@ -1,10 +1,6 @@
 import ApplicationServices
 import Cocoa
 
-@_silgen_name("_AXUIElementGetWindow")
-@discardableResult
-func _AXUIElementGetWindow(_ element: AXUIElement, _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
-
 @MainActor
 protocol MissionControlHoverServiceProtocol: AnyObject {
     var isEnabled: Bool { get set }
@@ -23,6 +19,7 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
     func handleDeactivated()
     func clearSearch()
     func beginSpaceTransition()
+    func beginSpaceTransition(duration: TimeInterval)
 
     /// Resolves the Mission Control preview window metadata under `point`,
     /// honoring space isolation and active preview hysteresis.
@@ -31,6 +28,12 @@ protocol MissionControlHoverServiceProtocol: AnyObject {
     /// Executes an action (close, minimize, quit, fullscreen) on a Mission Control preview window,
     /// cleaning up the hover state and updating active window records.
     func executeAction(mode: PreviewCloseButtonOverlay.Mode, on windowInfo: [String: Any])
+}
+
+extension MissionControlHoverServiceProtocol {
+    func beginSpaceTransition() {
+        beginSpaceTransition(duration: 0.35)
+    }
 }
 
 @MainActor
@@ -163,7 +166,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
     /// The action the hover button currently represents, derived from held
     /// modifiers: Cmd → force quit, Option → minimize, Control → fullscreen,
-    /// neither → close (or eject if hovering an ejectable volume Finder window). Cmd takes precedence when several are held.
+    /// neither → close (or eject if hovering an ejectable volume Finder window). Cmd takes precedence when several are
+    /// held.
     var currentOverlayMode: PreviewCloseButtonOverlay.Mode {
         if isCmdHeld {
             return .quit
@@ -194,7 +198,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
            let axWin = accessibilityService.getWindow(forWindowID: windowID) {
             docPath = accessibilityService.getDocumentPath(for: axWin)
-            winTitle = accessibilityService.getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
+            winTitle = accessibilityService
+                .getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
         } else {
             docPath = nil
             winTitle = windowInfo[kCGWindowName as String] as? String
@@ -278,25 +283,34 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     /// Suppresses overlays during in-flight space transitions (swipes or Ctrl+Arrow/Number keys).
-    func beginSpaceTransition() {
+    func beginSpaceTransition(duration: TimeInterval = 0.35) {
+        if !isSpaceTransitioning {
+            isSpaceTransitioning = true
+            hideAllOverlays()
+            clearSearch()
+            hoveredWindow = nil
+            currentPreviewFrame = nil
+            overlayRect = nil
+        }
         spaceTransitionTimeoutTimer?.invalidate()
-        isSpaceTransitioning = true
-        hideAllOverlays()
-        clearSearch()
-        armSpaceTransitionTimeout()
+        armSpaceTransitionTimeout(duration: duration)
     }
 
-    private func armSpaceTransitionTimeout() {
-        spaceTransitionTimeoutTimer = Timer.scheduledTimer(withTimeInterval: 0.6, repeats: false) { [weak self] _ in
-            MainActor.assumeIsolated {
-                guard let self else { return }
-                self.isSpaceTransitioning = false
-                self.spaceTransitionTimeoutTimer = nil
-                if self.isMissionControlActive, let loc = CGEvent(source: nil)?.location {
-                    self.updateOverlay(at: loc)
+    private func armSpaceTransitionTimeout(duration: TimeInterval = 0.35) {
+        spaceTransitionTimeoutTimer = Timer
+            .scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.isSpaceTransitioning = false
+                    self.spaceTransitionTimeoutTimer = nil
+                    if self.isMissionControlActive {
+                        self.fetchWindows()
+                        if let loc = CGEvent(source: nil)?.location {
+                            self.updateOverlay(at: loc)
+                        }
+                    }
                 }
             }
-        }
     }
 
     // MARK: - Dock AXObserver & Input Event Tap live in the `+Observers` /
@@ -384,30 +398,45 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         }
     }
 
+    /// Fetches and filters the active window list for Mission Control tracking.
+    ///
+    /// ## macOS 27 WindowManager Multi-Space Isolation
+    /// On macOS 27+, `com.apple.WindowManager` manages Mission Control at Layer 19.
+    /// Crucially, its AX accessibility hierarchy retains preview tiles (`AXButton` elements
+    /// with a `"wid"` attribute) for **all desktop spaces simultaneously** at their virtual
+    /// desktop layout coordinates.
+    ///
+    /// If off-space windows are included in `windows`, `accessibilityService.getMissionControlPreviewTile`
+    /// will hit-test and match ghost preview tiles from inactive spaces (e.g. hovering over Desktop 2
+    /// hitting a Desktop 1 Ghostty window thumbnail).
+    ///
+    /// To ensure strict space isolation:
+    /// 1. Only windows where `spaceService.isWindowOnCurrentSpace(windowID:) == true` are tracked.
+    /// 2. Windows with no explicit space assignment (empty space IDs) belong to all spaces (e.g. floating Finder or
+    /// panels).
+    /// 3. Layers 0 through 3 are captured so floating utility and tool windows on secondary spaces are retained.
     func fetchWindows() {
         // Frozen by `_testSeedWindows` in unit tests so assertions are
         // deterministic regardless of the host's real window list.
         guard !isTestSeedingEnabled else { return }
 
         guard let list = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
+            [.optionAll, .excludeDesktopElements],
             kCGNullWindowID
         ) as? [[String: Any]] else {
             return
         }
 
         let filtered = list.filter { window in
-            guard let layer = window[kCGWindowLayer as String] as? Int, layer == 0,
+            guard let layer = window[kCGWindowLayer as String] as? Int, layer >= 0, layer <= 3,
                   let owner = window[kCGWindowOwnerName as String] as? String,
-                  owner != "Dock", owner != "MCSC", owner != "Window Server", owner != "WindowManager" else {
+                  owner != "Dock", owner != "MCSC", owner != "Window Server", owner != "WindowManager",
+                  let wid = window[kCGWindowNumber as String] as? CGWindowID,
+                  spaceService.isWindowOnCurrentSpace(windowID: wid) else {
                 return false
             }
             if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],
                let w = bounds["Width"], let h = bounds["Height"], w >= 100, h >= 100 {
-                if let wid = window[kCGWindowNumber as String] as? CGWindowID,
-                   !spaceService.isWindowOnCurrentSpace(windowID: wid) {
-                    return false
-                }
                 return true
             }
             return false
@@ -543,7 +572,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         // 0. Space tracking: detect space transitions occurring while inside Mission Control
         if let currentSpace = spaceService.currentSpaceID() {
             if let last = lastKnownSpaceID, last != currentSpace {
-                handleSpaceChange(at: mouseLocation)
+                lastKnownSpaceID = currentSpace
+                beginSpaceTransition(duration: 0.35)
                 return
             }
             lastKnownSpaceID = currentSpace
@@ -570,11 +600,13 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         if let currentPreviewFrame, currentPreviewFrame.contains(mouseLocation),
            let hovered = hoveredWindow,
            let wid = hovered[kCGWindowNumber as String] as? CGWindowID,
-           isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid) {
+           isTestSeedingEnabled ||
+           (spaceService.isWindowOnCurrentSpace(windowID: wid) && windows
+               .contains(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid })) {
             return
         }
 
-        // If there are no windows on the active desktop, never show the preview close overlay.
+        // If there are no windows tracked on this space, never show the preview close overlay.
         if windows.isEmpty, !isTestSeedingEnabled {
             hideCloseOverlay()
             return
@@ -582,13 +614,17 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
         // 3. macOS 27: Resolve the preview tile via Accessibility
         // (WindowManager exposes AXButton preview tiles with their exact visual frame and "wid" attribute).
+        // Candidate windows are strictly constrained to `currentWindowIDs` (active space only)
+        // to prevent matching off-screen/masked preview buttons belonging to other spaces.
         let currentWindowIDs = Set(windows.compactMap { $0[kCGWindowNumber as String] as? CGWindowID })
         if let (tileElement, wid) = accessibilityService.getMissionControlPreviewTile(
             at: mouseLocation,
             matchingWindowIDs: currentWindowIDs
         ) {
+            // Defense-in-depth: guarantee candidate belongs to active desktop space before showing overlay.
             guard isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid),
-                  let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) else {
+                  let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid })
+            else {
                 hideCloseOverlay()
                 return
             }
@@ -603,29 +639,26 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             }
         }
 
-        // 4. Fallback: match cursor against active desktop windows when AX preview tile resolution is unavailable
-        for windowInfo in windows {
-            guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
-                  let x = boundsDict["X"],
-                  let y = boundsDict["Y"],
-                  let width = boundsDict["Width"],
-                  let height = boundsDict["Height"] else {
-                continue
-            }
-
-            let windowFrame = CGRect(x: x, y: y, width: width, height: height)
-
-            if windowFrame.contains(mouseLocation) {
-                if let wid = windowInfo[kCGWindowNumber as String] as? CGWindowID,
-                   !isTestSeedingEnabled,
-                   !spaceService.isWindowOnCurrentSpace(windowID: wid) {
+        // 4. Test-seeding support: when window list is seeded via _testSeedWindows in unit test harnesses
+        if isTestSeedingEnabled {
+            for windowInfo in windows {
+                guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                      let x = boundsDict["X"],
+                      let y = boundsDict["Y"],
+                      let width = boundsDict["Width"],
+                      let height = boundsDict["Height"] else {
                     continue
                 }
-                hoveredWindow = windowInfo
-                currentPreviewFrame = windowFrame
-                overlay.show(for: windowFrame, mode: currentOverlayMode)
-                overlayRect = overlay.currentAXRect
-                return
+
+                let windowFrame = CGRect(x: x, y: y, width: width, height: height)
+
+                if windowFrame.contains(mouseLocation) {
+                    hoveredWindow = windowInfo
+                    currentPreviewFrame = windowFrame
+                    overlay.show(for: windowFrame, mode: currentOverlayMode)
+                    overlayRect = overlay.currentAXRect
+                    return
+                }
             }
         }
 
@@ -683,7 +716,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         if let currentPreviewFrame, currentPreviewFrame.contains(point),
            let hovered = hoveredWindow,
            let wid = hovered[kCGWindowNumber as String] as? CGWindowID,
-           isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid) {
+           isTestSeedingEnabled ||
+           (spaceService.isWindowOnCurrentSpace(windowID: wid) && windows
+               .contains(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid })) {
             return (hovered, wid)
         }
 
@@ -700,7 +735,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             matchingWindowIDs: currentWindowIDs
         ) {
             guard isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid),
-                  let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid }) else {
+                  let winInfo = windows.first(where: { ($0[kCGWindowNumber as String] as? CGWindowID) == wid })
+            else {
                 return nil
             }
             let frame = accessibilityService.getFrame(for: tileElement) ?? .zero
@@ -711,38 +747,52 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
             return (winInfo, wid)
         }
 
-        // Fallback: match cursor against active desktop windows when AX preview tile resolution is unavailable
-        for windowInfo in windows {
-            guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
-                  let x = boundsDict["X"], let y = boundsDict["Y"],
-                  let width = boundsDict["Width"], let height = boundsDict["Height"] else {
-                continue
-            }
-            let windowFrame = CGRect(x: x, y: y, width: width, height: height)
-            if windowFrame.contains(point), let wid = windowInfo[kCGWindowNumber as String] as? CGWindowID {
-                guard isTestSeedingEnabled || spaceService.isWindowOnCurrentSpace(windowID: wid) else {
+        if isTestSeedingEnabled {
+            for windowInfo in windows {
+                guard let boundsDict = windowInfo[kCGWindowBounds as String] as? [String: CGFloat],
+                      let x = boundsDict["X"], let y = boundsDict["Y"],
+                      let width = boundsDict["Width"], let height = boundsDict["Height"] else {
                     continue
                 }
-                hoveredWindow = windowInfo
-                currentPreviewFrame = windowFrame
-                return (windowInfo, wid)
+                let windowFrame = CGRect(x: x, y: y, width: width, height: height)
+                if windowFrame.contains(point), let wid = windowInfo[kCGWindowNumber as String] as? CGWindowID {
+                    hoveredWindow = windowInfo
+                    currentPreviewFrame = windowFrame
+                    return (windowInfo, wid)
+                }
             }
         }
 
         return nil
     }
 
+    private func performCloseWindow(on windowInfo: [String: Any]) {
+        var closedNatively = false
+        let targetWid = windowInfo[kCGWindowNumber as String] as? CGWindowID
+        if let frame = currentPreviewFrame,
+           let (tileElement, _) = accessibilityService.getMissionControlPreviewTile(
+               at: CGPoint(x: frame.midX, y: frame.midY),
+               matchingWindowIDs: targetWid.map { Set([$0]) }
+           ),
+           let nativeButton = accessibilityService.getPreviewCloseButton(for: tileElement) {
+            closedNatively = accessibilityService.performAction(kAXPressAction, on: nativeButton)
+        }
+        if !closedNatively {
+            MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: accessibilityService)
+        }
+    }
+
     func executeAction(mode: PreviewCloseButtonOverlay.Mode, on windowInfo: [String: Any]) {
         switch mode {
         case .close:
-            MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: accessibilityService)
+            performCloseWindow(on: windowInfo)
             if isAutoEjectEnabledProvider(),
                let mountPath = ejectableMountPath(for: windowInfo),
                let volumeService {
                 volumeService.ejectVolume(at: mountPath) { _ in }
             }
         case .eject:
-            MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: accessibilityService)
+            performCloseWindow(on: windowInfo)
             if let mountPath = ejectableMountPath(for: windowInfo),
                let volumeService {
                 volumeService.ejectVolume(at: mountPath) { _ in }

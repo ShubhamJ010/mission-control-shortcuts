@@ -4,10 +4,12 @@ import Cocoa
 ///
 /// - `activeTab`: the selected tab of one window (⌘W / gesture closeTab).
 /// - `window`: one whole window via its red traffic-light button.
+/// - `smartClose`: tries active tab first if present; otherwise closes window.
 /// - `wholeApp`: every window of an app (Dock-triggered close).
 enum CloseScope {
     case activeTab
     case window
+    case smartClose
     case wholeApp
 }
 
@@ -17,9 +19,11 @@ enum CloseScope {
 /// quartet whose cursor-vs-Dock branching was duplicated
 /// across routers.
 ///
-/// Targeting rule: a non-nil `app` means the trigger was a Dock icon, so the
-/// app's key window (or full window list) is acted on; otherwise the hovered
-/// window under `point` is resolved through accessibility.
+/// Targeting rule (see `docs/TARGETING_SCOPES.md`):
+/// - Dock target (inside or outside MC) represents App Level: window close acts on all windows
+///   of the app (`.wholeApp`), while tab close acts on its key window's active tab.
+/// - Window preview and Title bar represent Singular Level: actions target only the specific
+///   window (`.window`) or its active tab (`.activeTab`).
 struct WindowCloser {
     /// Virtual key code for "W" — used by ⌘W fallback keystroke.
     private static let keyW: CGKeyCode = 0x0D
@@ -36,12 +40,25 @@ struct WindowCloser {
             closeActiveTab(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .window:
             closeWindow(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
+        case .smartClose:
+            closeSmart(at: point, fromApp: app, service: service, quitIfNoWindows: quitIfNoWindows)
         case .wholeApp:
             closeAllWindows(of: app, service: service)
         }
     }
 
     // MARK: - Scopes
+
+    static let tabbedBundleSubstrings = [
+        "safari", "chrome", "firefox", "zen", "brave", "edge", "arc",
+        "opera", "vivaldi", "terminal", "iterm", "ghostty", "alacritty",
+        "warp", "kitty", "xcode", "code", "sublime"
+    ]
+
+    static func isTabbedApplication(_ app: NSRunningApplication?) -> Bool {
+        guard let bundleId = app?.bundleIdentifier?.lowercased() else { return false }
+        return tabbedBundleSubstrings.contains { bundleId.contains($0) }
+    }
 
     private func closeActiveTab(
         at point: CGPoint,
@@ -63,6 +80,7 @@ struct WindowCloser {
                 return
             }
 
+            _ = service.activate(app: app, window: nil)
             KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: app.processIdentifier)
         } else {
             guard let element = service.getElement(at: point),
@@ -73,13 +91,58 @@ struct WindowCloser {
                 return
             }
 
-            // Steer the fallback keystroke at the hovered window, not the app's
-            // previously focused key window. Best-effort focus.
-            _ = service.focusWindow(window)
-
             var pid: pid_t = 0
             guard AXUIElementGetPid(window, &pid) == .success else { return }
+            if let targetApp = NSRunningApplication(processIdentifier: pid) {
+                _ = service.activate(app: targetApp, window: window)
+            } else {
+                _ = service.focusWindow(window)
+            }
             KeyboardEventPoster.postShortcut(virtualKey: Self.keyW, flags: .maskCommand, to: pid)
+        }
+    }
+
+    private func closeSmart(
+        at point: CGPoint,
+        fromApp app: NSRunningApplication?,
+        service: AccessibilityServiceProtocol,
+        quitIfNoWindows: Bool
+    ) {
+        if let app {
+            if quitIfNoWindows, fallbackQuitIfNoWindows(for: app, service: service) {
+                return
+            }
+
+            let appElement = service.appElement(for: app)
+            if let keyWindow: AXUIElement = service.getAttributeValue(kAXFocusedWindowAttribute, for: appElement),
+               let closeButton = service.findActiveTabCloseButton(in: keyWindow) {
+                _ = service.performAction(kAXPressAction, on: closeButton)
+                return
+            }
+
+            if WindowCloser.isTabbedApplication(app) {
+                closeActiveTab(at: point, fromApp: app, service: service, quitIfNoWindows: false)
+            } else {
+                closeWindow(at: point, fromApp: app, service: service, quitIfNoWindows: false)
+            }
+        } else {
+            guard let element = service.getElement(at: point),
+                  let window = service.getWindow(for: element) else { return }
+
+            if let closeButton = service.findActiveTabCloseButton(in: window) {
+                _ = service.performAction(kAXPressAction, on: closeButton)
+                return
+            }
+
+            var pid: pid_t = 0
+            if AXUIElementGetPid(window, &pid) == .success,
+               let targetApp = NSRunningApplication(processIdentifier: pid),
+               WindowCloser.isTabbedApplication(targetApp) {
+                closeActiveTab(at: point, fromApp: nil, service: service, quitIfNoWindows: false)
+                return
+            }
+
+            pressRedCloseButton(of: window, service: service)
         }
     }
 

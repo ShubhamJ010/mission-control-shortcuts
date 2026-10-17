@@ -57,7 +57,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 state["hoveredWindowID"] = hovered[kCGWindowNumber as String] as? CGWindowID ?? 0
             }
             if let frame = vm.hoverService.currentHoveredWindowFrame {
-                state["currentPreviewFrame"] = ["x": frame.origin.x, "y": frame.origin.y, "w": frame.width, "h": frame.height]
+                state["currentPreviewFrame"] = [
+                    "x": frame.origin.x,
+                    "y": frame.origin.y,
+                    "w": frame.width,
+                    "h": frame.height
+                ]
             }
             return state
         }

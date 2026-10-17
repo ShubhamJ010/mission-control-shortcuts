@@ -10,12 +10,15 @@ extension MissionControlHoverService {
     func startInputTap() {
         guard eventTap == nil else { return }
 
+        // NOTE: CGEventType.scrollWheel is explicitly EXCLUDED from this mask.
+        // On macOS, all two-finger trackpad gestures (swipes, pinches, double taps) emit
+        // scrollWheel events with horizontal/vertical deltas. Intercepting scrollWheel here
+        // would falsely trigger space transition suppression and break two-finger gesture routing.
         let mask = (1 << CGEventType.mouseMoved.rawValue)
             | (1 << CGEventType.leftMouseDown.rawValue)
             | (1 << CGEventType.leftMouseDragged.rawValue)
             | (1 << CGEventType.leftMouseUp.rawValue)
             | (1 << CGEventType.flagsChanged.rawValue)
-            | (1 << CGEventType.scrollWheel.rawValue)
 
         guard let tap = CGEvent.tapCreate(
             tap: .cghidEventTap,
@@ -107,21 +110,6 @@ extension MissionControlHoverService {
                 notifyDrag()
             } else {
                 DispatchQueue.main.async { notifyDrag() }
-            }
-            return event
-        }
-
-        if type == .scrollWheel {
-            let deltaX = event.getDoubleValueField(.scrollWheelEventDeltaAxis2)
-            if abs(deltaX) > 0.05 {
-                let notifyScroll = { [weak self] in
-                    self?.beginSpaceTransition()
-                }
-                if Thread.isMainThread {
-                    notifyScroll()
-                } else {
-                    DispatchQueue.main.async { notifyScroll() }
-                }
             }
             return event
         }

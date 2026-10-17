@@ -2,6 +2,10 @@ import ApplicationServices
 import Cocoa
 import os
 
+@_silgen_name("_AXUIElementGetWindow")
+@discardableResult
+func _AXUIElementGetWindow(_ element: AXUIElement, _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
+
 /// Abstraction over the macOS Accessibility (AX) API so higher layers can be
 /// unit-tested with a mock. All methods use Quartz screen coordinates
 /// (origin at the top-left of the primary display) unless noted otherwise.
@@ -29,6 +33,9 @@ protocol AccessibilityServiceProtocol {
 
     /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
     func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect?
+
+    /// Resolves the native close button AXUIElement in a Mission Control preview tile, if present.
+    func getPreviewCloseButton(for tileElement: AXUIElement) -> AXUIElement?
 
     /// Performs a named AX action (e.g. `kAXPressAction`) on `element`.
     /// Returns `true` if the action was accepted by the target app.
@@ -308,10 +315,6 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if let widNum: NSNumber = getAttributeValue(Self.axMissionControlWindowIDAttribute, for: el) {
                 return (el, CGWindowID(widNum.uint32Value))
             }
-            var axWid: CGWindowID = 0
-            if _AXUIElementGetWindow(el, &axWid) == .success, axWid > 0 {
-                return (el, axWid)
-            }
             var parent: CFTypeRef?
             guard AXUIElementCopyAttributeValue(el, kAXParentAttribute as CFString, &parent) == .success,
                   let parent, CFGetTypeID(parent) == AXUIElementGetTypeID() else {
@@ -343,19 +346,6 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                         return preview
                     }
                 } else {
-                    return preview
-                }
-            }
-
-            // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
-            // If the element hit-tested at point belongs to another space or was masked,
-            // scan WindowManager's preview tiles to find the matching tile on the active desktop.
-            if let matchingWindowIDs {
-                if let preview = findMatchingPreviewTile(
-                    in: wmElement,
-                    at: point,
-                    matchingWindowIDs: matchingWindowIDs
-                ) {
                     return preview
                 }
             }
@@ -392,45 +382,10 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return nil
     }
 
-    private func findMatchingPreviewTile(
-        in parent: AXUIElement,
-        at point: CGPoint,
-        matchingWindowIDs: Set<CGWindowID>,
-        depth: Int = 0,
-        maxDepth: Int = 8
-    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
-        guard depth < maxDepth else { return nil }
-        var childrenRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(parent, kAXChildrenAttribute as CFString, &childrenRef) == .success,
-              let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
-              let children = childrenRef as? [AXUIElement] else {
-            return nil
-        }
-        for child in children {
-            if let preview = getMissionControlPreviewTile(for: child),
-               matchingWindowIDs.contains(preview.windowID) {
-                if let frame = getFrame(for: child), frame.contains(point) {
-                    return preview
-                }
-            }
-            if let found = findMatchingPreviewTile(
-                in: child,
-                at: point,
-                matchingWindowIDs: matchingWindowIDs,
-                depth: depth + 1,
-                maxDepth: maxDepth
-            ) {
-                return found
-            }
-        }
-        return nil
-    }
-
-    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
-    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect? {
-        if let closeBtn: AXUIElement = getAttributeValue(kAXCloseButtonAttribute, for: tileElement),
-           let frame = getFrame(for: closeBtn), !frame.isEmpty {
-            return frame
+    /// Resolves the native close button AXUIElement in a Mission Control preview tile, if present.
+    func getPreviewCloseButton(for tileElement: AXUIElement) -> AXUIElement? {
+        if let closeBtn: AXUIElement = getAttributeValue(kAXCloseButtonAttribute, for: tileElement) {
+            return closeBtn
         }
         var childrenRef: CFTypeRef?
         if AXUIElementCopyAttributeValue(tileElement, kAXChildrenAttribute as CFString, &childrenRef) == .success,
@@ -438,18 +393,14 @@ final class AccessibilityService: AccessibilityServiceProtocol {
            let children = childrenRef as? [AXUIElement] {
             for child in children {
                 let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: child)
-                if subrole == kAXCloseButtonSubrole {
-                    if let frame = getFrame(for: child), !frame.isEmpty {
-                        return frame
-                    }
+                if subrole == kAXCloseButtonSubrole || subrole == "AXCloseButton" {
+                    return child
                 }
                 let role: String? = getAttributeValue(kAXRoleAttribute, for: child)
                 if role == kAXButtonRole {
                     let title: String? = getAttributeValue(kAXTitleAttribute, for: child)
                     if let title, title.localizedCaseInsensitiveContains("close") {
-                        if let frame = getFrame(for: child), !frame.isEmpty {
-                            return frame
-                        }
+                        return child
                     }
                 }
             }
@@ -457,14 +408,24 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return nil
     }
 
+    /// Resolves the frame of a native close button in a Mission Control preview tile, if present.
+    func getPreviewCloseButtonFrame(for tileElement: AXUIElement) -> CGRect? {
+        if let button = getPreviewCloseButton(for: tileElement),
+           let frame = getFrame(for: button), !frame.isEmpty {
+            return frame
+        }
+        return nil
+    }
+
     /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
     func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement? {
-        guard let info = CGWindowListCopyWindowInfo([.optionIncludingWindow], windowID) as? [[String: Any]],
-              let winDict = info.first,
-              let pid = winDict[kCGWindowOwnerPID as String] as? pid_t else {
+        guard let info = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]])?.first(where: {
+            ($0[kCGWindowNumber as String] as? CGWindowID) == windowID
+        }),
+            let pid = info[kCGWindowOwnerPID as String] as? pid_t else {
             return nil
         }
-        let app = AXUIElementCreateApplication(pid)
+        let app = appElement(for: pid)
         var windowsRef: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
               let windowsRef, CFGetTypeID(windowsRef) == CFArrayGetTypeID(),
@@ -478,14 +439,14 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             }
         }
         // Fallback: match by title or frame when _AXUIElementGetWindow fails (e.g. Finder / custom AX)
-        let winName = winDict[kCGWindowName as String] as? String
+        let winName = info[kCGWindowName as String] as? String
         for axWindow in axWindows {
             if let winName, !winName.isEmpty {
                 if let title: String = getAttributeValue(kAXTitleAttribute, for: axWindow), title == winName {
                     return axWindow
                 }
             }
-            if let bounds = winDict[kCGWindowBounds as String] as? [String: CGFloat],
+            if let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
                let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"],
                let frame = getFrame(for: axWindow) {
                 if abs(frame.minX - x) < 2, abs(frame.minY - y) < 2,

@@ -53,6 +53,11 @@ flowchart LR
 | `isCoolingDown` — 0.5 s after MC activation | `ShortcutViewModel.swift:60` |
 | `isMissionControlActive` gate | `ShortcutViewModel.swift:169` |
 
+> [!IMPORTANT]
+> **Trackpad 2-Finger Swipes vs. Scroll Wheel Events:**
+> On macOS, all two-finger trackpad motions (such as two-finger horizontal swipes) generate low-level `CGEventType.scrollWheel` events with continuous horizontal deltas (`scrollWheelEventDeltaAxis2`).
+> **Never** intercept `scrollWheel` in event taps or treat horizontal scroll deltas as Space transitions in Mission Control. Doing so destroys two-finger swipe recognition by prematurely clearing the hovered preview target and entering space transition suppression. Space transitions on trackpads are strictly 3+ fingers (tracked via `MultitouchService` frame touch counts) or keyboard hotkeys.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Idle

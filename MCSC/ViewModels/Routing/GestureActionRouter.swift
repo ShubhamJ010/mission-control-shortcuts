@@ -86,7 +86,8 @@ final class GestureActionRouter {
                     if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
                        let axWin = service.getWindow(forWindowID: windowID) {
                         docPath = service.getDocumentPath(for: axWin)
-                        winTitle = service.getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
+                        winTitle = service
+                            .getWindowTitle(for: axWin) ?? (windowInfo[kCGWindowName as String] as? String)
                     } else {
                         docPath = nil
                         winTitle = windowInfo[kCGWindowName as String] as? String
@@ -171,6 +172,8 @@ private extension GestureActionRouter {
         return dockWindowAndSizingAction(for: action, app: app, context: context)
     }
 
+    /// Dock lifecycle actions act at App Level (see `docs/TARGETING_SCOPES.md`):
+    /// closing a window from the Dock closes all windows belonging to that app (`.wholeApp`).
     func dockLifecycleAction(
         for action: GestureAction,
         app: NSRunningApplication,
@@ -208,7 +211,7 @@ private extension GestureActionRouter {
         case .newTab, .newWindow:
             // Dock has no window to add a tab to — fall back to new window with .newWindow feedback.
             context.execute(overrideFeedbackMode: .newWindow) { [weak self] in
-                self?.actions.newWindowAction.perform(at: context.point, service: context.service)
+                self?.actions.newWindowAppAction.perform(app: app)
             }
         case .minimize:
             context.execute { [weak self] in
@@ -292,7 +295,7 @@ private extension GestureActionRouter {
         hoverService: MissionControlHoverServiceProtocol?
     ) -> ResolvedGestureAction {
         switch action {
-        case .closeWindow, .closeTab:
+        case .closeWindow:
             context.execute(overrideFeedbackMode: .close) {
                 if let hoverService {
                     Self.runOnMainActor {
@@ -301,6 +304,10 @@ private extension GestureActionRouter {
                 } else {
                     MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: context.service)
                 }
+            }
+        case .closeTab:
+            context.execute(overrideFeedbackMode: .closeTab) {
+                MissionControlWindowActions.performCloseTab(on: windowInfo, accessibilityService: context.service)
             }
         case .quitApp:
             context.execute(overrideFeedbackMode: .quit) {

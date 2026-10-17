@@ -30,8 +30,8 @@ extension ShortcutViewModel {
         get { config.isCmdSpaceEnabled } set { config.isCmdSpaceEnabled = newValue }
     }
 
-    var isTabShortcutsEnabled: Bool {
-        get { config.isTabShortcutsEnabled } set { config.isTabShortcutsEnabled = newValue }
+    var isSmartTabCloseEnabled: Bool {
+        get { config.isSmartTabCloseEnabled } set { config.isSmartTabCloseEnabled = newValue }
     }
 
     var isCmdTEnabled: Bool {

@@ -82,9 +82,35 @@ Capturing keyboard events while Mission Control is open presents a unique macOS 
 
 ---
 
+---
+
+## Multi-Space Isolation & macOS 27 Ghosting
+
+### The Ghosting Problem
+On modern macOS versions (macOS 27+), Mission Control visual composition is handled by `com.apple.WindowManager` at **layer 19**.
+WindowManager retains `AXButton` preview tiles with a `"wid"` (Window ID) attribute in its AX hierarchy for **all desktop spaces simultaneously** at their virtual screen coordinates.
+
+If an application queries WindowManager via `AXUIElementCopyElementAtPosition` without strict space filtering, hit-tests will return hidden/masked preview tiles belonging to windows on other desktop spaces (e.g. hovering over Desktop 2 triggering a close button for a Desktop 1 Ghostty window).
+
+### SkyLight Space Management
+To prevent cross-space leakage and maintain zero-footprint performance, `SpaceManagementService` leverages private SkyLight CGS routines:
+- `CGSMainConnectionID()`: Resolves the main window server connection.
+- `CGSCopyManagedDisplaySpaces(_:)`: Returns current active `ManagedSpaceID` per display.
+- `CGSCopySpacesForWindows(_:0x7:_:)`: Inspects space assignment lists for candidate window IDs.
+
+### Invariants for Window Tracking & Gesture Safety
+1. **Window List Filtering (`fetchWindows`):** Candidate windows are pruned using `spaceService.isWindowOnCurrentSpace(windowID:)`.
+2. **Hit-Test Filtering (`getMissionControlPreviewTile`):** WindowManager AX lookups only match against `matchingWindowIDs` verified to belong to the active desktop space.
+3. **Empty Space Lists:** Windows with an empty space list (`[]`) are unassigned or visible across all spaces (such as floating tool windows, Finder panels, or menus) and are permitted on the active space.
+4. **No ScrollWheel Space Transitions:** Two-finger trackpad gestures emit `CGEventType.scrollWheel` events with horizontal deltas. The input event tap must NEVER treat `scrollWheel` as a Space transition; doing so prematurely resets hovered window targets and suppresses 2-finger swipe actions. Space transitions are strictly 3+ finger swipes or Ctrl+hotkeys.
+5. **Decoupled Target Resolution:** `previewWindow(at:)` must never be guarded by `isSpaceTransitioning`. Only visual overlay rendering (`updateOverlay`) is suppressed during space switches.
+
+---
+
 ## Source references
 
 - Detection heuristic and caching: `../MCSC/Services/MissionControl/MissionControlService.swift`
+- Space management & SkyLight isolation: `../MCSC/Services/MissionControl/SpaceManagementService.swift`
 - Dedicated HID Key Tap: `../MCSC/Services/MissionControl/MCKeyboardTapService.swift`
 - Fuzzy Selection Engine: `../MCSC/Models/WindowSelectionEngine.swift` & `WindowSearchSession.swift`
 - Window Activation Actions: `../MCSC/Models/Actions/WindowActivationAction.swift` & `MissionControlWindowActions.swift`

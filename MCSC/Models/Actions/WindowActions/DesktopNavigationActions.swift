@@ -84,14 +84,44 @@ struct MoveWindowToDesktopAction: ShortcutAction {
     private func performMove(window: AXUIElement, frame: CGRect, service: AccessibilityServiceProtocol) {
         _ = service.focusWindow(window)
 
-        // Title-bar grab point: near the top-left end of the window, just left
-        // of the red traffic light, centered vertically.
-        let grabPoint = CGPoint(x: frame.origin.x + 5, y: frame.origin.y + 12)
+        // Title-bar grab point: positioned immediately to the right of the green
+        // zoom/fullscreen traffic light in the draggable title bar strip.
+        let grabPoint = titleBarGrabPoint(for: window, frame: frame, service: service)
         let dismissMissionControl = isMissionControlActiveProvider()
 
         DispatchQueue.global(qos: .userInitiated).async { [self] in
             runSequence(grabPoint: grabPoint, dismissMissionControl: dismissMissionControl)
         }
+    }
+
+    /// Resolves the title-bar grab point directly to the right of the green zoom/fullscreen button,
+    /// vertically centered with the traffic light controls.
+    private func titleBarGrabPoint(
+        for window: AXUIElement,
+        frame: CGRect,
+        service: AccessibilityServiceProtocol
+    ) -> CGPoint {
+        let zoomBtn: AXUIElement? = service.getAttributeValue(kAXZoomButtonAttribute, for: window)
+            ?? service.getAttributeValue("AXFullScreenButton", for: window)
+
+        if let zoomBtn, let btnFrame = service.getFrame(for: zoomBtn), btnFrame.width > 0 {
+            return CGPoint(x: btnFrame.maxX + 5, y: btnFrame.midY)
+        }
+
+        if let minBtn: AXUIElement = service.getAttributeValue(kAXMinimizeButtonAttribute, for: window),
+           let btnFrame = service.getFrame(for: minBtn), btnFrame.width > 0 {
+            return CGPoint(x: btnFrame.maxX + 28, y: btnFrame.midY)
+        }
+
+        if let closeBtn: AXUIElement = service.getAttributeValue(kAXCloseButtonAttribute, for: window),
+           let btnFrame = service.getFrame(for: closeBtn), btnFrame.width > 0 {
+            return CGPoint(x: btnFrame.maxX + 51, y: btnFrame.midY)
+        }
+
+        // Geometric fallback for windows that do not expose standard AX buttons:
+        // Traffic lights typically end around ~70-80 pt from left edge; grab at +80 pt.
+        let defaultY = min(frame.origin.y + 20, frame.origin.y + frame.height / 2)
+        return CGPoint(x: frame.origin.x + 80, y: defaultY)
     }
 
     /// Synchronous POC sequence. Internal so tests can drive it with injected

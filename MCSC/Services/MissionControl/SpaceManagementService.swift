@@ -3,10 +3,22 @@ import Cocoa
 
 /// Authoritative service for querying macOS Spaces and Desktop window assignments.
 ///
-/// Under macOS 27 WindowManager, Mission Control preview tiles and window server records
-/// can span multiple virtual desktops simultaneously. `SpaceManagementService` interfaces
-/// with SkyLight / CoreGraphics Services to resolve the current active `ManagedSpaceID`
-/// and verify whether a given `CGWindowID` belongs to the current desktop space.
+/// ## Why SkyLight / CoreGraphics Services?
+/// Standard AppKit and Accessibility APIs cannot reliably associate a `CGWindowID` with its
+/// virtual Desktop space (`ManagedSpaceID`).
+///
+/// Under macOS 27 WindowManager, Mission Control preview tiles and window records span all spaces
+/// simultaneously in the window server hierarchy. To prevent "ghosting" (e.g. showing a close button
+/// for a Desktop 1 window while looking at Desktop 2), `SpaceManagementService` directly queries
+/// SkyLight private CGS routines:
+/// - `CGSMainConnectionID`: Main window server connection identifier.
+/// - `CGSCopyManagedDisplaySpaces`: Maps display UUIDs to current `ManagedSpaceID`s and space sets.
+/// - `CGSCopySpacesForWindows`: Resolves space assignments for window IDs with mask `0x7` (`allSpacesMask`).
+///
+/// ## Windows with Empty Space IDs
+/// A window returning an empty space list (`[]`) from `CGSCopySpacesForWindows` indicates it is either
+/// unassigned or visible across all spaces (such as floating tool windows, Finder panels, or menus).
+/// These windows are considered present on the current space.
 @MainActor
 protocol SpaceManagementServiceProtocol: AnyObject {
     /// Returns the ManagedSpaceID of the active space on the main display, or nil if indeterminate.

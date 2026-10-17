@@ -61,6 +61,28 @@ enum MissionControlWindowActions {
         KeyboardEventPoster.postShortcut(virtualKey: keyW, flags: .maskCommand, to: pid)
     }
 
+    static func performCloseTab(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
+        guard let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t else { return }
+
+        if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+           let window = accessibilityService.getWindow(forWindowID: windowID),
+           let closeButton = accessibilityService.findActiveTabCloseButton(in: window),
+           accessibilityService.performAction(kAXPressAction, on: closeButton) {
+            return
+        }
+
+        if let app = NSRunningApplication(processIdentifier: pid) {
+            let window: AXUIElement? = (windowInfo[kCGWindowNumber as String] as? CGWindowID)
+                .flatMap { accessibilityService.getWindow(forWindowID: $0) }
+            _ = accessibilityService.activate(app: app, window: window)
+        } else if let windowID = windowInfo[kCGWindowNumber as String] as? CGWindowID,
+                  let window = accessibilityService.getWindow(forWindowID: windowID) {
+            _ = accessibilityService.focusWindow(window)
+        }
+
+        KeyboardEventPoster.postShortcut(virtualKey: keyW, flags: .maskCommand, to: pid)
+    }
+
     static func performMinimize(on windowInfo: [String: Any], accessibilityService: AccessibilityServiceProtocol) {
         if pressWindowButton(
             attribute: kAXMinimizeButtonAttribute,

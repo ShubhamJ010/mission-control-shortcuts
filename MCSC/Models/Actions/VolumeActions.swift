@@ -30,4 +30,3 @@ struct EjectVolumeAction {
         volumeService.ejectVolume(at: mountPath) { _ in }
     }
 }
-
