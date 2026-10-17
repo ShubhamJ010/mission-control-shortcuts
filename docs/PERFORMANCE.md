@@ -89,7 +89,7 @@ Re-measured after the fixes with the same procedure as below; launch `footprint`
 and idle CPU are unchanged (the wins are IPC/allocation reductions on active
 paths), and `leaks` remains 0.
 
-**Deployed verification (`0.5.2-beta` perf build via `./deploy.sh`, 2026-08-22):**
+**Deployed verification (`0.5.2-beta` perf build via `make run`, 2026-08-22):**
 after granting Accessibility and two Mission Control open/close cycles,
 idle settles at **21-23 MB `phys_footprint` / 0.0% `ps` CPU**, peak 73 MB only
 during MC's own IOSurface compositing (36 MB of that reclaimable graphics
@@ -117,7 +117,7 @@ and returns on idle.
 ### Profiling the installed / running build
 
 
-Run against the release binary via `./deploy.sh` (`build/Build/Products/Release`), not a Debug Xcode run.
+Run against the release binary via `make run` (`build/Build/Products/Release`), not a Debug Xcode run.
 
 **Pre-fix** — `0.5.0-beta (6)`, pid `41513`:
 
@@ -159,7 +159,7 @@ What the traces showed:
 - **Battery idle cost negligible.** `accessibilityPollTimer` (`AppDelegate.swift:57`, 1.0 s `[weak self]`) invalidated once `AXIsProcessTrusted()` true; sleep/wake observers (`AppDelegate.swift:56-80`) + deferred `deviceStop` (`MultitouchService.swift:49-121`) prevent wake leaks. `powermetrics` needs `sudo`; `top POWER` + `footprint` are practical proxies.
 - **Lazy Multitouch + Keyboard Tap Gating (2026-09-08 audit).** Fixed eager `needsMultitouch` startup when gestures disabled (prevented 4-6 MB framework RAM hit). Restored `isKeyboardNavigationEnabledProvider` gate on `MCKeyboardTapService` so keyboard HID tap is skipped when nav disabled. Gated 3-finger overlay dismiss behind `isTracking` inside 30 Hz throttle. Launch footprint settled at **11.0 MB** (`phys_footprint`, 19k nodes, 0 leaks), well within the 13 MB ceiling.
 
-Re-measure after any change that touches `CGWindowListCopyWindowInfo`, `AXUIElement`, `CFRunLoopSource`, or overlay (`NSPanel`) lifecycle — the `__CFRunLoopServiceMachPort` + `SLWindowListCopyWindowInfo` slice is the first regression signal. Verify with `./deploy.sh` then `footprint` at launch vs after 10s HID.
+Re-measure after any change that touches `CGWindowListCopyWindowInfo`, `AXUIElement`, `CFRunLoopSource`, or overlay (`NSPanel`) lifecycle — the `__CFRunLoopServiceMachPort` + `SLWindowListCopyWindowInfo` slice is the first regression signal. Verify with `make run` then `footprint` at launch vs after 10s HID.
 
 ---
 

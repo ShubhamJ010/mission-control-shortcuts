@@ -16,7 +16,7 @@ echo "=========================================================="
 PID=$(pgrep -x "$APP_NAME" | head -n 1)
 
 if [ -z "$PID" ]; then
-    echo "MCSC is not currently running. Please run ./deploy.sh first."
+    echo "MCSC is not currently running. Please run 'make run' first."
     exit 1
 fi
 

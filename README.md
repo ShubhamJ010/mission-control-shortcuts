@@ -15,7 +15,7 @@ A free, open-source menu bar app that turns Mission Control previews into
 windows you can act on. Migrated and developed for **macOS 27**, type to find one,
 swipe or press to close, minimize, tile, quit, or eject it.
 
-[Features](#features) · [Installation](#installation) · [Usage](#usage) · [Documentation](#documentation) · [Tests](#tests)
+[Features](#features) · [Installation](#installation) · [Building from Source](#building-from-source) · [Usage](#usage) · [Documentation](#documentation) · [Contributing](#contributing)
 
 <img src="./docs/assets/preview.gif" alt="MCSC in action: type-to-select and window actions inside Mission Control" width="800">
 
@@ -89,19 +89,41 @@ sentinel sign --app MCSC.app --identity "Developer ID Application: Your Name (Te
 codesign -dv --verbose=4 MCSC.app
 ```
 
-### Build from source
+### Building from Source
 
 **Requirements:**
 - macOS 27.0 or later
 - Xcode 27+ with the macOS 27 SDK
+
+You can build and run MCSC either via the command line with `make` or via Xcode.
+
+#### Option A: Command Line with Makefile (Recommended)
+
+```bash
+git clone https://github.com/ShubhamJ010/mission-control-shortcuts.git
+cd mission-control-shortcuts
+
+# Build, install to /Applications, and launch
+make run
+```
+
+Other available tasks:
+```bash
+make build       # Compile Release configuration without installing
+make install     # Build and install to /Applications/MCSC.app
+make stop        # Terminate running MCSC instance
+make clean       # Remove build artifacts and derived data
+make help        # View all available make targets
+```
+
+#### Option B: Xcode
 
 ```bash
 git clone https://github.com/ShubhamJ010/mission-control-shortcuts.git
 cd mission-control-shortcuts
 open MCSC.xcodeproj
 ```
-
-Build the `MCSC` scheme and run.
+Select the **MCSC** scheme and press `Cmd+R` to build and run.
 
 ## Usage
 
@@ -154,6 +176,13 @@ Force Quit (`Command`) without touching the keyboard.
 - [SYMBOLS.md](./docs/SYMBOLS.md) - The SF Symbol map behind feedback overlays.
 - [PERFORMANCE.md](./docs/PERFORMANCE.md) - The memory and CPU budget, profiling recipes, and measured numbers.
 - [ARCHITECTURE.md](./docs/ARCHITECTURE.md) - MVVM design, event taps, and low-level choices.
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for architectural constraints, developer standards, and the PR checklist.
+
+- **Strict Memory Budget:** All changes must keep memory footprint **under 13 MB** (baseline ~12.4 MB).
+- **No Tests:** Per project architecture rules, this repository maintains zero automated test files.
+- **Persistent Accessibility Permissions:** Read [CONTRIBUTING.md](./CONTRIBUTING.md#3-persistent-accessibility-permissions) to configure a local `MCSC-Dev` certificate and avoid re-authorizing Accessibility on every rebuild.
 
 ## Credits
 

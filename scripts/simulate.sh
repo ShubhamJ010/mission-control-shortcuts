@@ -35,21 +35,13 @@ case "$COMMAND" in
     test-mc-start)
         echo "Posting non-destructive Mission Control start notification..."
         # Simulates Dock notification without disrupting open windows
-        python3 -c "
-import Foundation
-center = Foundation.NSDistributedNotificationCenter.defaultCenter()
-center.postNotificationName_object_('com.apple.expose.start', None)
-"
+        swift -e 'import Foundation; DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("com.apple.expose.start"), object: nil, userInfo: nil, deliverImmediately: true)'
         echo "Notification posted. Inspect with ./scripts/stream-logs.sh or ./scripts/dump-state.sh."
         ;;
 
     test-mc-stop)
         echo "Posting non-destructive Mission Control stop notification..."
-        python3 -c "
-import Foundation
-center = Foundation.NSDistributedNotificationCenter.defaultCenter()
-center.postNotificationName_object_('com.apple.expose.stop', None)
-"
+        swift -e 'import Foundation; DistributedNotificationCenter.default().postNotificationName(NSNotification.Name("com.apple.expose.stop"), object: nil, userInfo: nil, deliverImmediately: true)'
         echo "Notification posted."
         ;;
 
