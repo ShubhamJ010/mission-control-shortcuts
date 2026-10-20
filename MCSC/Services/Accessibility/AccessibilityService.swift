@@ -25,7 +25,9 @@ protocol AccessibilityServiceProtocol {
     func getMissionControlPreviewTile(for element: AXUIElement) -> (tileElement: AXUIElement, windowID: CGWindowID)?
 
     /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
-    /// Optionally filters candidate tiles against `matchingWindowIDs` to isolate the active desktop space.
+    /// When `matchingWindowIDs` is provided, candidate tiles are filtered to match the active desktop space.
+    /// If direct hit-testing returns a tile from an inactive space (macOS 27 WindowManager multi-space retention),
+    /// falls back to scanning WindowManager's preview hierarchy for the tile containing the point.
     func getMissionControlPreviewTile(
         at point: CGPoint,
         matchingWindowIDs: Set<CGWindowID>?
@@ -328,6 +330,8 @@ final class AccessibilityService: AccessibilityServiceProtocol {
 
     /// Resolves a Mission Control preview tile element and its window ID at `point` in Quartz/AX coordinates.
     /// When `matchingWindowIDs` is provided, candidate tiles are filtered to match the active desktop space.
+    /// If direct coordinate hit-testing hits an off-screen/masked tile from an inactive space, scans
+    /// WindowManager's preview tile hierarchy to match the active space.
     func getMissionControlPreviewTile(
         at point: CGPoint,
         matchingWindowIDs: Set<CGWindowID>? = nil
@@ -341,11 +345,20 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
                let wmChild,
                let preview = getMissionControlPreviewTile(for: wmChild) {
-                if let matchingWindowIDs {
-                    if matchingWindowIDs.contains(preview.windowID) {
-                        return preview
-                    }
-                } else {
+                if matchingWindowIDs?.contains(preview.windowID) ?? true {
+                    return preview
+                }
+            }
+
+            // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
+            // If the element hit-tested at point belongs to another space or was masked,
+            // scan WindowManager's preview tiles to find the matching tile on the active desktop.
+            if let matchingWindowIDs {
+                if let preview = findMatchingPreviewTile(
+                    in: wmElement,
+                    at: point,
+                    matchingWindowIDs: matchingWindowIDs
+                ) {
                     return preview
                 }
             }
@@ -354,11 +367,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         // 2. Fall back to systemWide element hit-test
         if let hitElement = getElement(at: point),
            let preview = getMissionControlPreviewTile(for: hitElement) {
-            if let matchingWindowIDs {
-                if matchingWindowIDs.contains(preview.windowID) {
-                    return preview
-                }
-            } else {
+            if matchingWindowIDs?.contains(preview.windowID) ?? true {
                 return preview
             }
         }
@@ -369,11 +378,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
                let dockChild,
                let preview = getMissionControlPreviewTile(for: dockChild) {
-                if let matchingWindowIDs {
-                    if matchingWindowIDs.contains(preview.windowID) {
-                        return preview
-                    }
-                } else {
+                if matchingWindowIDs?.contains(preview.windowID) ?? true {
                     return preview
                 }
             }
@@ -382,15 +387,49 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return nil
     }
 
+    private static let maxPreviewTileDepth = 8
+
+    /// Recursively scans WindowManager AX children to find a preview tile matching the active desktop space.
+    ///
+    /// Required on macOS 27 because WindowManager retains preview tiles for all spaces concurrently in its
+    /// AX hierarchy, causing direct coordinate hit-tests to occasionally hit off-screen tiles from inactive spaces.
+    private func findMatchingPreviewTile(
+        in parent: AXUIElement,
+        at point: CGPoint,
+        matchingWindowIDs: Set<CGWindowID>,
+        depth: Int = 0
+    ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
+        guard depth < Self.maxPreviewTileDepth else { return nil }
+        guard let children: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: parent) else {
+            return nil
+        }
+        for child in children {
+            if let preview = getMissionControlPreviewTile(for: child) {
+                if matchingWindowIDs.contains(preview.windowID),
+                   let frame = getFrame(for: preview.tileElement),
+                   frame.contains(point) {
+                    return preview
+                }
+                continue
+            }
+            if let found = findMatchingPreviewTile(
+                in: child,
+                at: point,
+                matchingWindowIDs: matchingWindowIDs,
+                depth: depth + 1
+            ) {
+                return found
+            }
+        }
+        return nil
+    }
+
     /// Resolves the native close button AXUIElement in a Mission Control preview tile, if present.
     func getPreviewCloseButton(for tileElement: AXUIElement) -> AXUIElement? {
         if let closeBtn: AXUIElement = getAttributeValue(kAXCloseButtonAttribute, for: tileElement) {
             return closeBtn
         }
-        var childrenRef: CFTypeRef?
-        if AXUIElementCopyAttributeValue(tileElement, kAXChildrenAttribute as CFString, &childrenRef) == .success,
-           let childrenRef, CFGetTypeID(childrenRef) == CFArrayGetTypeID(),
-           let children = childrenRef as? [AXUIElement] {
+        if let children: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: tileElement) {
             for child in children {
                 let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: child)
                 if subrole == kAXCloseButtonSubrole || subrole == "AXCloseButton" {
@@ -426,10 +465,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             return nil
         }
         let app = appElement(for: pid)
-        var windowsRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(app, kAXWindowsAttribute as CFString, &windowsRef) == .success,
-              let windowsRef, CFGetTypeID(windowsRef) == CFArrayGetTypeID(),
-              let axWindows = windowsRef as? [AXUIElement] else {
+        guard let axWindows: [AXUIElement] = getAttributeValue(kAXWindowsAttribute, for: app) else {
             return nil
         }
         for axWindow in axWindows {

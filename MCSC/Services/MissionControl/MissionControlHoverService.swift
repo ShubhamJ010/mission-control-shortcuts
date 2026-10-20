@@ -298,7 +298,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
     private func armSpaceTransitionTimeout(duration: TimeInterval = 0.35) {
         spaceTransitionTimeoutTimer = Timer
-            .scheduledTimer(withTimeInterval: duration, repeats: false) { [weak self] _ in
+            .scheduledCommon(interval: duration, repeats: false, tolerance: 0.05) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     self.isSpaceTransitioning = false

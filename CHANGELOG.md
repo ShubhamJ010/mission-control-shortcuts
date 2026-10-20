@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.3 (21 Oct 2026)
+
+- **Mission Control Multi-Space Preview Tile Fallback**: Resolved an issue where window preview close buttons failed to display over Finder and other app windows on secondary spaces (such as Desktop 2). Because macOS 27 WindowManager maintains preview tile `AXButton` elements for all spaces simultaneously, direct coordinate hit-tests frequently hit off-screen tiles from inactive spaces; restored `findMatchingPreviewTile` hierarchy scanning to match tiles against active desktop window IDs.
+- **Space Transition RunLoop Scheduling**: Updated `MissionControlHoverService.armSpaceTransitionTimeout` to use `Timer.scheduledCommon` with tolerance, ensuring space transition timeout debouncing fires reliably while tracking runloops are active.
+
 ## 0.8.2 (18 Oct 2026)
 
 - **Unified Shortcut Routing Across Modifiers**: Fixed an issue in `ShortcutActionRouter` where window sizing shortcuts (`Fill Screen`, `Small and Center`, `Larger`, `Smaller`, `Left Cycle Snap`, `Right Cycle Snap`) and desktop navigation (`Next Desktop`, `Previous Desktop`) failed to trigger when assigned without Shift (e.g. `⌘ Return`, `⌘ '`, `⌘ =`, `⌘ -`, `⌘ ←`, `⌘ →`, `⌘ L`, `⌘ K`). Decomposed and unified action dispatch so all configured actions route reliably with or without Shift.

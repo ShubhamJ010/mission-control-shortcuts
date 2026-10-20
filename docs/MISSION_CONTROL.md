@@ -100,7 +100,7 @@ To prevent cross-space leakage and maintain zero-footprint performance, `SpaceMa
 
 ### Invariants for Window Tracking & Gesture Safety
 1. **Window List Filtering (`fetchWindows`):** Candidate windows are pruned using `spaceService.isWindowOnCurrentSpace(windowID:)`.
-2. **Hit-Test Filtering (`getMissionControlPreviewTile`):** WindowManager AX lookups only match against `matchingWindowIDs` verified to belong to the active desktop space.
+2. **Hit-Test Filtering & Hierarchy Fallback (`getMissionControlPreviewTile`):** Direct hit-testing via `AXUIElementCopyElementAtPosition` can return an overlapping off-screen/masked preview tile belonging to an inactive space. When the direct element is not in `matchingWindowIDs`, `findMatchingPreviewTile` scans WindowManager's preview tile hierarchy to resolve the active desktop space's tile containing the cursor point.
 3. **Empty Space Lists:** Windows with an empty space list (`[]`) are unassigned or visible across all spaces (such as floating tool windows, Finder panels, or menus) and are permitted on the active space.
 4. **No ScrollWheel Space Transitions:** Two-finger trackpad gestures emit `CGEventType.scrollWheel` events with horizontal deltas. The input event tap must NEVER treat `scrollWheel` as a Space transition; doing so prematurely resets hovered window targets and suppresses 2-finger swipe actions. Space transitions are strictly 3+ finger swipes or Ctrl+hotkeys.
 5. **Decoupled Target Resolution:** `previewWindow(at:)` must never be guarded by `isSpaceTransitioning`. Only visual overlay rendering (`updateOverlay`) is suppressed during space switches.
