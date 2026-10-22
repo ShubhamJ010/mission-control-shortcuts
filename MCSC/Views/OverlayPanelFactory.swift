@@ -14,6 +14,18 @@ protocol FloatingOverlayProtocol: AnyObject {
 /// used by Mission Control and cursor HUD overlays (DRY architecture).
 @MainActor
 enum OverlayPanelFactory {
+    /// Standard bleed margin (in points) applied around overlay views to accommodate
+    /// scale animations (hover, bouncePop, pulseExpand), translation shifts, and drop shadows
+    /// without hardware backing store clipping.
+    nonisolated static let defaultBleedMargin: CGFloat = 16.0
+
+    /// Total dimension of the backing `NSPanel` for a square overlay whose hosted
+    /// view measures `contentDimension` points. Single source of truth for the
+    /// bleed arithmetic shared by every overlay hosting `OverlayBleedContainerView`.
+    nonisolated static func panelDimension(forContentDimension contentDimension: CGFloat) -> CGFloat {
+        contentDimension + defaultBleedMargin * 2.0
+    }
+
     /// Creates an `NSPanel` configured for floating overlay presentation:
     /// non-activating, borderless, transparent, stationary across all spaces,
     /// and floating above standard WindowServer windows.

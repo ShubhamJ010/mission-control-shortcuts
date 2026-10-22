@@ -74,7 +74,19 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         }
     }
 
+    /// Resting visual and interactive dimension of the close button.
     static let buttonDimension: CGFloat = 32.0
+
+    /// Padding (in points) kept between the visible button and the screen edge
+    /// when the derived position would fall outside it. The transparent bleed
+    /// margin of the hosting panel may overhang the screen edge by design; only
+    /// the visible button bounds are clamped.
+    static let screenEdgePadding: CGFloat = 4.0
+
+    /// Total dimension of the backing `NSPanel` (hosted view plus bleed margin).
+    static var panelDimension: CGFloat {
+        OverlayPanelFactory.panelDimension(forContentDimension: buttonDimension)
+    }
 
     private var panel: NSPanel?
     private var buttonView: CloseButtonView?
@@ -88,15 +100,16 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     }
 
     private func setupPanel() {
-        let contentRect = NSRect(x: 0, y: 0, width: Self.buttonDimension, height: Self.buttonDimension)
+        let buttonRect = NSRect(x: 0, y: 0, width: Self.buttonDimension, height: Self.buttonDimension)
+        let button = CloseButtonView(frame: buttonRect)
+        let container = OverlayBleedContainerView(hostedView: button)
+
         let panel = OverlayPanelFactory.createPanel(
-            contentRect: contentRect,
+            contentRect: container.frame,
             ignoresMouseEvents: false
         )
 
-        let button = CloseButtonView(frame: contentRect)
-
-        panel.contentView = button
+        panel.contentView = container
         self.buttonView = button
         self.panel = panel
     }
@@ -150,15 +163,21 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         }) ?? ScreenGeometry.screenContaining(axPoint: previewFrame.origin) ?? NSScreen.main ?? NSScreen.screens.first
 
         if let screenFrame = targetScreen?.frame {
-            cocoaX = min(max(cocoaX, screenFrame.minX + 2), screenFrame.maxX - Self.buttonDimension - 2)
-            cocoaY = min(max(cocoaY, screenFrame.minY + 2), screenFrame.maxY - Self.buttonDimension - 2)
+            let pad = Self.screenEdgePadding
+            cocoaX = min(max(cocoaX, screenFrame.minX + pad), screenFrame.maxX - Self.buttonDimension - pad)
+            cocoaY = min(max(cocoaY, screenFrame.minY + pad), screenFrame.maxY - Self.buttonDimension - pad)
         }
 
+        // Position the panel so the centered button rests at (cocoaX, cocoaY).
+        // The panel intentionally extends the bleed margin past the clamped
+        // button bounds; the margin is fully transparent (its hit test returns
+        // nil), so an off-screen overhang cannot draw or intercept anything.
+        let bleed = OverlayPanelFactory.defaultBleedMargin
         let targetRect = NSRect(
-            x: cocoaX,
-            y: cocoaY,
-            width: Self.buttonDimension,
-            height: Self.buttonDimension
+            x: cocoaX - bleed,
+            y: cocoaY - bleed,
+            width: Self.panelDimension,
+            height: Self.panelDimension
         )
 
         currentAXRect = CGRect(
@@ -283,6 +302,17 @@ final class CloseButtonView: NSView {
             glassView.autoresizingMask = [.width, .height]
             glassView.setValue(true, forKey: "effectIsInteractive")
             addSubview(glassView)
+        } else {
+            let effectView = NSVisualEffectView(frame: bounds)
+            effectView.material = .hudWindow
+            effectView.blendingMode = .behindWindow
+            effectView.state = .active
+            effectView.wantsLayer = true
+            effectView.layer?.cornerRadius = bounds.width / 2.0
+            effectView.layer?.cornerCurve = .continuous
+            effectView.layer?.masksToBounds = true
+            effectView.autoresizingMask = [.width, .height]
+            addSubview(effectView)
         }
 
         imageView.imageScaling = .scaleProportionallyUpOrDown

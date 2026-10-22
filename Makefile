@@ -20,7 +20,7 @@ else
     CODE_SIGN_IDENTITY ?= -
 endif
 
-.PHONY: all help build run install stop clean reset-tcc lint format profile logs bench audit audit-stress audit-ci
+.PHONY: all help build run install stop clean reset-tcc lint format profile profile-live logs bench audit audit-stress audit-ci
 
 all: help
 
@@ -87,6 +87,9 @@ audit-ci: ## Audit memory in CI mode (fail if budget >13MB)
 
 bench: audit ## Alias for audit
 profile: audit ## Alias for audit
+
+profile-live: ## Run 30-second live profiling listener during active use
+	@./scripts/live-profile-listener.sh
 
 lint: ## Run SwiftLint code analysis
 	@swiftlint lint

@@ -18,7 +18,13 @@ import Cocoa
 /// sitting directly under it.
 @MainActor
 final class CursorFeedbackOverlay {
+    /// Resting dimension of the feedback symbol image view.
     static let dimension: CGFloat = 34.0
+
+    /// Total dimension of the backing `NSPanel` (hosted view plus bleed margin).
+    static var panelDimension: CGFloat {
+        OverlayPanelFactory.panelDimension(forContentDimension: dimension)
+    }
 
     /// Nominal window the symbol stays on screen before retracting. Snappy HUD
     /// window gives immediate visual confirmation without lingering under cursor.
@@ -91,19 +97,20 @@ final class CursorFeedbackOverlay {
     }
 
     private func setupPanel() {
-        let contentRect = NSRect(x: 0, y: 0, width: Self.dimension, height: Self.dimension)
-        let panel = OverlayPanelFactory.createPanel(
-            contentRect: contentRect,
-            ignoresMouseEvents: true
-        )
-        panel.alphaValue = 0.0
-
-        let imageView = NSImageView(frame: contentRect)
+        let imageRect = NSRect(x: 0, y: 0, width: Self.dimension, height: Self.dimension)
+        let imageView = NSImageView(frame: imageRect)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
         imageView.image = nil
 
-        panel.contentView = imageView
+        let container = OverlayBleedContainerView(hostedView: imageView)
+        let panel = OverlayPanelFactory.createPanel(
+            contentRect: container.frame,
+            ignoresMouseEvents: true
+        )
+        panel.alphaValue = 0.0
+        panel.contentView = container
+
         self.imageView = imageView
         self.panel = panel
     }
