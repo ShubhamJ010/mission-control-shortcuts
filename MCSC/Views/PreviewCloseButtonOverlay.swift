@@ -30,7 +30,8 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     ///
     /// Data-driven like `CursorFeedbackMode`: adding a new action is a
     /// `case` plus its descriptors (symbol name, accessibility label, palette).
-    /// `CaseIterable` lets tests enumerate every mode to prove each renders.
+    /// `CaseIterable` keeps the mode set enumerable for callers that need to
+    /// walk it (e.g. building the action dispatch table).
     enum Mode: CaseIterable {
         case close
         case minimize

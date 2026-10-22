@@ -41,8 +41,8 @@ outline symbol that morphs into the filled glyph.
 | `.maximize` | `rectangle.fill` | `rectangle` | Maximize Window | Accent (`controlAccentColor`) | `pulseExpand` |
 | `.closeTab` | `xmark.rectangle.fill` | — | Close Tab | System multicolor (red X) | `wiggle` |
 | `.reopenTab` | `plus.rectangle.fill` | — | Reopen Tab | Black + system green (`[.black, .systemGreen]` at 100%) | `wiggle` |
-| `.newWindow` | `macwindow.badge.plus` | — | New Window | System green | `bouncePop` |
-| `.newTab` | `plus.rectangle.fill.on.rectangle.fill` | `plus.rectangle.on.rectangle` | New Tab | System green | `wiggle` |
+| `.newWindow` | `macwindow.badge.plus` | — | New Window | White + system green + black | `bouncePop` |
+| `.newTab` | `plus.rectangle.fill.on.rectangle.fill` | `plus.rectangle.on.rectangle` | New Tab | Black + system green | `wiggle` |
 | `.fullscreen` | `arrow.down.left.and.arrow.up.right.circle.fill` | — | Toggle Fullscreen | Black + system green (`[.black, .systemGreen]`) — same as `PreviewCloseButtonOverlay.Mode.fullscreen` | `pulseExpand` |
 | `.spaceRight` | `arrow.right.circle.fill` | `arrow.right.circle` | Move Window to Next Desktop | White + accent | `slideRight` |
 | `.spaceLeft` | `arrow.left.circle.fill` | `arrow.left.circle` | Move Window to Previous Desktop | White + accent | `slideLeft` |
@@ -108,8 +108,8 @@ Feedback mode = the symbol shown at the cursor when the trigger fires.
 | Swipe left on ejectable Finder volume window\* | `.eject` | `eject.circle.fill` | Close Finder window + eject volume |
 | `Cmd + swipe left` | `.close` | `xmark.circle.fill` | Close window |
 | Two-finger swipe right | `.reopenTab` | `plus.rectangle.fill` | Reopen closed tab |
-| `Cmd + swipe right` (window) | `.newTab` | `plus.rectangle.on.rectangle` | New tab (`Cmd+T`) |
-| `Cmd + swipe right` (Dock) | `.newWindow` | `rectangle.badge.plus` | New window |
+| `Cmd + swipe right` (window) | `.newTab` | `plus.rectangle.fill.on.rectangle.fill` | New tab (`Cmd+T`) |
+| `Cmd + swipe right` (Dock) | `.newWindow` | `macwindow.badge.plus` | New window |
 | Two-finger swipe up | `.minimize` | `minus.circle.fill` | Minimize window |
 | `Cmd + swipe up` | `.hide` | `eye.slash.circle.fill` | Hide app |
 | Two-finger swipe down | `.maximize` | `rectangle.fill` | Fill screen |
@@ -117,7 +117,7 @@ Feedback mode = the symbol shown at the cursor when the trigger fires.
 | Two-finger double tap | `.reasonable` | `inset.filled.center.rectangle` | Reasonable size (60 %) |
 | `Cmd + double tap` | `.almost` | `inset.filled.rectangle` | Almost maximize (90 %) |
 | Pinch out | `.fullscreen` | `arrow.down.left.and.arrow.up.right.circle.fill` | Toggle fullscreen |
-| `Cmd` + pinch out | `.newWindow` | `rectangle.badge.plus` | New window (`Cmd+N`) |
+| `Cmd` + pinch out | `.newWindow` | `macwindow.badge.plus` | New window (`Cmd+N`) |
 \* Eject applies only to Finder windows showing an ejectable/removable volume
 (`MountedVolumeService.ejectableVolumePath != nil`, `bundleIdentifier == "com.apple.finder"`)
 and only when `ShortcutConfiguration.isAutoEjectEnabled` is `true` (menu bar toggle, default on).
