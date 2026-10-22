@@ -13,7 +13,6 @@ final class GeneralSettingsPane: MCSCSettingsPane {
     private var spotlightFixCheckbox: NSButton!
     private var hapticCheckbox: NSButton!
     private var cursorFeedbackCheckbox: NSButton!
-    private var optimizedAnimationsCheckbox: NSButton!
 
     override func loadView() {
         view = NSView()
@@ -112,13 +111,6 @@ final class GeneralSettingsPane: MCSCSettingsPane {
             target: self,
             action: #selector(toggleCursorFeedback(_:))
         )
-        feedback.addSpacing(6)
-        optimizedAnimationsCheckbox = feedback.addDescribedCheckbox(
-            title: "Reduced Animation Overhead",
-            description: "Uses lightweight CoreAnimation effects instead of native symbol effects. Requires restarting MCSC.",
-            target: self,
-            action: #selector(toggleOptimizedAnimations(_:))
-        )
 
         layoutView.addSeparatorSection()
 
@@ -140,7 +132,6 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         spotlightFixCheckbox?.state = viewModel.isCmdSpaceEnabled ? .on : .off
         hapticCheckbox?.state = viewModel.isHapticFeedbackEnabled ? .on : .off
         cursorFeedbackCheckbox?.state = viewModel.isCursorFeedbackEnabled ? .on : .off
-        optimizedAnimationsCheckbox?.state = viewModel.isOptimizedAnimationModeEnabled ? .on : .off
     }
 
     @objc private func toggleLaunchAtLogin(_ sender: NSButton) {
@@ -183,42 +174,6 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         sender.state = viewModel.isCursorFeedbackEnabled ? .on : .off
     }
 
-    @objc private func toggleOptimizedAnimations(_ sender: NSButton) {
-        viewModel.isOptimizedAnimationModeEnabled.toggle()
-        sender.state = viewModel.isOptimizedAnimationModeEnabled ? .on : .off
-
-        let alert = NSAlert()
-        alert.messageText = "Restart MCSC?"
-        alert.informativeText = "MCSC must restart for this change to take effect."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Restart Now")
-        alert.addButton(withTitle: "Later")
-
-        if let window = view.window {
-            alert.beginSheetModal(for: window) { response in
-                if response == .alertFirstButtonReturn {
-                    Self.relaunchApp()
-                }
-            }
-        } else {
-            let response = alert.runModal()
-            if response == .alertFirstButtonReturn {
-                Self.relaunchApp()
-            }
-        }
-    }
-
-    private static func relaunchApp() {
-        let bundleURL = Bundle.main.bundleURL
-        let config = NSWorkspace.OpenConfiguration()
-        config.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: bundleURL, configuration: config) { _, _ in
-            DispatchQueue.main.async {
-                NSApp.terminate(nil)
-            }
-        }
-    }
-
     @objc private func toggleKeyboardNav(_ sender: NSButton) {
         viewModel.isKeyboardNavigationEnabled.toggle()
         sender.state = viewModel.isKeyboardNavigationEnabled ? .on : .off
@@ -239,7 +194,6 @@ final class GeneralSettingsPane: MCSCSettingsPane {
         viewModel.isCmdSpaceEnabled = true
         viewModel.isHapticFeedbackEnabled = true
         viewModel.isCursorFeedbackEnabled = true
-        viewModel.isOptimizedAnimationModeEnabled = true
         refreshAllPanes()
     }
 }

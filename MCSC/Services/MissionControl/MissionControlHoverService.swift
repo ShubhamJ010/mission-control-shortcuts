@@ -48,7 +48,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private var createdOverlay: (any PreviewCloseButtonOverlayProtocol)?
     private var injectedSearchOverlay: (any SearchBarOverlayProtocol)?
     private var createdSearchOverlay: (any SearchBarOverlayProtocol)?
-    private let animationStrategy: OverlayAnimationStrategy
 
     /// Lazily created on first access so no `NSPanel` (and its GPU/IOSurface
     /// layer tree) exists until the overlay is actually needed. Tests can inject
@@ -60,7 +59,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         if let createdOverlay {
             return createdOverlay
         }
-        let newOverlay = PreviewCloseButtonOverlay(strategy: animationStrategy)
+        let newOverlay = PreviewCloseButtonOverlay()
         createdOverlay = newOverlay
         return newOverlay
     }
@@ -241,7 +240,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
          spaceService: SpaceManagementServiceProtocol? = nil,
          overlay: (any PreviewCloseButtonOverlayProtocol)? = nil,
          searchOverlay: (any SearchBarOverlayProtocol)? = nil,
-         animationStrategy: OverlayAnimationStrategy? = nil,
          volumeService: MountedVolumeServiceProtocol? = nil,
          isAutoEjectEnabledProvider: @escaping () -> Bool = { false },
          isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
@@ -251,7 +249,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         self.spaceService = spaceService ?? SpaceManagementService()
         self.injectedOverlay = overlay
         self.injectedSearchOverlay = searchOverlay
-        self.animationStrategy = animationStrategy ?? OptimizedOverlayAnimationStrategy()
         self.volumeService = volumeService
         self.isAutoEjectEnabledProvider = isAutoEjectEnabledProvider
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider

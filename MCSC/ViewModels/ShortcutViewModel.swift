@@ -24,12 +24,6 @@ final class ShortcutViewModel {
     lazy var multitouchService = MultitouchService()
     lazy var gestureEngine = GestureEngine()
     private weak var twoFingerTapRecognizer: TwoFingerDoubleTapRecognizer?
-    /// Animation backend shared by every overlay, chosen once at startup from
-    /// UserDefaults so no runtime driver switching or bloat occurs.
-    private lazy var animationStrategy: OverlayAnimationStrategy =
-        config.isOptimizedAnimationModeEnabled
-            ? OptimizedOverlayAnimationStrategy()
-            : NativeSymbolEffectAnimationStrategy()
 
     lazy var spaceService: SpaceManagementServiceProtocol = SpaceManagementService()
 
@@ -40,7 +34,6 @@ final class ShortcutViewModel {
         },
         missionControlService: missionControlService,
         spaceService: spaceService,
-        animationStrategy: animationStrategy,
         volumeService: volumeService,
         isAutoEjectEnabledProvider: { [weak self] in
             self?.config.isAutoEjectEnabled ?? false
@@ -50,7 +43,7 @@ final class ShortcutViewModel {
         }
     )
 
-    lazy var cursorFeedback: CursorFeedbackOverlay = .init(strategy: animationStrategy)
+    lazy var cursorFeedback: CursorFeedbackOverlay = .init()
 
     lazy var volumeService: MountedVolumeServiceProtocol = MountedVolumeService()
     /// Lazily-created event tap that swallows App Exposé / context-menu

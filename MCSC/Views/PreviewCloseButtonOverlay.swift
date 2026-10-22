@@ -1,5 +1,4 @@
 import Cocoa
-import Symbols
 
 /// Protocol governing the Mission Control close/action button overlay.
 @MainActor
@@ -80,15 +79,8 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     private var buttonView: CloseButtonView?
 
     private(set) var isVisible = false
-    private var currentAnchorOrigin: CGPoint = .zero
 
-    /// The injected animation backend (zero-overhead CoreAnimation or native
-    /// Apple Symbol Effects), chosen once at startup and shared with the other
-    /// overlays so the same domain concept has one representation.
-    let strategy: OverlayAnimationStrategy
-
-    init(strategy: OverlayAnimationStrategy? = nil) {
-        self.strategy = strategy ?? OptimizedOverlayAnimationStrategy()
+    init() {
         // Panel creation is deferred to the first show() call so no
         // layer-backed NSPanel (and its GPU/IOSurface buffers) exists
         // until the feature is actually used.
@@ -101,7 +93,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
             ignoresMouseEvents: false
         )
 
-        let button = CloseButtonView(frame: contentRect, strategy: strategy)
+        let button = CloseButtonView(frame: contentRect)
 
         panel.contentView = button
         self.buttonView = button
@@ -175,20 +167,18 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
             height: Self.buttonDimension
         )
 
-        let isNewOrigin = !targetRect.origin.equalTo(currentAnchorOrigin)
-        currentAnchorOrigin = targetRect.origin
-
         panel.setFrame(targetRect, display: true)
         buttonView?.setMode(mode, animated: false)
 
         panel.orderFrontRegardless()
         if !isVisible {
             isVisible = true
+            // The bounce plays only on the first appearance. Re-anchoring the
+            // button while it is already visible stays deliberately quiet so
+            // it does not re-bounce while tracking the cursor across previews.
             if let buttonView {
-                strategy.applyAppear(on: buttonView, imageView: buttonView.imageView)
+                OverlayAnimator.applyAppear(on: buttonView)
             }
-        } else if isNewOrigin, let buttonView {
-            strategy.applyRelocationAppearance(on: buttonView, imageView: buttonView.imageView)
         }
     }
 
@@ -213,7 +203,6 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         guard isVisible else { return }
         panel?.orderOut(nil)
         isVisible = false
-        currentAnchorOrigin = .zero
         currentAXRect = .zero
     }
 }
@@ -222,19 +211,10 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
 
 @MainActor
 final class CloseButtonView: NSView {
-    /// Exposed (read-only) so the owning overlay can pass it to strategy calls
-    /// that animate the symbol rather than the container layer.
+    /// Exposed (read-only) so the owning overlay can reach the symbol image view.
     let imageView = NSImageView()
     private(set) var isHovered = false
     private(set) var currentMode: PreviewCloseButtonOverlay.Mode = .close
-    private let strategy: OverlayAnimationStrategy
-
-    init(frame frameRect: NSRect, strategy: OverlayAnimationStrategy) {
-        self.strategy = strategy
-        super.init(frame: frameRect)
-        wantsLayer = true
-        setupImageView()
-    }
 
     private var colorChangeObserver: (any NSObjectProtocol)?
 
@@ -269,14 +249,12 @@ final class CloseButtonView: NSView {
     }
 
     override init(frame frameRect: NSRect) {
-        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(frame: frameRect)
         wantsLayer = true
         setupImageView()
     }
 
     required init?(coder: NSCoder) {
-        self.strategy = OptimizedOverlayAnimationStrategy()
         super.init(coder: coder)
         wantsLayer = true
         setupImageView()
@@ -337,15 +315,14 @@ final class CloseButtonView: NSView {
         guard let image = image(for: mode) else { return }
 
         if animated {
-            strategy.applyModeChange(to: image, on: imageView)
+            OverlayAnimator.applyModeChange(to: image, on: imageView)
         } else {
             imageView.image = image
         }
     }
 
-    /// Cleans up symbol effects and image cache.
+    /// Cleans up running animations and the image cache.
     func reset() {
-        imageView.removeAllSymbolEffects(animated: false)
         imageView.layer?.removeAllAnimations()
         layer?.removeAllAnimations()
         imageCache.removeAll()
@@ -358,6 +335,6 @@ final class CloseButtonView: NSView {
     func setHovered(_ hovered: Bool) {
         guard hovered != isHovered else { return }
         isHovered = hovered
-        strategy.applyHover(on: self, hovered: hovered)
+        OverlayAnimator.applyHover(on: self, hovered: hovered)
     }
 }

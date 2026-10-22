@@ -128,31 +128,35 @@ When disabled, those triggers fall through to their normal `.close`/`.quit`/`.cl
 ```mermaid
 flowchart LR
   Trig[Triggers] --> Mode[14 Modes]
-  Mode --> Cursor[Cursor flash 0.6s]
+  Mode --> Cursor[Cursor flash 0.28s]
   Mode -.-> Hover[Hover 3 Modes]
 ```
 
 
 ---
 
-## 4. Animation Architecture & Zero-Overhead CoreAnimation Engine
+## 4. Animation Architecture & the Zero-Overhead CoreAnimation Engine
 
-MCSC provides two selectable animation backends using the **Strategy Pattern**, configured at startup time:
+MCSC has exactly **one** animation engine: `OverlayAnimator` (`MCSC/Views/OverlayAnimator.swift`).
+It is a stateless `enum` of `static` helpers, so no animator object is ever allocated and
+the overlays hold no animation state.
 
-1. **`OptimizedOverlayAnimationStrategy` (Default)**:
-   - **Zero-Overhead CoreAnimation**: Direct `CALayer` hardware-accelerated animations (`OverlayAnimationFactory`).
-   - **Visual Fidelity**:
-     - 0.16s morph cross-fade (`CATransition(.fade)`) from outline base symbol to filled glyph.
-     - 5-point Apple spring bounce keyframe curve (0.72 ➔ 1.18 ➔ 0.94 ➔ 1.03 ➔ 1.0).
-     - ±7° 7-point tab wiggle oscillation.
-     - 1.15x pulse expansion for resize/window feedback.
-     - Smooth scale-down dissolve retract.
-   - **Memory Profile**: **0 MB additional GPU/Metal footprint**. Baseline stays flat at **12–14 MB**.
+- **Zero-Overhead CoreAnimation**: Direct `CALayer` hardware-accelerated keyframe animations
+  and cross-fades.
+- **Visual Fidelity**:
+  - 0.16s morph cross-fade (`CATransition(.fade)`) from outline base symbol to filled glyph.
+  - 5-point Apple spring bounce keyframe curve (0.72 ➔ 1.18 ➔ 0.94 ➔ 1.03 ➔ 1.0).
+  - ±7° 7-point tab wiggle oscillation.
+  - 1.15x pulse expansion for resize/window feedback.
+  - Smooth scale-down dissolve retract.
+- **Memory Profile**: **0 MB additional GPU/Metal footprint**. Baseline stays flat at **12–14 MB**.
 
-2. **`NativeSymbolEffectAnimationStrategy` (Configurable via Settings + Restart)**:
-   - Uses Apple's native `Symbols.framework` (`addSymbolEffect(.appear.byLayer)`, `.disappear.byLayer`, `setSymbolImage(contentTransition: .replace.magic)`).
-   - Decomposes vector layers, invoking `NSSymbolEffectCoordinator` and Metal/IOSurface texture pools (~30–70 MB footprint).
+### Why there is no native symbol-effects path
+Apple's SF Symbol Effects (`Symbols.framework` — `addSymbolEffect(.appear.byLayer)`,
+`.disappear.byLayer`, `setSymbolImage(contentTransition: .replace.magic)`) decompose vector
+layers through `NSSymbolEffectCoordinator` and allocate Metal/IOSurface texture pools of
+~30–70 MB. That is incompatible with MCSC's zero-footprint mandate, so the engine avoids the
+framework entirely: every visual effect is reproduced with plain CoreAnimation.
 
-### Startup-Time Dependency Injection (SOLID & DRY)
-- In `ShortcutViewModel`, the strategy is selected once at launch from `UserDefaults` and injected immutably into `CursorFeedbackOverlay(strategy:)` and `PreviewCloseButtonOverlay(isOptimized:)`.
-- In General Settings, the toggle is marked as `"Optimized Animation Mode (Requires Restart)"`. Toggling prompts the user with an option to **"Restart Now"** (which automatically relaunches MCSC) or **"Later"**.
+There is no quality switch, no strategy injection, and no restart-on-change plumbing — the
+lightweight engine is the only engine.

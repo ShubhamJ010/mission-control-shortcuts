@@ -201,9 +201,4 @@ extension ShortcutViewModel {
     var isCursorFeedbackEnabled: Bool {
         get { config.isCursorFeedbackEnabled } set { config.isCursorFeedbackEnabled = newValue }
     }
-
-    var isOptimizedAnimationModeEnabled: Bool {
-        get { config.isOptimizedAnimationModeEnabled }
-        set { config.isOptimizedAnimationModeEnabled = newValue }
-    }
 }

@@ -2,6 +2,7 @@
 
 ## 0.8.3 (21 Oct 2026)
 
+- **Single Lightweight Animation Engine**: Removed the "Reduced Animation Overhead" setting and the native SF Symbol Effects backend entirely. Every overlay animation — the Mission Control preview close button and the cursor feedback flash — now runs through the consolidated CoreAnimation engine `OverlayAnimator` (`MCSC/Views/OverlayAnimator.swift`). The `OverlayAnimationStrategy` protocol, `OverlayAnimationFactory`, `OptimizedOverlayAnimationStrategy`, and `NativeSymbolEffectAnimationStrategy` were collapsed into that single stateless helper, dropping the `Symbols.framework` dependency (and its Metal/IOSurface texture pools), the strategy injection plumbing, and the "restart MCSC to apply" prompt.
 - **Mission Control Multi-Space Preview Tile Fallback**: Resolved an issue where window preview close buttons failed to display over Finder and other app windows on secondary spaces (such as Desktop 2). Because macOS 27 WindowManager maintains preview tile `AXButton` elements for all spaces simultaneously, direct coordinate hit-tests frequently hit off-screen tiles from inactive spaces; restored `findMatchingPreviewTile` hierarchy scanning to match tiles against active desktop window IDs.
 - **Space Transition RunLoop Scheduling**: Updated `MissionControlHoverService.armSpaceTransitionTimeout` to use `Timer.scheduledCommon` with tolerance, ensuring space transition timeout debouncing fires reliably while tracking runloops are active.
 

@@ -169,36 +169,5 @@ extension CursorFeedbackOverlay {
             default: nil
             }
         }
-
-        enum EntryAnimation {
-            case bounceUpByLayer
-            case wiggleByLayer
-        }
-
-        var entryAnimation: EntryAnimation? {
-            switch self {
-            case .close, .quit, .newWindow: .bounceUpByLayer
-            case .closeTab, .reopenTab, .newTab: .wiggleByLayer
-            case .minimize, .hide, .eject, .almost, .reasonable, .makeSmaller, .maximize, .fullscreen, .spaceRight,
-                 .spaceLeft, .unminimizeAll, .command, .leftCycleSnap, .rightCycleSnap: nil
-            }
-        }
-
-        enum ReplaceTransition {
-            case magicReveal
-            case magicDownUpReveal
-            case downUpReveal
-            case replace
-        }
-
-        var replaceTransition: ReplaceTransition? {
-            switch self {
-            case .almost, .reasonable, .maximize, .minimize, .hide, .unminimizeAll, .command,
-                 .leftCycleSnap, .rightCycleSnap: .downUpReveal
-            case .eject: .magicDownUpReveal
-            case .spaceRight, .spaceLeft, .newTab: .replace
-            case .close, .quit, .closeTab, .reopenTab, .newWindow, .fullscreen, .makeSmaller: nil
-            }
-        }
     }
 }

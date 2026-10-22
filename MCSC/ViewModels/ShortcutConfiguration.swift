@@ -232,13 +232,6 @@ struct ShortcutConfiguration {
         didSet { UserDefaults.standard.set(isCursorFeedbackEnabled, forKey: Self.Keys.cursorFeedbackEnabled) }
     }
 
-    /// When true, uses zero-overhead CoreAnimation effects. When false, uses native Apple SF Symbol Effects.
-    var isOptimizedAnimationModeEnabled = true {
-        didSet {
-            UserDefaults.standard.set(isOptimizedAnimationModeEnabled, forKey: Self.Keys.optimizedAnimationsEnabled)
-        }
-    }
-
     // MARK: - Gesture action mappings
 
     /// Plain gesture → action mapping.
@@ -298,8 +291,7 @@ struct ShortcutConfiguration {
         (\.isAutoEjectEnabled, Keys.autoEjectEnabled, true),
         (\.isQuitAppIfNoWindowsEnabled, Keys.quitAppIfNoWindowsEnabled, false),
         (\.isHapticFeedbackEnabled, Keys.hapticFeedbackEnabled, true),
-        (\.isCursorFeedbackEnabled, Keys.cursorFeedbackEnabled, true),
-        (\.isOptimizedAnimationModeEnabled, Keys.optimizedAnimationsEnabled, true)
+        (\.isCursorFeedbackEnabled, Keys.cursorFeedbackEnabled, true)
     ]
 
     private mutating func loadStoredToggles() {
@@ -608,7 +600,6 @@ private extension ShortcutConfiguration {
         static let autoEjectEnabled = "mcsc.autoEject.enabled",
                    quitAppIfNoWindowsEnabled = "mcsc.quitAppIfNoWindows.enabled",
                    hapticFeedbackEnabled = "mcsc.feedback.haptics.enabled",
-                   cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled",
-                   optimizedAnimationsEnabled = "mcsc.feedback.optimizedAnimations.enabled"
+                   cursorFeedbackEnabled = "mcsc.feedback.cursor.enabled"
     }
 }

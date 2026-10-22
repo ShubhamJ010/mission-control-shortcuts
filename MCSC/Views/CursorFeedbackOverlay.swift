@@ -14,7 +14,7 @@ import Cocoa
 /// resize action executes (Cmd+W / Cmd+M / Cmd+Q / Cmd+H shortcuts and the
 /// matching trackpad gestures). The three resize symbols (Almost Maximize,
 /// Reasonable Size, Maximize) first paint an empty `rectangle` and then morph
-/// into their filled glyph via a replace transition.
+/// into their filled glyph via a cross-fade transition.
 ///
 /// Unlike `PreviewCloseButtonOverlay` (which is anchored to the top-left of a
 /// Mission Control window preview and is clickable), this overlay ignores all
@@ -38,8 +38,6 @@ final class CursorFeedbackOverlay {
     private var panel: NSPanel?
     private var imageView: NSImageView?
     private var dismissWork: DispatchWorkItem?
-
-    private let strategy: OverlayAnimationStrategy
 
     /// Cache of rendered feedback symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once per process and reused across
@@ -76,8 +74,7 @@ final class CursorFeedbackOverlay {
 
     private var colorChangeObserver: (any NSObjectProtocol)?
 
-    init(strategy: OverlayAnimationStrategy) {
-        self.strategy = strategy
+    init() {
         // Panel creation is deferred to the first show() call so no
         // NSPanel (and its layer tree) is allocated until feedback is displayed.
         colorChangeObserver = NotificationCenter.default.addObserver(
@@ -138,7 +135,7 @@ final class CursorFeedbackOverlay {
         imageView.layer?.transform = CATransform3DIdentity
 
         // Apply symbol entry before making panel visible to eliminate stale frame flicker
-        strategy.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
+        OverlayAnimator.applyEntry(for: mode, imageView: imageView, feedbackImage: feedbackImage)
 
         panel.orderFrontRegardless()
         NSAnimationContext.beginGrouping()
@@ -159,7 +156,6 @@ final class CursorFeedbackOverlay {
         imageView?.image = nil
         imageView?.layer?.transform = CATransform3DIdentity
         imageView?.layer?.removeAllAnimations()
-        imageView?.removeAllSymbolEffects(animated: false)
     }
 
     private func scheduleDismiss() {
@@ -174,9 +170,9 @@ final class CursorFeedbackOverlay {
         )
     }
 
-    /// Fades the panel to zero over `retractDuration` and dismisses it via strategy.
+    /// Fades the panel to zero over `retractDuration` and dismisses it.
     private func retract(panel: NSPanel, imageView: NSImageView) {
-        strategy.performRetract(panel: panel, imageView: imageView, duration: retractDuration) {
+        OverlayAnimator.performRetract(panel: panel, imageView: imageView, duration: retractDuration) {
             // Dismissal and cleanup finished
         }
     }
