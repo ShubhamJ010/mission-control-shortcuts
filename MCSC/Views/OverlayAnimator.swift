@@ -1,15 +1,5 @@
 import Cocoa
 
-/// Tailored entry animation curves applied to an overlay symbol's layer.
-enum OverlayAnimationStyle {
-    case bouncePop
-    case wiggle
-    case pulseExpand
-    case shrinkDown
-    case slideRight
-    case slideLeft
-}
-
 /// The one and only animation backend for every MCSC overlay.
 ///
 /// Every effect is plain CoreAnimation — keyframe curves, cross-fades and
@@ -32,7 +22,7 @@ enum OverlayAnimator {
     /// first and the filled glyph cross-fades over it (a morph that needs no
     /// symbol-effect machinery).
     static func applyEntry(
-        for mode: CursorFeedbackOverlay.Mode,
+        for mode: CursorFeedbackMode,
         imageView: NSImageView,
         feedbackImage: NSImage
     ) {
@@ -50,9 +40,14 @@ enum OverlayAnimator {
                description: mode.accessibilityDescription,
                paletteColors: mode.basePaletteColors ?? mode.paletteColors
            ) {
+            // Paint the outline silhouette instantly, then hand the swap to
+            // the pending cross-fade.
             setImage(baseImage, on: imageView)
             applyMorphTransition(on: layer)
-            setImage(feedbackImage, on: imageView)
+            // Deliberately NOT wrapped in a disabled-actions transaction: the
+            // CATransition above only animates if this assignment is made
+            // while implicit animations are still enabled.
+            imageView.image = feedbackImage
         } else {
             setImage(feedbackImage, on: imageView)
         }
@@ -71,6 +66,8 @@ enum OverlayAnimator {
         if let layer = imageView.layer {
             applyMorphTransition(on: layer)
         }
+        // Same rule as the morph target in `applyEntry`: the assignment must
+        // stay outside a disabled-actions transaction for the cross-fade to play.
         imageView.image = image
     }
 
@@ -111,6 +108,10 @@ enum OverlayAnimator {
     // MARK: - Layer Primitives
 
     /// Swaps an image without animating the implicit layer change.
+    ///
+    /// Used for the *base* silhouette only. The morph **target** must be
+    /// assigned outside this transaction (see `applyEntry`) so the pending
+    /// `CATransition` can animate it — otherwise the cross-fade never plays.
     private static func setImage(_ image: NSImage, on imageView: NSImageView) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -120,10 +121,10 @@ enum OverlayAnimator {
     }
 
     /// Smooth cross-fade from a base outline silhouette to a filled colored symbol.
-    private static func applyMorphTransition(on layer: CALayer, duration: TimeInterval = 0.16) {
+    private static func applyMorphTransition(on layer: CALayer) {
         let transition = CATransition()
         transition.type = .fade
-        transition.duration = duration
+        transition.duration = 0.16
         transition.timingFunction = CAMediaTimingFunction(name: .easeOut)
         layer.add(transition, forKey: "overlayMorphTransition")
     }

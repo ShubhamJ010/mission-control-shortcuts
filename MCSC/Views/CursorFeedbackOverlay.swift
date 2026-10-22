@@ -42,10 +42,10 @@ final class CursorFeedbackOverlay {
     /// Cache of rendered feedback symbols, keyed by mode. Populated lazily so
     /// each symbol is rasterized at most once per process and reused across
     /// triggers.
-    private var imageCache: [Mode: NSImage] = [:]
+    private var imageCache: [CursorFeedbackMode: NSImage] = [:]
 
     /// Returns the cached — or freshly rendered — symbol image for `mode`.
-    private func image(for mode: Mode) -> NSImage? {
+    private func image(for mode: CursorFeedbackMode) -> NSImage? {
         if let cached = imageCache[mode] {
             return cached
         }
@@ -56,15 +56,15 @@ final class CursorFeedbackOverlay {
 
     /// Builds the SF Symbol image for `mode`: semibold 24 pt, tinted with the
     /// mode's palette (or the system multicolor default). Pure factory — no
-    /// state — so new modes only need their `Mode` descriptors.
-    private func makeSymbolImage(for mode: Mode) -> NSImage? {
+    /// state — so new modes only need their `CursorFeedbackMode` descriptors.
+    private func makeSymbolImage(for mode: CursorFeedbackMode) -> NSImage? {
         makeSymbolImage(symbolName: mode.symbolName, mode: mode)
     }
 
     /// Renders an arbitrary SF Symbol with the given mode's tint palette. Used
     /// for the base symbols (e.g. empty rectangle) painted just before a
     /// replacement transition fires.
-    private func makeSymbolImage(symbolName: String, mode: Mode) -> NSImage? {
+    private func makeSymbolImage(symbolName: String, mode: CursorFeedbackMode) -> NSImage? {
         SymbolImageFactory.make(
             symbolName: symbolName,
             description: mode.accessibilityDescription,
@@ -116,7 +116,7 @@ final class CursorFeedbackOverlay {
     /// coordinates, origin at the top-left). Repeated triggers within the
     /// display window reset the auto-dismiss timer so the symbol persists a
     /// full beat from the most recent action.
-    func show(at point: CGPoint, mode: Mode) {
+    func show(at point: CGPoint, mode: CursorFeedbackMode) {
         if panel == nil {
             setupPanel()
         }

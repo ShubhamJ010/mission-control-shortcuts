@@ -150,7 +150,7 @@ extension ShortcutViewModel {
     /// the run loop.
     func executeFeedbackThenAction(
         at point: CGPoint,
-        feedbackMode: CursorFeedbackOverlay.Mode,
+        feedbackMode: CursorFeedbackMode,
         haptic: HapticType?,
         action: @escaping () -> Void
     ) {

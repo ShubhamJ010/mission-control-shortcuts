@@ -17,7 +17,7 @@ extension MCSCSettingsPane {
     @discardableResult
     func addShortcutRow(
         section: SettingsColumnSectionView,
-        mode: CursorFeedbackOverlay.Mode,
+        mode: CursorFeedbackMode,
         title: String,
         action: RoutedAction
     ) -> ShortcutRecorderField {
@@ -38,7 +38,7 @@ extension MCSCSettingsPane {
         return recorder
     }
 
-    private func makeAttributedTitle(mode: CursorFeedbackOverlay.Mode, title: String) -> NSAttributedString {
+    private func makeAttributedTitle(mode: CursorFeedbackMode, title: String) -> NSAttributedString {
         let regularFont = NSFont.systemFont(ofSize: NSFont.systemFontSize)
         let boldFont = NSFontManager.shared.convert(regularFont, toHaveTrait: .boldFontMask)
         let attrString = NSMutableAttributedString()

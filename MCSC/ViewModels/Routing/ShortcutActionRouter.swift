@@ -8,7 +8,7 @@ enum TargetResolution {
 }
 
 enum ResolvedShortcutAction {
-    case consumeAndExecute(feedbackMode: CursorFeedbackOverlay.Mode, action: () -> Void)
+    case consumeAndExecute(feedbackMode: CursorFeedbackMode, action: () -> Void)
     case ignore
 }
 
@@ -182,7 +182,7 @@ private extension ShortcutActionRouter {
         let hoverService: MissionControlHoverServiceProtocol?
 
         func execute(
-            feedbackMode: CursorFeedbackOverlay.Mode,
+            feedbackMode: CursorFeedbackMode,
             needsActivate: Bool = false,
             action: @escaping () -> Void
         ) -> ResolvedShortcutAction {
@@ -263,7 +263,7 @@ private extension ShortcutActionRouter {
         context: Context
     ) -> ResolvedShortcutAction? {
         let targetScope: CloseScope
-        let feedback: CursorFeedbackOverlay.Mode
+        let feedback: CursorFeedbackMode
 
         if context.config.isSmartTabCloseEnabled {
             guard matched.contains(.close) || matched.contains(.closeTab) else { return nil }
@@ -422,7 +422,7 @@ private extension ShortcutActionRouter {
             }
         }
         if matched.contains(.newTab) {
-            let mode: CursorFeedbackOverlay.Mode = (context.app != nil) ? .newWindow : .newTab
+            let mode: CursorFeedbackMode = (context.app != nil) ? .newWindow : .newTab
             return context.execute(feedbackMode: mode, needsActivate: true) { [weak self] in
                 guard let self else { return }
                 if let app = context.app {
@@ -485,7 +485,7 @@ private extension ShortcutActionRouter {
     ) -> ResolvedShortcutAction? {
         let snapConfigs: [(
             RoutedAction,
-            CursorFeedbackOverlay.Mode,
+            CursorFeedbackMode,
             (ActionRegistry, NSRunningApplication?, CGPoint, AccessibilityServiceProtocol) -> Void
         )] = [
             (.leftCycleSnap, .leftCycleSnap, { actions, app, loc, svc in

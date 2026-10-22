@@ -1,7 +1,7 @@
 import Cocoa
 
 enum ResolvedGestureAction {
-    case execute(feedbackMode: CursorFeedbackOverlay.Mode, haptic: HapticType?, action: () -> Void)
+    case execute(feedbackMode: CursorFeedbackMode, haptic: HapticType?, action: () -> Void)
     case none
 }
 
@@ -146,14 +146,14 @@ private extension GestureActionRouter {
     struct Context {
         let point: CGPoint
         let service: AccessibilityServiceProtocol
-        let feedbackMode: CursorFeedbackOverlay.Mode
+        let feedbackMode: CursorFeedbackMode
         let haptic: HapticType
         let needsActivate: Bool
         let quitIfNoWindows: Bool
         let activateApp: (CGPoint) -> Void
 
         func execute(
-            overrideFeedbackMode: CursorFeedbackOverlay.Mode? = nil,
+            overrideFeedbackMode: CursorFeedbackMode? = nil,
             block: @escaping () -> Void
         ) -> ResolvedGestureAction {
             .execute(feedbackMode: overrideFeedbackMode ?? feedbackMode, haptic: haptic) {
@@ -533,7 +533,7 @@ private extension GestureActionRouter {
         }
     }
 
-    private func feedbackMode(for action: GestureAction) -> CursorFeedbackOverlay.Mode {
+    private func feedbackMode(for action: GestureAction) -> CursorFeedbackMode {
         switch action {
         case .closeWindow: .close
         case .quitApp: .quit

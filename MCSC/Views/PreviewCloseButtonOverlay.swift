@@ -28,7 +28,7 @@ extension PreviewCloseButtonOverlayProtocol {
 final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     /// The action the hover button represents, plus its visual treatment.
     ///
-    /// Data-driven like `CursorFeedbackOverlay.Mode`: adding a new action is a
+    /// Data-driven like `CursorFeedbackMode`: adding a new action is a
     /// `case` plus its descriptors (symbol name, accessibility label, palette).
     /// `CaseIterable` lets tests enumerate every mode to prove each renders.
     enum Mode: CaseIterable {
@@ -211,8 +211,8 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
 
 @MainActor
 final class CloseButtonView: NSView {
-    /// Exposed (read-only) so the owning overlay can reach the symbol image view.
-    let imageView = NSImageView()
+    /// The symbol image view rendered inside the button.
+    private let imageView = NSImageView()
     private(set) var isHovered = false
     private(set) var currentMode: PreviewCloseButtonOverlay.Mode = .close
 
