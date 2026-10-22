@@ -41,8 +41,8 @@ outline symbol that morphs into the filled glyph.
 | `.maximize` | `rectangle.fill` | `rectangle` | Maximize Window | Accent (`controlAccentColor`) | `pulseExpand` |
 | `.closeTab` | `xmark.rectangle.fill` | — | Close Tab | System multicolor (red X) | `wiggle` |
 | `.reopenTab` | `plus.rectangle.fill` | — | Reopen Tab | Black + system green (`[.black, .systemGreen]` at 100%) | `wiggle` |
-| `.newWindow` | `rectangle.badge.plus` | — | New Window | System green | `bouncePop` |
-| `.newTab` | `plus.rectangle.on.rectangle` | `plus.rectangle.on.rectangle` | New Tab | System green | `wiggle` |
+| `.newWindow` | `macwindow.badge.plus` | — | New Window | System green | `bouncePop` |
+| `.newTab` | `plus.rectangle.fill.on.rectangle.fill` | `plus.rectangle.on.rectangle` | New Tab | System green | `wiggle` |
 | `.fullscreen` | `arrow.down.left.and.arrow.up.right.circle.fill` | — | Toggle Fullscreen | Black + system green (`[.black, .systemGreen]`) — same as `PreviewCloseButtonOverlay.Mode.fullscreen` | `pulseExpand` |
 | `.spaceRight` | `arrow.right.circle.fill` | `arrow.right.circle` | Move Window to Next Desktop | White + accent | `slideRight` |
 | `.spaceLeft` | `arrow.left.circle.fill` | `arrow.left.circle` | Move Window to Previous Desktop | White + accent | `slideLeft` |
@@ -61,6 +61,8 @@ outline symbol that morphs into the filled glyph.
 **Source:** the `CursorFeedbackMode` enum in `MCSC/Models/CursorFeedbackMode.swift`.
 It lives in the Models layer because the descriptor is shared by the overlay
 (the View that renders it), the animation engine, and the action routers.
+Each mode is declared once, in `descriptor`, with all of its visual
+descriptors together.
 
 ---
 
@@ -128,9 +130,9 @@ When disabled, those triggers fall through to their normal `.close`/`.quit`/`.cl
 
 ```mermaid
 flowchart LR
-  Trig[Triggers] --> Mode[14 Modes]
+  Trig[Triggers] --> Mode[20 Modes]
   Mode --> Cursor[Cursor flash 0.28s]
-  Mode -.-> Hover[Hover 3 Modes]
+  Mode -.-> Hover[Hover 5 Modes]
 ```
 
 

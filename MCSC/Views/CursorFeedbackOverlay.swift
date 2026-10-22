@@ -1,20 +1,16 @@
 import Cocoa
 
-/// A lightweight, non-interactive, transient overlay that flashes an action
-/// symbol — red `xmark.circle.fill` for Close, `minus.circle.fill` for
-/// Minimize, a purple `xmark.circle.fill` with a white cross for Force
-/// Quit, a
-/// black/yellow `eye.slash.circle.fill` for Hide, a pastel
-/// `inset.filled.rectangle` for Almost Maximize, an accent
-/// `inset.filled.center.rectangle` for Reasonable Size, an accent
-/// `rectangle.fill` for Maximize, a `xmark.rectangle.fill` for Close Tab, a
-/// `plus.rectangle.fill` for Reopen Tab, a `rectangle.badge.xmark` for Close
-/// All Tabs, and a `rectangle.badge.plus` for New Window — centered at the
-/// mouse cursor as visual feedback whenever a close, minimize, quit, hide, or
-/// resize action executes (Cmd+W / Cmd+M / Cmd+Q / Cmd+H shortcuts and the
-/// matching trackpad gestures). The three resize symbols (Almost Maximize,
-/// Reasonable Size, Maximize) first paint an empty `rectangle` and then morph
-/// into their filled glyph via a cross-fade transition.
+/// A lightweight, non-interactive, transient overlay that flashes the action
+/// symbol for a shortcut or gesture — e.g. red `xmark.circle.fill` for Close,
+/// `minus.circle.fill` for Minimize, a purple `xmark.circle.fill` for Force
+/// Quit, an accent `rectangle.fill` for Maximize — centered at the mouse
+/// cursor as visual feedback whenever an action executes.
+///
+/// The full symbol set, palettes, and per-mode animation styles are declared
+/// data-only in `CursorFeedbackMode` (Models layer); the table in
+/// `docs/SYMBOLS.md` is the reference. Modes that declare a `baseSymbol`
+/// (the resize glyphs, for example) first paint an empty outline and then
+/// morph into their filled glyph via a cross-fade transition.
 ///
 /// Unlike `PreviewCloseButtonOverlay` (which is anchored to the top-left of a
 /// Mission Control window preview and is clickable), this overlay ignores all
