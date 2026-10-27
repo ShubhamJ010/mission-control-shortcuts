@@ -9,10 +9,57 @@ extension MissionControlHoverService {
         "AXExposeShowDesktop"
     ]
 
+    func setupDockProcessObservers() {
+        guard dockLaunchObserver == nil, dockTerminateObserver == nil else { return }
+
+        dockLaunchObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didLaunchApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.bundleIdentifier == "com.apple.dock" else { return }
+                AppLogger.dock.info("Dock launched (PID: \(app.processIdentifier)). Reconnecting AXObserver.")
+                self?.setupDockObserver()
+            }
+        }
+
+        dockTerminateObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notification in
+            MainActor.assumeIsolated {
+                guard let app = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.bundleIdentifier == "com.apple.dock" else { return }
+                AppLogger.dock.notice("Dock terminated (PID: \(app.processIdentifier)). Stopping AXObserver.")
+                self?.stopDockObserver()
+                if self?.isMissionControlActive == true {
+                    self?.handleDeactivated()
+                }
+            }
+        }
+    }
+
+    func removeDockProcessObservers() {
+        if let observer = dockLaunchObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            dockLaunchObserver = nil
+        }
+        if let observer = dockTerminateObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+            dockTerminateObserver = nil
+        }
+    }
+
     func setupDockObserver() {
-        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first
+        stopDockObserver()
+
+        guard let dockApp = NSRunningApplication.runningApplications(withBundleIdentifier: "com.apple.dock").first,
+              !dockApp.isTerminated
         else {
-            AppLogger.dock.error("Dock process not found for AXObserver")
+            AppLogger.dock.error("Dock process not found or terminated for AXObserver")
             return
         }
 
@@ -29,6 +76,12 @@ extension MissionControlHoverService {
 
         guard result == .success, let obs = observer else {
             AppLogger.dock.error("Failed to create AXObserver for Dock: \(result.rawValue)")
+            if isTracking {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+                    guard let self, self.isTracking, self.axObserver == nil else { return }
+                    self.setupDockObserver()
+                }
+            }
             return
         }
 

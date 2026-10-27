@@ -89,6 +89,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     /// Internal: installed by `+Observers.swift`.
     var axObserver: AXObserver?
     var dockAXElement: AXUIElement?
+    var dockLaunchObserver: NSObjectProtocol?
+    var dockTerminateObserver: NSObjectProtocol?
     private var windowFetchTimer: Timer?
     /// Internal so tests can verify lifecycle without exposing to production
     /// callers outside the module.
@@ -258,6 +260,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         guard !isTracking else { return }
         isTracking = true
 
+        setupDockProcessObservers()
         setupDockObserver()
         startInputTap()
         setupSpaceChangeObserver()
@@ -270,6 +273,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         spaceTransitionTimeoutTimer?.invalidate()
         spaceTransitionTimeoutTimer = nil
         isSpaceTransitioning = false
+        removeDockProcessObservers()
         stopDockObserver()
         stopInputTap()
         stopWindowFetchTimer()
@@ -812,6 +816,15 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     }
 
     deinit {
+        if let observer = dockLaunchObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
+        if let observer = dockTerminateObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
+        if let observer = spaceChangeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
         if let obs = axObserver {
             CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(obs), .commonModes)
         }

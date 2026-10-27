@@ -53,6 +53,7 @@ final class MissionControlService: MissionControlServiceProtocol {
     /// Maintain notification observers for cleanup
     private var observers: [NSObjectProtocol] = []
     private var localObservers: [NSObjectProtocol] = []
+    private var workspaceObservers: [NSObjectProtocol] = []
     /// Guards `start()` so repeated calls are idempotent.
     private var isStarted = false
 
@@ -167,11 +168,26 @@ final class MissionControlService: MissionControlServiceProtocol {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            self?.cachedIsActive = nil
-            self?.lastDetectionTime = 0
-            AppLogger.missionControl.info("Mission Control detection cache purged.")
+            MainActor.assumeIsolated {
+                self?.cachedIsActive = nil
+                self?.lastDetectionTime = 0
+                AppLogger.missionControl.info("Mission Control detection cache purged.")
+            }
         }
         localObservers.append(purgeObserver)
+
+        let dockTerminateObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didTerminateApplicationNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] notif in
+            MainActor.assumeIsolated {
+                guard let app = notif.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      app.bundleIdentifier == "com.apple.dock" else { return }
+                self?.markActive(false)
+            }
+        }
+        workspaceObservers.append(dockTerminateObserver)
     }
 
     func stop() {
@@ -186,6 +202,11 @@ final class MissionControlService: MissionControlServiceProtocol {
             NotificationCenter.default.removeObserver(observer)
         }
         localObservers.removeAll()
+
+        for observer in workspaceObservers {
+            NSWorkspace.shared.notificationCenter.removeObserver(observer)
+        }
+        workspaceObservers.removeAll()
 
         _isMissionControlActive = false
         cachedIsActive = false
