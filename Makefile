@@ -65,6 +65,9 @@ install: build stop ## Build Release and copy to /Applications
 	@echo "==> Installing to $(APP_PATH)..."
 	rm -rf "$(APP_PATH)"
 	cp -R "$(BUILT_APP_PATH)" "$(APP_PATH)"
+	@if [ "$(CODE_SIGN_IDENTITY)" = "-" ]; then \
+		$(MAKE) reset-tcc; \
+	fi
 
 run: install ## Build, install to /Applications, and launch
 	@echo "==> Launching $(APP_PATH)..."

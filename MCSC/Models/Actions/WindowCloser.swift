@@ -202,7 +202,7 @@ struct WindowCloser {
         let appElement = service.appElement(for: app)
         let windows: [AXUIElement]? = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
         if windows == nil || windows?.isEmpty == true {
-            ForceQuitAppAction().perform(app: app)
+            ForceQuitAppAction().perform(app: app, service: service)
             return true
         }
         return false

@@ -42,7 +42,7 @@ final class GestureActionRouter {
             switch target {
             case .none, .missionControlPreview:
                 return .none
-            case .dock:
+            case .dock, .lingeringDockItem:
                 guard config.isDockActionsOutsideMCEnabled else { return .none }
             case .window:
                 guard isTitleBarHover, config.isTitleBarActionsOutsideMCEnabled else { return .none }
@@ -106,7 +106,7 @@ final class GestureActionRouter {
                         }
                     }
                 }
-            case .dock, .none:
+            case .dock, .lingeringDockItem, .none:
                 break
             }
         }
@@ -127,6 +127,8 @@ final class GestureActionRouter {
             return .none
         case let .dock(app):
             return dockAction(for: action, app: app, context: context)
+        case let .lingeringDockItem(item):
+            return lingeringDockAction(for: action, dockItem: item, context: context)
         case .window:
             return windowAction(for: action, context: context)
         case let .missionControlPreview(windowInfo, _):
@@ -172,6 +174,24 @@ private extension GestureActionRouter {
         return dockWindowAndSizingAction(for: action, app: app, context: context)
     }
 
+    /// Dock icon that no longer maps to a running process (macOS 27 "Running in
+    /// Background"). No app exists to hide/minimize, but quitting still has to
+    /// work — otherwise the icon can never be dismissed from MCSC.
+    func lingeringDockAction(
+        for action: GestureAction,
+        dockItem: AXUIElement,
+        context: Context
+    ) -> ResolvedGestureAction {
+        switch action {
+        case .quitApp:
+            return context.execute { [weak self] in
+                self?.actions.forceQuitAppAction.perform(dockItem: dockItem)
+            }
+        default:
+            return .none
+        }
+    }
+
     /// Dock lifecycle actions act at App Level (see `docs/TARGETING_SCOPES.md`):
     /// closing a window from the Dock closes all windows belonging to that app (`.wholeApp`).
     func dockLifecycleAction(
@@ -192,7 +212,12 @@ private extension GestureActionRouter {
             }
         case .quitApp:
             context.execute { [weak self] in
-                self?.actions.forceQuitAppAction.perform(app: app)
+                let dockItem = context.service.getElement(at: context.point)
+                self?.actions.forceQuitAppAction.perform(
+                    app: app,
+                    dockItem: dockItem,
+                    service: context.service
+                )
             }
         case .closeTab:
             context.execute { [weak self] in
@@ -443,7 +468,15 @@ private extension GestureActionRouter {
             }
         case .quitApp:
             context.execute { [weak self] in
-                self?.actions.forceQuitAction.perform(at: context.point, service: context.service)
+                // Two-strike quit applies to window targets too — otherwise a
+                // quit over a window never records the attempt and the
+                // "Running in Background" follow-up is unreachable.
+                if let element = context.service.getElement(at: context.point),
+                   let owner = context.service.getAppFromElement(element) {
+                    self?.actions.forceQuitAppAction.perform(app: owner, service: context.service)
+                } else {
+                    self?.actions.forceQuitAction.perform(at: context.point, service: context.service)
+                }
             }
         case .closeTab:
             context.execute { [weak self] in

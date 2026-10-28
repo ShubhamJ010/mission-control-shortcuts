@@ -141,7 +141,9 @@ extension ShortcutViewModel {
             }
             executeFeedbackThenAction(at: axPoint, feedbackMode: feedbackMode, haptic: haptic, action: action)
         case .none:
-            AppLogger.gesture.debug("Gesture ignored (no routed action)")
+            // Info, not debug: unified logging drops debug lines from release
+            // builds, which made "nothing happens" reports undiagnosable.
+            AppLogger.gesture.info("Gesture ignored (no routed action)")
         }
     }
 

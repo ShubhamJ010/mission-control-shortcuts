@@ -37,21 +37,79 @@ struct UnminimizeAllWindowsAction {
 
 extension NSRunningApplication {
     /// Safe to target for destructive or hiding lifecycle operations (force quit, hide, etc.).
-    /// Excludes current app self, Dock, WindowManager, and background / non-regular system processes.
+    /// Excludes current app self, Dock, WindowManager, and critical system server processes.
     var isSafeTargetProcess: Bool {
-        processIdentifier != NSRunningApplication.current.processIdentifier &&
-            bundleIdentifier != "com.apple.dock" &&
-            bundleIdentifier != "com.apple.WindowManager" &&
-            bundleIdentifier != "com.apple.WindowServer" &&
-            activationPolicy == .regular
+        guard processIdentifier != NSRunningApplication.current.processIdentifier,
+              processIdentifier > 100,
+              let bundleId = bundleIdentifier else {
+            return false
+        }
+        let protectedBundles: Set<String> = [
+            "com.apple.dock",
+            "com.apple.WindowManager",
+            "com.apple.WindowServer",
+            "com.apple.controlcenter",
+            "com.apple.systemuiserver",
+            "com.apple.notificationcenterui",
+            "com.apple.Spotlight"
+        ]
+        guard !protectedBundles.contains(bundleId) else {
+            return false
+        }
+        // Allow regular apps and user accessory apps (which background services often transition to)
+        return activationPolicy == .regular || activationPolicy == .accessory
     }
 }
 
 struct ForceQuitAppAction {
-    func perform(app: NSRunningApplication) {
-        if app.isSafeTargetProcess {
+    private let backgroundService: BackgroundAppServiceProtocol
+
+    init(backgroundService: BackgroundAppServiceProtocol = BackgroundAppService.shared) {
+        self.backgroundService = backgroundService
+    }
+
+    func perform(
+        app: NSRunningApplication,
+        dockItem: AXUIElement? = nil,
+        service: AccessibilityServiceProtocol? = nil
+    ) {
+        guard app.isSafeTargetProcess else { return }
+
+        let isRecent = backgroundService.isRecentQuitAttempt(for: app)
+
+        let appElement = AXUIElementCreateApplication(app.processIdentifier)
+        var windowList: [AXUIElement]?
+        if let service = service {
+            windowList = service.getAttributeValue(kAXWindowsAttribute, for: appElement)
+        }
+        let hasNoWindows = (windowList == nil || windowList?.isEmpty == true)
+
+        AppLogger.app.info(
+            "Quit '\(app.localizedName ?? "?", privacy: .public)' pid=\(app.processIdentifier, privacy: .public)"
+        )
+        AppLogger.app.info(
+            "Quit decision: recent=\(isRecent, privacy: .public) noWindows=\(hasNoWindows, privacy: .public) dock=\(dockItem != nil, privacy: .public)"
+        )
+
+        if isRecent || hasNoWindows {
+            // "One more quit" or background lingering app:
+            // Terminate background service and lingering helper processes
+            backgroundService.clearQuitAttempt(for: app)
+            backgroundService.terminateBackgroundServices(for: app, dockItem: dockItem)
+        } else {
+            // First quit on active windowed app:
+            backgroundService.recordQuitAttempt(for: app)
             app.forceTerminate()
         }
+    }
+
+    /// Quit path for an application Dock icon that no longer resolves to a
+    /// running process (macOS 27 "Running in Background"). There is nothing to
+    /// `forceTerminate()`, so the Dock's own stop action plus a bundle-wide
+    /// process sweep is the only way to clear the icon.
+    func perform(dockItem: AXUIElement) {
+        AppLogger.app.info("Quit requested on a lingering Dock icon with no running app")
+        backgroundService.terminateLingeringDockItem(dockItem)
     }
 }
 

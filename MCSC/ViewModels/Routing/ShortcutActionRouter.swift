@@ -2,6 +2,10 @@ import Cocoa
 
 enum TargetResolution {
     case dock(NSRunningApplication)
+    /// An application Dock icon whose process could no longer be resolved to an
+    /// `NSRunningApplication` — the macOS 27 "Running in Background" case where
+    /// the Dock entry outlives the app. The AX element is still actionable.
+    case lingeringDockItem(AXUIElement)
     case window(AXUIElement)
     case missionControlPreview(windowInfo: [String: Any], windowID: CGWindowID)
     case none
@@ -152,6 +156,9 @@ private extension ShortcutActionRouter {
         if case .dock = target {
             return config.isDockActionsOutsideMCEnabled
         }
+        if case .lingeringDockItem = target {
+            return config.isDockActionsOutsideMCEnabled
+        }
         if isTitleBarHover {
             return config.isTitleBarActionsOutsideMCEnabled
         }
@@ -167,7 +174,7 @@ private extension ShortcutActionRouter {
                 return NSRunningApplication(processIdentifier: pid)
             }
             return nil
-        case .window, .none:
+        case .window, .lingeringDockItem, .none:
             return nil
         }
     }
@@ -253,7 +260,7 @@ private extension ShortcutActionRouter {
                 )
             }
 
-        case .dock, .none:
+        case .dock, .lingeringDockItem, .none:
             return nil
         }
     }
@@ -324,6 +331,54 @@ private extension ShortcutActionRouter {
         }
     }
 
+    /// Routes quit across every target shape: a Mission Control preview, a
+    /// running app's Dock icon, a lingering macOS 27 "Running in Background"
+    /// icon with no process behind it, or a bare window. Anything that skips
+    /// `ForceQuitAppAction` silently loses the two-strike behaviour.
+    private func routeQuitShortcut(context: Context) -> ResolvedShortcutAction {
+        if case let .missionControlPreview(windowInfo, _) = context.target {
+            return context.execute(feedbackMode: .quit) {
+                if let hover = context.hoverService {
+                    Self.runOnMainActor {
+                        hover.executeAction(mode: .quit, on: windowInfo)
+                    }
+                } else {
+                    MissionControlWindowActions.performForceQuit(on: windowInfo)
+                }
+            }
+        }
+        return context.execute(feedbackMode: .quit) { [weak self] in
+            guard let self else { return }
+            if let app = context.app {
+                let dockElement = self.resolveDockElement(for: context)
+                self.actions.forceQuitAppAction.perform(
+                    app: app,
+                    dockItem: dockElement,
+                    service: context.service
+                )
+            } else if case let .lingeringDockItem(item) = context.target {
+                // macOS 27 "Running in Background": no process to resolve,
+                // but the Dock icon itself is still actionable.
+                self.actions.forceQuitAppAction.perform(dockItem: item)
+            } else if case let .window(window) = context.target,
+                      let app = context.service.getAppFromElement(window) {
+                // Window-targeted quit still goes through the two-strike path.
+                self.actions.forceQuitAppAction.perform(app: app, service: context.service)
+            } else {
+                self.actions.forceQuitAction.perform(at: context.location, service: context.service)
+            }
+        }
+    }
+
+    private func resolveDockElement(for context: Context) -> AXUIElement? {
+        if case .dock = context.target,
+           let el = context.service.getElement(at: context.location),
+           context.service.isDockItem(el) {
+            return el
+        }
+        return nil
+    }
+
     /// Routes core lifecycle shortcuts (close, quit, minimize, hide) based on target resolution.
     func routeCoreShortcuts(
         matched: [RoutedAction],
@@ -333,25 +388,7 @@ private extension ShortcutActionRouter {
             return closeAction
         }
         if matched.contains(.quit) {
-            if case let .missionControlPreview(windowInfo, _) = context.target {
-                return context.execute(feedbackMode: .quit) {
-                    if let hover = context.hoverService {
-                        Self.runOnMainActor {
-                            hover.executeAction(mode: .quit, on: windowInfo)
-                        }
-                    } else {
-                        MissionControlWindowActions.performForceQuit(on: windowInfo)
-                    }
-                }
-            }
-            return context.execute(feedbackMode: .quit) { [weak self] in
-                guard let self else { return }
-                if let app = context.app {
-                    self.actions.forceQuitAppAction.perform(app: app)
-                } else {
-                    self.actions.forceQuitAction.perform(at: context.location, service: context.service)
-                }
-            }
+            return routeQuitShortcut(context: context)
         }
         if matched.contains(.minimize) {
             if case let .missionControlPreview(windowInfo, _) = context.target {

@@ -43,9 +43,11 @@ extension ShortcutViewModel {
             }
             if accessibilityService.isDockRegion(at: point) {
                 if let element = accessibilityService.getElement(at: point),
-                   accessibilityService.isDockItem(element),
-                   let app = accessibilityService.getAppFromDockItem(element) {
-                    return .dock(app)
+                   accessibilityService.isDockItem(element) {
+                    if let app = accessibilityService.getAppFromDockItem(element) {
+                        return .dock(app)
+                    }
+                    return lingeringDockTarget(for: element)
                 }
                 return .none
             }
@@ -57,7 +59,7 @@ extension ShortcutViewModel {
             if let app = accessibilityService.getAppFromDockItem(element) {
                 return .dock(app)
             }
-            return .none
+            return lingeringDockTarget(for: element)
         }
         if let window = accessibilityService.getWindow(for: element) {
             return .window(window)
@@ -66,6 +68,20 @@ extension ShortcutViewModel {
             return .none
         }
         return .none
+    }
+
+    /// Fallback for an application Dock icon that no longer maps to a running
+    /// process: macOS 27 keeps the Dock entry alive for "Running in Background"
+    /// apps. Returning `.none` here made every quit attempt a silent no-op, so
+    /// the AX icon itself is kept as the target.
+    private func lingeringDockTarget(for element: AXUIElement) -> TargetResolution {
+        guard let dockItem = accessibilityService.applicationDockItem(for: element) else {
+            return .none
+        }
+        AppLogger.dock.info(
+            "Application Dock item did not resolve to a running app — keeping bare Dock icon as target"
+        )
+        return .lingeringDockItem(dockItem)
     }
 
     // MARK: - App Activation
@@ -78,6 +94,9 @@ extension ShortcutViewModel {
         case let .dock(app):
             accessibilityService.activate(app: app, window: nil)
             return app
+        case .lingeringDockItem:
+            // Nothing is running to activate — the icon only exists as a quit target.
+            return nil
         case let .window(window):
             if let app = accessibilityService.getAppFromElement(window) {
                 accessibilityService.activate(app: app, window: window)

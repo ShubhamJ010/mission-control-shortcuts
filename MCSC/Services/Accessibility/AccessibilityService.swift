@@ -62,6 +62,13 @@ protocol AccessibilityServiceProtocol {
     /// currently running.
     func getAppFromDockItem(_ element: AXUIElement) -> NSRunningApplication?
 
+    /// Returns the application Dock icon element at or above `element` when the
+    /// hit is a running-application Dock item (`AXApplicationDockItem`).
+    /// `nil` for Trash, folder stacks, separators, and non-Dock elements.
+    /// Unlike `getAppFromDockItem`, this succeeds for macOS 27 "Running in
+    /// Background" icons whose process can no longer be resolved.
+    func applicationDockItem(for element: AXUIElement) -> AXUIElement?
+
     /// Finds the AX close button of the selected tab in a tabbed window.
     /// Returns `nil` when the window has no accessible tab group.
     func findActiveTabCloseButton(in window: AXUIElement) -> AXUIElement?
@@ -424,6 +431,22 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         return nil
     }
 
+    func applicationDockItem(for element: AXUIElement) -> AXUIElement? {
+        guard let dockItem = dockItemAncestor(for: element) else { return nil }
+        let subrole: String? = getAttributeValue(kAXSubroleAttribute, for: dockItem)
+        if subrole == "AXApplicationDockItem" {
+            return dockItem
+        }
+        // Electron / Mac Catalyst icons occasionally report another subrole but
+        // still expose their bundle URL — treat those as app icons as well.
+        if let url: NSURL = getAttributeValue(kAXURLAttribute, for: dockItem),
+           let bundle = Bundle(url: url as URL),
+           bundle.bundleIdentifier != nil {
+            return dockItem
+        }
+        return nil
+    }
+
     func getAppFromDockItem(_ element: AXUIElement) -> NSRunningApplication? {
         // Resolve against the actual Dock item (the hit element may be a child
         // such as a notification badge), then map it to a running app.
@@ -452,16 +475,34 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         // apps whose AXTitle does not equal the running app's localizedName.
         if let url: NSURL = getAttributeValue(kAXURLAttribute, for: dockItem),
            let bundle = Bundle(url: url as URL),
-           bundle.bundleIdentifier != "com.apple.dock",
-           let app = runningApps.first(where: { $0.bundleIdentifier == bundle.bundleIdentifier }),
-           isCandidateApp(app) {
-            if dockDiagnosticsEnabled {
-                AppLogger.dock
-                    .debug(
-                        "resolved via AXURL → bundleID '\(bundle.bundleIdentifier ?? "?", privacy: .public)' → '\(app.localizedName ?? "?", privacy: .public)'"
-                    )
+           bundle.bundleIdentifier != "com.apple.dock" {
+            if let app = runningApps.first(where: { $0.bundleIdentifier == bundle.bundleIdentifier }),
+               isCandidateApp(app) {
+                if dockDiagnosticsEnabled {
+                    let bId = bundle.bundleIdentifier ?? "?"
+                    let name = app.localizedName ?? "?"
+                    AppLogger.dock.debug("resolved via AXURL → bundleID '\(bId, privacy: .public)' → '\(name, privacy: .public)'")
+                }
+                return app
             }
-            return app
+
+            // macOS 27: Background service / helper apps whose main process has stopped
+            // but helpers or background tasks remain active ("Running in Background").
+            let isRunning: Bool = (getAttributeValue("AXIsApplicationRunning", for: dockItem) as Int?) == 1
+            let bundlePids = BackgroundAppService.shared.findProcessIDs(forBundleURL: url as URL)
+            if isRunning || !bundlePids.isEmpty {
+                for pid in bundlePids {
+                    if let app = NSRunningApplication(processIdentifier: pid), isCandidateApp(app) {
+                        if dockDiagnosticsEnabled {
+                            AppLogger.dock
+                                .debug(
+                                    "resolved background app via bundle PID \(pid) → bundleID '\(bundle.bundleIdentifier ?? "?", privacy: .public)'"
+                                )
+                        }
+                        return app
+                    }
+                }
+            }
         }
 
         // Fallback: tolerant (case / diacritic / whitespace-insensitive) title
