@@ -93,10 +93,79 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
 
     private(set) var isVisible = false
 
+    /// Space / display invalidation observers. Long-lived panels are recreated
+    /// on these transitions (see `resetPanel()`).
+    private var spaceChangeObserver: (any NSObjectProtocol)?
+    private var screenChangeObserver: (any NSObjectProtocol)?
+    private var wakeObserver: (any NSObjectProtocol)?
+
     init() {
         // Panel creation is deferred to the first show() call so no
         // layer-backed NSPanel (and its GPU/IOSurface buffers) exists
         // until the feature is actually used.
+        //
+        // macOS 27: a panel that survives a Space switch, a display
+        // reconfiguration or a wake can silently lose its `.canJoinAllSpaces`
+        // membership inside the WindowServer. AppKit still reports the window
+        // as visible and `orderFrontRegardless()` still succeeds, but the
+        // panel is never composited on the new Space — the button simply
+        // never appears. A freshly created panel is re-admitted correctly, so
+        // every such transition drops the panel and the next `show()` builds
+        // a new one on the active Space.
+        spaceChangeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetPanel(reason: "space change")
+            }
+        }
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetPanel(reason: "screen parameters changed")
+            }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetPanel(reason: "wake")
+            }
+        }
+    }
+
+    deinit {
+        if let spaceChangeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceChangeObserver)
+        }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
+        if let screenChangeObserver {
+            NotificationCenter.default.removeObserver(screenChangeObserver)
+        }
+    }
+
+    /// Drops the backing panel so the next `show()` recreates it on the active
+    /// Space. Cheap (one 64×64 window) and only runs on space/display/wake
+    /// transitions — never per hover.
+    private func resetPanel(reason: String) {
+        guard panel != nil else { return }
+        AppLogger.missionControl.debug(
+            "PreviewCloseButtonOverlay: rebuilding panel after \(reason, privacy: .public)"
+        )
+        panel?.orderOut(nil)
+        panel = nil
+        buttonView = nil
+        isVisible = false
+        currentAXRect = .zero
     }
 
     private func setupPanel() {

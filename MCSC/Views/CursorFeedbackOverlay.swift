@@ -75,6 +75,9 @@ final class CursorFeedbackOverlay {
     }
 
     private var colorChangeObserver: (any NSObjectProtocol)?
+    private var spaceChangeObserver: (any NSObjectProtocol)?
+    private var screenChangeObserver: (any NSObjectProtocol)?
+    private var wakeObserver: (any NSObjectProtocol)?
 
     init() {
         // Panel creation is deferred to the first show() call so no
@@ -88,12 +91,69 @@ final class CursorFeedbackOverlay {
                 self?.imageCache.removeAll()
             }
         }
+
+        // macOS 27: a long-lived all-spaces panel can silently lose its Space
+        // membership across Space switches, display reconfigurations and wake,
+        // leaving the HUD ordered in but never composited (invisible feedback).
+        // Recreating the panel re-admits it on the active Space; the rendered
+        // symbol cache survives so the rebuild costs no rasterization.
+        spaceChangeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard self != nil else { return }
+                self?.resetPanel(reason: "space change")
+            }
+        }
+        screenChangeObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetPanel(reason: "screen parameters changed")
+            }
+        }
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.resetPanel(reason: "wake")
+            }
+        }
     }
 
     deinit {
         if let colorChangeObserver {
             NotificationCenter.default.removeObserver(colorChangeObserver)
         }
+        if let spaceChangeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(spaceChangeObserver)
+        }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+        }
+        if let screenChangeObserver {
+            NotificationCenter.default.removeObserver(screenChangeObserver)
+        }
+    }
+
+    /// Drops the backing panel so the next `show()` recreates it on the active
+    /// Space. Runs only on space/display/wake transitions, never per gesture.
+    private func resetPanel(reason: String) {
+        guard panel != nil else { return }
+        AppLogger.gesture.debug(
+            "CursorFeedbackOverlay: rebuilding panel after \(reason, privacy: .public)"
+        )
+        dismissWork?.cancel()
+        dismissWork = nil
+        panel?.orderOut(nil)
+        panel = nil
+        imageView = nil
     }
 
     private func setupPanel() {
