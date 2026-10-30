@@ -117,6 +117,18 @@ make clean       # Remove build artifacts and derived data
 make help        # View all available make targets
 ```
 
+**Signing and Accessibility:** macOS ties the Accessibility grant to the app's
+code signature. Ad-hoc signing changes it on every build, so each rebuild forces
+a re-grant. Run this once to create a stable local identity named `MCSC-Dev`,
+which `make` then picks up automatically:
+
+```bash
+make signing-identity
+```
+
+If you sign with your own Apple Development certificate instead, pass it
+explicitly: `make install CODE_SIGN_IDENTITY="Apple Development: ..."`.
+
 #### Option B: Xcode
 
 ```bash

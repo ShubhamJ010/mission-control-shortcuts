@@ -20,7 +20,18 @@ else
     CODE_SIGN_IDENTITY ?= -
 endif
 
-.PHONY: all help build run install stop clean reset-tcc lint format profile profile-live logs bench audit audit-stress audit-ci
+# 'MCSC-Dev' is a self-signed local identity, so it belongs to no Apple team.
+# The project pins DEVELOPMENT_TEAM for Apple Development signing; clear it or
+# xcodebuild refuses with "No certificate for team ... matching 'MCSC-Dev'".
+# Keeping one stable identity also keeps the Accessibility (TCC) grant across
+# rebuilds, because the designated requirement stops being the ad-hoc cdhash.
+ifeq ($(CODE_SIGN_IDENTITY),MCSC-Dev)
+    CODE_SIGN_TEAM_ARG := DEVELOPMENT_TEAM=""
+else
+    CODE_SIGN_TEAM_ARG :=
+endif
+
+.PHONY: all help build run install stop clean reset-tcc signing-identity lint format profile profile-live logs bench audit audit-stress audit-ci
 
 all: help
 
@@ -39,6 +50,7 @@ build: ## Build Release configuration
 		-configuration Release \
 		-derivedDataPath "$(DERIVED_DATA_PATH)" \
 		CODE_SIGN_IDENTITY="$(CODE_SIGN_IDENTITY)" \
+		$(CODE_SIGN_TEAM_ARG) \
 		build
 
 stop: ## Terminate running instance of MCSC
@@ -72,6 +84,9 @@ run: install ## Build, install to /Applications, and launch
 
 reset-tcc: ## Reset macOS Accessibility permissions for MCSC
 	@./scripts/reset-accessibility.sh
+
+signing-identity: ## Create the self-signed 'MCSC-Dev' identity used for stable TCC grants
+	@./scripts/create-signing-identity.sh
 
 logs: ## Stream unified system logs for MCSC
 	@./scripts/stream-logs.sh
