@@ -44,6 +44,7 @@ measured on macOS 27 with Mission Control open and closed; see
 - **Feedback you can feel**: Every action flashes its corresponding SF Symbol at the cursor paired with a tactile click, confirming the action immediately.
 - **The Dock answers too**: Hover over Dock icons on the desktop to trigger app-level shortcuts and gestures. Point at a window preview for window actions, or point at the Dock for app actions. App Exposé stays suppressed mid-gesture.
 - **Strictly scoped**: Nothing is intercepted outside Mission Control.
+- **PiP stays out of the way**: Browser picture-in-picture windows and always-on-top panels are never treated as document windows, so gestures skip them by default. Opt an app back in with one `defaults` key.
 - **Configurable**: Toggle individual shortcuts and gestures from the menu bar, or enable launch at login.
 
 ## Installation
@@ -166,6 +167,22 @@ Once Mission Control is open, point at any preview or just start typing.
 On windows showing an ejectable volume, pinch-in and swipe-left eject instead
 of closing. Hover buttons on each preview offer Close, Minimize (`Option`), and
 Force Quit (`Command`) without touching the keyboard.
+
+### Floating windows (PiP)
+
+Browser picture-in-picture windows and always-on-top panels have no title bar,
+so MCSC never treats them as targets. This is on by default; configure it from
+Terminal (changes apply live):
+
+```sh
+# master toggle — delete the key to restore the default (ignored)
+defaults write sj010.MCSC mcsc.windowComponents.ignoreFloating -bool false
+defaults delete sj010.MCSC mcsc.windowComponents.ignoreFloating
+
+# treat one app's floating windows like normal windows again
+defaults write sj010.MCSC "mcsc.windowComponents.allow.app.zen-browser.zen" -bool true
+defaults delete sj010.MCSC "mcsc.windowComponents.allow.app.zen-browser.zen"
+```
 
 ## Documentation
 

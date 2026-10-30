@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **PiP and Floating Windows Are No Longer Targets**: Browser picture-in-picture windows (Zen, Dia, Arc, Safari) and always-on-top media panels (floatyMPV) have no title bar, so the 28 pt title-bar strip was video content and gestures fired window actions on them. `WindowComponentClassifier` now rejects any window at CoreGraphics layer 3 or above before target resolution, title-bar hover, or Mission Control tracking. Detection is layer-based because AX metadata differs per browser (Zen reports `AXStandardWindow`, Dia reports `AXSystemDialog`). New Settings → Windows pane lists detected floating apps, allows per-app opt-out, and can reset overrides. See `docs/adr/0001-window-components.md`.
+- **PiP and Floating Windows Are No Longer Targets**: Browser picture-in-picture windows (Zen, Dia, Arc, Safari) and always-on-top media panels (floatyMPV) have no title bar, so the 28 pt title-bar strip was video content and gestures fired window actions on them. `WindowComponentClassifier` now rejects any window at CoreGraphics layer 3 or above before target resolution, title-bar hover, or Mission Control tracking. Detection is layer-based because AX metadata differs per browser (Zen reports `AXStandardWindow`, Dia reports `AXSystemDialog`). On by default with no settings UI; change it from Terminal with `defaults write sj010.MCSC mcsc.windowComponents.ignoreFloating -bool false` or opt an app back in with `mcsc.windowComponents.allow.<bundleID>`. See `docs/adr/0001-window-components.md`.
 
 ## 0.8.3 (22 Oct 2026)
 

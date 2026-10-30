@@ -38,13 +38,23 @@ portable signal is the CoreGraphics window layer.
    `.none`, and `isTitleBarHover` returns `false`.
 3. Mission Control tracking drops component windows, so no preview target
    exists for them.
-4. Detection is on by default (`mcsc.windowComponents.ignoreFloating` absent
-   means enabled). No setup required for Zen, Dia, Arc, Safari or floatyMPV.
-5. A per-app override (`WindowComponentBehavior.allow`) restores normal
-   behavior for apps whose floating panels should stay targetable.
-6. Classification is cached: one window-list scan per second, verdicts keyed by
-   window id with a 5 s TTL, both purged through the existing
-   `.mcscPurgeCaches` path.
+4. Detection is **on by default**. No setup required for Zen, Dia, Arc, Safari
+   or floatyMPV.
+5. Configuration is **CLI-only**. No settings pane, no extra tab:
+
+   ```sh
+   # master toggle (absent = on)
+   defaults write sj010.MCSC mcsc.windowComponents.ignoreFloating -bool false
+   defaults delete sj010.MCSC mcsc.windowComponents.ignoreFloating
+
+   # per-app opt-out: treat this app's floating windows as normal windows
+   defaults write sj010.MCSC "mcsc.windowComponents.allow.app.zen-browser.zen" -bool true
+   defaults delete sj010.MCSC "mcsc.windowComponents.allow.app.zen-browser.zen"
+   ```
+
+   Keys are read on every query, so changes apply without relaunching MCSC.
+6. Classification is cached as a one-scan-per-second window snapshot plus a
+   pid → bundle-id map, both purged through `.mcscPurgeCaches`.
 
 ## Why layer, not AX metadata
 
@@ -58,12 +68,14 @@ floats above normal windows is not a document window.
 
 - PiP and floating panels no longer respond to gestures or Command shortcuts.
 - Some legitimate floating utilities (quick-reply panels, overlay widgets) are
-  ignored by default. They can be re-enabled per app in Settings → Windows.
+  ignored by default. They can be re-enabled per app with the `allow.<bundleID>`
+  key.
 - floatyMPV opts out of the accessibility tree entirely, so MCSC already cannot
-  see it. The classifier still records it from the window list when its layer is
-  observed, and the override remains available if AX support is added later.
-- Cost: one bounded dictionary cache (~32 entries) and one window-list scan per
-  second. Measured footprint stays under the 13 MB ceiling.
+  see it. The override key remains available if AX support is added later.
+- Cost: one bounded pid cache and one window-list scan per second. Idle
+  footprint measured at 12.85 MB, under the 13 MB ceiling.
+- No UI to discover the feature: the commands are documented in
+  `docs/ARCHITECTURE.md`, `docs/TARGETING_SCOPES.md` and this ADR.
 
 ## Alternatives considered
 
@@ -73,6 +85,8 @@ floats above normal windows is not a document window.
 - **`AXSubrole`**: both PiP windows report different subroles, one of them
   `AXStandardWindow`.
 - **Window size heuristic**: fragile with resizable PiP windows.
+- **Settings pane**: rejected — the project keeps the settings surface small and
+  the behavior is default-on; CLI keys cover the rare opt-out.
 
 ## References
 
