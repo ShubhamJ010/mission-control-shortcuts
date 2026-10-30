@@ -235,6 +235,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     let isKeyboardNavigationEnabledProvider: () -> Bool
     weak var volumeService: MountedVolumeServiceProtocol?
     let isAutoEjectEnabledProvider: () -> Bool
+    /// Filters PiP/floating windows out of the tracked window list. Weak so the
+    /// view model keeps sole ownership.
+    weak var componentClassifier: WindowComponentClassifier?
 
     init(accessibilityService: AccessibilityServiceProtocol,
          isMissionControlActiveProvider: @escaping () -> Bool,
@@ -244,7 +247,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
          searchOverlay: (any SearchBarOverlayProtocol)? = nil,
          volumeService: MountedVolumeServiceProtocol? = nil,
          isAutoEjectEnabledProvider: @escaping () -> Bool = { false },
-         isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true }) {
+         isKeyboardNavigationEnabledProvider: @escaping () -> Bool = { true },
+         componentClassifier: WindowComponentClassifier? = nil) {
         self.accessibilityService = accessibilityService
         self.isMissionControlActiveProvider = isMissionControlActiveProvider
         self.missionControlService = missionControlService
@@ -254,6 +258,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         self.volumeService = volumeService
         self.isAutoEjectEnabledProvider = isAutoEjectEnabledProvider
         self.isKeyboardNavigationEnabledProvider = isKeyboardNavigationEnabledProvider
+        self.componentClassifier = componentClassifier
     }
 
     func start() {
@@ -434,6 +439,11 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
                   owner != "Dock", owner != "MCSC", owner != "Window Server", owner != "WindowManager",
                   let wid = window[kCGWindowNumber as String] as? CGWindowID,
                   spaceService.isWindowOnCurrentSpace(windowID: wid) else {
+                return false
+            }
+            // PiP and other floating components are not document windows: keep
+            // them out of Mission Control tracking so no preview target exists.
+            if componentClassifier?.isComponent(windowInfo: window) == true {
                 return false
             }
             if let bounds = window[kCGWindowBounds as String] as? [String: CGFloat],

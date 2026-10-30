@@ -13,6 +13,7 @@ MCSC maps cursor position and context into two primary scopes:
 | **Dock Icon** (inside or outside Mission Control) | **App Level** | Represents the entire application and all of its open windows. | Operations like **Close Window** act on **all windows** of that app (`CloseScope.wholeApp`). Tab operations act on the key window's active tab. |
 | **Window Preview** (Mission Control thumbnail) | **Singular Level** | Represents a single specific window instance. | Operations like **Close Window** act strictly on **that one window** (`CloseScope.window`). Tab operations act on its active tab. |
 | **Title Bar / Window Body** (Desktop / normal state) | **Singular Level** | Represents a single specific window under the cursor. | Operations act strictly on **that one window** (`CloseScope.window`) or its active tab (`CloseScope.activeTab`). |
+| **Floating Component** (PiP video, always-on-top panel) | **None** | Not a target. These windows are borderless, so the title-bar strip is content. | No action. Classified by `WindowComponentClassifier` from `kCGWindowLayer >= 3`; see [ADR 0001](adr/0001-window-components.md). |
 
 ---
 

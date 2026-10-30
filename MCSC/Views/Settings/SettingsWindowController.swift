@@ -215,7 +215,11 @@ final class SettingsWindowController: NSWindowController {
             GestureSettingsPane(viewModel: viewModel,
                                 tabName: "Gestures",
                                 tabImage: NSImage(systemSymbolName: "hand.draw", accessibilityDescription: nil),
-                                tabIdentifier: "gestures")
+                                tabIdentifier: "gestures"),
+            WindowComponentsPane(viewModel: viewModel,
+                                 tabName: "Windows",
+                                 tabImage: NSImage(systemSymbolName: "rectangle.on.rectangle", accessibilityDescription: nil),
+                                 tabIdentifier: "windows")
         ])
         window?.title = "MCSC Settings"
         settingsWindow?.defaultWindowTitle = "MCSC Settings"

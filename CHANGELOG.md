@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **PiP and Floating Windows Are No Longer Targets**: Browser picture-in-picture windows (Zen, Dia, Arc, Safari) and always-on-top media panels (floatyMPV) have no title bar, so the 28 pt title-bar strip was video content and gestures fired window actions on them. `WindowComponentClassifier` now rejects any window at CoreGraphics layer 3 or above before target resolution, title-bar hover, or Mission Control tracking. Detection is layer-based because AX metadata differs per browser (Zen reports `AXStandardWindow`, Dia reports `AXSystemDialog`). New Settings → Windows pane lists detected floating apps, allows per-app opt-out, and can reset overrides. See `docs/adr/0001-window-components.md`.
+
 ## 0.8.3 (22 Oct 2026)
 
 - **Overlay Panels Rebuilt After Space Changes**: Fixed the Mission Control preview close button and the cursor feedback HUD disappearing on Desktops other than the one they were first shown on. A long-lived `.canJoinAllSpaces` panel could silently lose its Space membership in the WindowServer after a Space switch, display reconfiguration, or wake — AppKit still reported it as ordered in with full alpha, but nothing was composited. Both overlays now drop their panel on `activeSpaceDidChange`, `didChangeScreenParameters`, and `didWake`, and lazily build a fresh one (re-admitted on the active Space) on the next show. Event-driven only: no polling, no work per hover, and the rendered symbol cache survives.

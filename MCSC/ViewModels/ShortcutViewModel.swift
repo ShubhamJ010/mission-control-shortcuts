@@ -21,6 +21,10 @@ final class ShortcutViewModel {
     let missionControlService: MissionControlServiceProtocol
     private let launchAtLoginService: LaunchAtLoginService
 
+    /// Floating-window (PiP/panel) classifier. Shared by target resolution,
+    /// Mission Control tracking, and the Settings pane.
+    let windowComponentClassifier = WindowComponentClassifier()
+
     lazy var multitouchService = MultitouchService()
     lazy var gestureEngine = GestureEngine()
     private weak var twoFingerTapRecognizer: TwoFingerDoubleTapRecognizer?
@@ -40,7 +44,8 @@ final class ShortcutViewModel {
         },
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
-        }
+        },
+        componentClassifier: windowComponentClassifier
     )
 
     lazy var cursorFeedback: CursorFeedbackOverlay = .init()

@@ -19,6 +19,11 @@ extension ShortcutViewModel {
     }
 
     /// Standard macOS title-bar height (pt) used for the outside-MC hover strip.
+    ///
+    /// This is a geometry guess, not a real title-bar test: borderless windows
+    /// (PiP video, floating panels) have no title bar, so their top strip is
+    /// content. `WindowComponentClassifier` rejects those windows before this
+    /// check runs.
     static let titleBarHeight: CGFloat = 28
 
     /// `true` when the cursor sits on the title-bar strip of a target
@@ -30,7 +35,9 @@ extension ShortcutViewModel {
     }
 
     /// Core geometry check for an already-resolved window target.
+    /// Floating components (PiP, panels) never report a title-bar hover.
     func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
+        guard !windowComponentClassifier.isComponent(window: window) else { return false }
         guard let frame = accessibilityService.getFrame(for: window),
               frame.contains(point) else { return false }
         return point.y - frame.minY <= Self.titleBarHeight
@@ -60,6 +67,12 @@ extension ShortcutViewModel {
             return .none
         }
         if let window = accessibilityService.getWindow(for: element) {
+            // Floating components (PiP video, always-on-top panels) have no
+            // title bar and no document semantics: never expose them as a target.
+            guard !windowComponentClassifier.isComponent(window: window) else {
+                AppLogger.components.debug("Cursor over floating component window — target ignored")
+                return .none
+            }
             return .window(window)
         }
         if accessibilityService.isDockRegion(at: point) {
