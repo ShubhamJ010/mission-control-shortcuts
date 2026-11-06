@@ -109,10 +109,13 @@ extension ShortcutViewModel {
             "Gesture recognized: \(String(describing: km.kind), privacy: .public), isCmd=\(km.isCmd, privacy: .public)"
         )
         let axPoint = currentAXMouseLocation()
+        let gestureStartedInMenuBar = multitouchStartAXPoint.map { accessibilityService.isMenuBarRegion(at: $0) } ?? false
         let target = resolveTarget(at: axPoint)
         var isTitleBarHover = false
         if case let .window(window) = target, !missionControlService.isMissionControlActive {
-            isTitleBarHover = self.isTitleBarHover(window: window, at: axPoint)
+            if !gestureStartedInMenuBar {
+                isTitleBarHover = self.isTitleBarHover(window: window, at: axPoint)
+            }
         }
         let resolution = gestureRouter.routeGesture(
             result,

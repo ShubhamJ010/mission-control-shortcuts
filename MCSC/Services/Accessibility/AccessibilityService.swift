@@ -91,6 +91,16 @@ protocol AccessibilityServiceProtocol {
     /// Uses a cached Dock frame (refreshed on screen changes) to avoid per-frame AX queries.
     func isDockRegion(at point: CGPoint) -> Bool
 
+    /// Fast check: is the given Quartz point inside any screen's menu bar bounds?
+    /// Pure geometry check without AX queries.
+    func isMenuBarRegion(at point: CGPoint) -> Bool
+
+    /// `true` if `element` represents a menu bar, menu bar item, status item, or menu extra.
+    func isMenuBarElement(_ element: AXUIElement) -> Bool
+
+    /// `true` if `window` is a system menu bar window (e.g. status item / hosted scene window).
+    func isMenuBarWindow(_ window: AXUIElement) -> Bool
+
     /// `true` when `window` is the focused window of the frontmost application.
     func isFrontmostWindow(_ window: AXUIElement) -> Bool
 
@@ -753,6 +763,79 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                 return isDockItem(hit)
             }
         }
+        return false
+    }
+
+    /// Fast check: is the given Quartz point inside any screen's menu bar bounds?
+    /// Pure geometry check without AX queries.
+    func isMenuBarRegion(at point: CGPoint) -> Bool {
+        ScreenGeometry.isMenuBarRegion(at: point)
+    }
+
+    /// `true` if `element` represents a menu bar, menu bar item, status item, or menu extra.
+    func isMenuBarElement(_ element: AXUIElement) -> Bool {
+        var current: AXUIElement = element
+        for _ in 0..<4 {
+            var roleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &roleRef) == .success,
+               let role = roleRef as? String {
+                if role == kAXMenuBarRole as String ||
+                   role == kAXMenuBarItemRole as String ||
+                   role == kAXMenuRole as String ||
+                   role == kAXMenuItemRole as String ||
+                   role == "AXMenuExtra" ||
+                   role == "AXStatusItem" {
+                    return true
+                }
+            }
+            var subroleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+               let subrole = subroleRef as? String {
+                if subrole == "AXMenuExtra" ||
+                   subrole == "AXHostedViewSceneWindow" ||
+                   subrole == "AXApplicationStatusItem" {
+                    return true
+                }
+            }
+            var parentRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parentRef) == .success,
+               let parent = parentRef, CFGetTypeID(parent) == AXUIElementGetTypeID() {
+                current = unsafeDowncast(parent, to: AXUIElement.self)
+            } else {
+                break
+            }
+        }
+        return false
+    }
+
+    /// `true` if `window` is a system menu bar window (e.g. status item / hosted scene window).
+    func isMenuBarWindow(_ window: AXUIElement) -> Bool {
+        var subroleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+           let subrole = subroleRef as? String {
+            if subrole == "AXHostedViewSceneWindow" ||
+               subrole == "AXMenuExtra" ||
+               subrole == "AXApplicationStatusItem" {
+                return true
+            }
+        }
+
+        if let frame = getFrame(for: window), isMenuBarRegion(at: CGPoint(x: frame.midX, y: frame.midY)) {
+            return true
+        }
+
+        var pid: pid_t = 0
+        if AXUIElementGetPid(window, &pid) == .success {
+            if let app = NSRunningApplication(processIdentifier: pid),
+               let bundleID = app.bundleIdentifier {
+                if bundleID == "com.apple.controlcenter" ||
+                   bundleID == "com.apple.systemuiserver" ||
+                   bundleID == "com.apple.MenuBarAgent" {
+                    return true
+                }
+            }
+        }
+
         return false
     }
 

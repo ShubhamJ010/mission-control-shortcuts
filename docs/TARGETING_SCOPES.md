@@ -14,6 +14,7 @@ MCSC maps cursor position and context into two primary scopes:
 | **Window Preview** (Mission Control thumbnail) | **Singular Level** | Represents a single specific window instance. | Operations like **Close Window** act strictly on **that one window** (`CloseScope.window`). Tab operations act on its active tab. |
 | **Title Bar / Window Body** (Desktop / normal state) | **Singular Level** | Represents a single specific window under the cursor. | Operations act strictly on **that one window** (`CloseScope.window`) or its active tab (`CloseScope.activeTab`). |
 | **Floating Component** (PiP video, always-on-top panel) | **None** | Not a target. These windows are borderless, so the title-bar strip is content. | No action. Classified by `WindowComponentClassifier` from `kCGWindowLayer >= 3`; see [ADR 0001](adr/0001-window-components.md). |
+| **macOS Menu Bar** (Top screen strip, status items, app menus) | **None** | System UI, not a window target. Never triggers outside Mission Control. | No action. Trackpad gestures, holds, and keyboard shortcuts are strictly suppressed when hovering over or initiating from the macOS menu bar. |
 
 ---
 

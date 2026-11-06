@@ -35,9 +35,11 @@ extension ShortcutViewModel {
     }
 
     /// Core geometry check for an already-resolved window target.
-    /// Floating components (PiP, panels) never report a title-bar hover.
+    /// Floating components (PiP, panels) and macOS menu bar elements never report a title-bar hover.
     func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
         guard !windowComponentClassifier.isComponent(window: window) else { return false }
+        guard !accessibilityService.isMenuBarRegion(at: point) else { return false }
+        guard !accessibilityService.isMenuBarWindow(window) else { return false }
         guard let frame = accessibilityService.getFrame(for: window),
               frame.contains(point) else { return false }
         return point.y - frame.minY <= Self.titleBarHeight
@@ -59,7 +61,16 @@ extension ShortcutViewModel {
             return .none
         }
 
+        // Outside Mission Control:
+        // Cursors inside the macOS menu bar region must never resolve to a window or dock target.
+        if accessibilityService.isMenuBarRegion(at: point) {
+            return .none
+        }
+
         guard let element = accessibilityService.getElement(at: point) else { return .none }
+        if accessibilityService.isMenuBarElement(element) {
+            return .none
+        }
         if accessibilityService.isDockItem(element) {
             if let app = accessibilityService.getAppFromDockItem(element) {
                 return .dock(app)
@@ -71,6 +82,9 @@ extension ShortcutViewModel {
             // title bar and no document semantics: never expose them as a target.
             guard !windowComponentClassifier.isComponent(window: window) else {
                 AppLogger.components.debug("Cursor over floating component window — target ignored")
+                return .none
+            }
+            guard !accessibilityService.isMenuBarWindow(window) else {
                 return .none
             }
             return .window(window)

@@ -35,6 +35,39 @@ enum ScreenGeometry {
         )
     }
 
+    /// Returns the AX/Quartz bounds of the macOS menu bar on `screen` if present.
+    /// Returns `nil` for secondary screens that do not display a menu bar.
+    static func menuBarFrame(for screen: NSScreen, primaryHeight: CGFloat = primaryScreenHeight) -> CGRect? {
+        let topDiff = screen.frame.maxY - screen.visibleFrame.maxY
+        let height: CGFloat
+        if topDiff > 0 {
+            height = topDiff
+        } else if screen == NSScreen.screens.first || NSScreen.screensHaveSeparateSpaces {
+            let safeTop = screen.safeAreaInsets.top
+            height = safeTop > 0 ? safeTop : NSStatusBar.system.thickness
+        } else {
+            return nil
+        }
+        guard height > 0 else { return nil }
+
+        let screenAX = axBounds(for: screen, primaryHeight: primaryHeight)
+        return CGRect(
+            x: screenAX.minX,
+            y: screenAX.minY,
+            width: screenAX.width,
+            height: height
+        )
+    }
+
+    /// `true` when `point` (in Quartz/AX coords) lies within the macOS menu bar region of any display.
+    static func isMenuBarRegion(at point: AXPoint) -> Bool {
+        guard let screen = screenContaining(axPoint: point),
+              let menuBar = menuBarFrame(for: screen) else {
+            return false
+        }
+        return menuBar.contains(point)
+    }
+
     /// Returns the NSScreen whose AX bounds contain `point` (Quartz coords).
     static func screenContaining(axPoint point: AXPoint) -> NSScreen? {
         let primaryHeight = primaryScreenHeight
