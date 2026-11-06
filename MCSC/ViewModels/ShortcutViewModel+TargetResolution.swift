@@ -19,6 +19,11 @@ extension ShortcutViewModel {
     }
 
     /// Standard macOS title-bar height (pt) used for the outside-MC hover strip.
+    ///
+    /// This is a geometry guess, not a real title-bar test: borderless windows
+    /// (PiP video, floating panels) have no title bar, so their top strip is
+    /// content. `WindowComponentClassifier` rejects those windows before this
+    /// check runs.
     static let titleBarHeight: CGFloat = 28
 
     /// `true` when the cursor sits on the title-bar strip of a target
@@ -30,8 +35,11 @@ extension ShortcutViewModel {
     }
 
     /// Core geometry check for an already-resolved window target.
+    /// Floating components (PiP, panels) and macOS menu bar elements never report a title-bar hover.
     func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
-        guard let frame = accessibilityService.getFrame(for: window),
+        guard !windowComponentClassifier.isComponent(window: window), !accessibilityService.isMenuBarRegion(at: point),
+              !accessibilityService.isMenuBarWindow(window),
+              let frame = accessibilityService.getFrame(for: window),
               frame.contains(point) else { return false }
         return point.y - frame.minY <= Self.titleBarHeight
     }
@@ -52,7 +60,16 @@ extension ShortcutViewModel {
             return .none
         }
 
+        // Outside Mission Control:
+        // Cursors inside the macOS menu bar region must never resolve to a window or dock target.
+        if accessibilityService.isMenuBarRegion(at: point) {
+            return .none
+        }
+
         guard let element = accessibilityService.getElement(at: point) else { return .none }
+        if accessibilityService.isMenuBarElement(element) {
+            return .none
+        }
         if accessibilityService.isDockItem(element) {
             if let app = accessibilityService.getAppFromDockItem(element) {
                 return .dock(app)
@@ -60,6 +77,15 @@ extension ShortcutViewModel {
             return .none
         }
         if let window = accessibilityService.getWindow(for: element) {
+            // Floating components (PiP video, always-on-top panels) have no
+            // title bar and no document semantics: never expose them as a target.
+            guard !windowComponentClassifier.isComponent(window: window) else {
+                AppLogger.components.debug("Cursor over floating component window — target ignored")
+                return .none
+            }
+            guard !accessibilityService.isMenuBarWindow(window) else {
+                return .none
+            }
             return .window(window)
         }
         if accessibilityService.isDockRegion(at: point) {

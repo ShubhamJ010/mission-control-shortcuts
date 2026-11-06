@@ -28,11 +28,10 @@ final class MountedVolumeService: MountedVolumeServiceProtocol {
             for volURL in mountedURLs {
                 let volPath = volURL.path.hasSuffix("/") ? String(volURL.path.dropLast()) : volURL.path
                 guard !volPath.isEmpty && volPath != "/" else { continue }
-                if normalizedPath == volPath || normalizedPath.hasPrefix(volPath + "/") {
-                    if let values = try? volURL.resourceValues(forKeys: keys),
-                       values.volumeIsEjectable == true || values.volumeIsRemovable == true {
-                        return volURL.path
-                    }
+                if normalizedPath == volPath || normalizedPath.hasPrefix(volPath + "/"),
+                   let values = try? volURL.resourceValues(forKeys: keys),
+                   values.volumeIsEjectable == true || values.volumeIsRemovable == true {
+                    return volURL.path
                 }
             }
 

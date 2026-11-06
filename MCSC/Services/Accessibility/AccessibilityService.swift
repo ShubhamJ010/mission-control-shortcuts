@@ -91,6 +91,16 @@ protocol AccessibilityServiceProtocol {
     /// Uses a cached Dock frame (refreshed on screen changes) to avoid per-frame AX queries.
     func isDockRegion(at point: CGPoint) -> Bool
 
+    /// Fast check: is the given Quartz point inside any screen's menu bar bounds?
+    /// Pure geometry check without AX queries.
+    func isMenuBarRegion(at point: CGPoint) -> Bool
+
+    /// `true` if `element` represents a menu bar, menu bar item, status item, or menu extra.
+    func isMenuBarElement(_ element: AXUIElement) -> Bool
+
+    /// `true` if `window` is a system menu bar window (e.g. status item / hosted scene window).
+    func isMenuBarWindow(_ window: AXUIElement) -> Bool
+
     /// `true` when `window` is the focused window of the frontmost application.
     func isFrontmostWindow(_ window: AXUIElement) -> Bool
 
@@ -301,7 +311,7 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                 var dockChild: AXUIElement?
                 if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) ==
                     .success,
-                    let dockChild {
+                   let dockChild {
                     return dockChild
                 }
             }
@@ -328,10 +338,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
 
         // macOS 27+ / Modern Mission Control:
         // WindowManager exposes Mission Control window preview buttons with a "wid" attribute.
-        if let preview = getMissionControlPreviewTile(for: element) {
-            if let resolved = getWindow(forWindowID: preview.windowID) {
-                return resolved
-            }
+        if let preview = getMissionControlPreviewTile(for: element),
+           let resolved = getWindow(forWindowID: preview.windowID) {
+            return resolved
         }
 
         return nil
@@ -340,9 +349,9 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// Resolves an application's `AXUIElement` window matching `windowID` via CoreGraphics and Accessibility.
     func getWindow(forWindowID windowID: CGWindowID) -> AXUIElement? {
         guard let info = (CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]])?.first(where: {
-            ($0[kCGWindowNumber as String] as? CGWindowID) == windowID
-        }),
-            let pid = info[kCGWindowOwnerPID as String] as? pid_t else {
+                  ($0[kCGWindowNumber as String] as? CGWindowID) == windowID
+              }),
+              let pid = info[kCGWindowOwnerPID as String] as? pid_t else {
             return nil
         }
         let app = appElement(for: pid)
@@ -358,18 +367,16 @@ final class AccessibilityService: AccessibilityServiceProtocol {
         // Fallback: match by title or frame when _AXUIElementGetWindow fails (e.g. Finder / custom AX)
         let winName = info[kCGWindowName as String] as? String
         for axWindow in axWindows {
-            if let winName, !winName.isEmpty {
-                if let title: String = getAttributeValue(kAXTitleAttribute, for: axWindow), title == winName {
-                    return axWindow
-                }
+            if let winName, !winName.isEmpty, let title: String = getAttributeValue(kAXTitleAttribute, for: axWindow),
+               title == winName {
+                return axWindow
             }
             if let bounds = info[kCGWindowBounds as String] as? [String: CGFloat],
                let x = bounds["X"], let y = bounds["Y"], let w = bounds["Width"], let h = bounds["Height"],
-               let frame = getFrame(for: axWindow) {
-                if abs(frame.minX - x) < 2, abs(frame.minY - y) < 2,
-                   abs(frame.width - w) < 2, abs(frame.height - h) < 2 {
-                    return axWindow
-                }
+               let frame = getFrame(for: axWindow),
+               abs(frame.minX - x) < 2, abs(frame.minY - y) < 2,
+               abs(frame.width - w) < 2, abs(frame.height - h) < 2 {
+                return axWindow
             }
         }
         return nil
@@ -522,16 +529,16 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     /// `maxTabSearchDepth`; `AXWebArea` nodes are pruned so the search never
     /// walks an entire rendered page.
     private func findTabCloseButton(in element: AXUIElement, depth: Int) -> AXUIElement? {
-        guard depth < Self.maxTabSearchDepth else { return nil }
-        guard let children: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: element) else { return nil }
+        guard depth < Self.maxTabSearchDepth, let children: [AXUIElement] = getAttributeValue(
+            kAXChildrenAttribute,
+            for: element
+        ) else { return nil }
 
         // Pass 1: is there a tab group at this level?
         for child in children {
             guard let role: String = getAttributeValue(kAXRoleAttribute, for: child) else { continue }
-            if role == "AXTabGroup" {
-                if let btn = closeButtonForSelectedTab(in: child) {
-                    return btn
-                }
+            if role == "AXTabGroup", let btn = closeButtonForSelectedTab(in: child) {
+                return btn
             }
         }
 
@@ -556,13 +563,11 @@ final class AccessibilityService: AccessibilityServiceProtocol {
             guard let tabRole: String = getAttributeValue(kAXRoleAttribute, for: tab),
                   tabRole == "AXRadioButton" else { continue }
             let isSelected: Bool? = getAttributeValue(kAXValueAttribute, for: tab)
-            if isSelected == true {
-                if let tabChildren: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: tab) {
-                    for tabChild in tabChildren {
-                        if let childRole: String = getAttributeValue(kAXRoleAttribute, for: tabChild),
-                           childRole == "AXButton" {
-                            return tabChild
-                        }
+            if isSelected == true, let tabChildren: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: tab) {
+                for tabChild in tabChildren {
+                    if let childRole: String = getAttributeValue(kAXRoleAttribute, for: tabChild),
+                       childRole == "AXButton" {
+                        return tabChild
                     }
                 }
             }
@@ -753,6 +758,79 @@ final class AccessibilityService: AccessibilityServiceProtocol {
                 return isDockItem(hit)
             }
         }
+        return false
+    }
+
+    /// Fast check: is the given Quartz point inside any screen's menu bar bounds?
+    /// Pure geometry check without AX queries.
+    func isMenuBarRegion(at point: CGPoint) -> Bool {
+        ScreenGeometry.isMenuBarRegion(at: point)
+    }
+
+    /// `true` if `element` represents a menu bar, menu bar item, status item, or menu extra.
+    func isMenuBarElement(_ element: AXUIElement) -> Bool {
+        var current: AXUIElement = element
+        for _ in 0 ..< 4 {
+            var roleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXRoleAttribute as CFString, &roleRef) == .success,
+               let role = roleRef as? String {
+                if role == kAXMenuBarRole as String ||
+                    role == kAXMenuBarItemRole as String ||
+                    role == kAXMenuRole as String ||
+                    role == kAXMenuItemRole as String ||
+                    role == "AXMenuExtra" ||
+                    role == "AXStatusItem" {
+                    return true
+                }
+            }
+            var subroleRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+               let subrole = subroleRef as? String {
+                if subrole == "AXMenuExtra" ||
+                    subrole == "AXHostedViewSceneWindow" ||
+                    subrole == "AXApplicationStatusItem" {
+                    return true
+                }
+            }
+            var parentRef: CFTypeRef?
+            if AXUIElementCopyAttributeValue(current, kAXParentAttribute as CFString, &parentRef) == .success,
+               let parent = parentRef, CFGetTypeID(parent) == AXUIElementGetTypeID() {
+                current = unsafeDowncast(parent, to: AXUIElement.self)
+            } else {
+                break
+            }
+        }
+        return false
+    }
+
+    /// `true` if `window` is a system menu bar window (e.g. status item / hosted scene window).
+    func isMenuBarWindow(_ window: AXUIElement) -> Bool {
+        var subroleRef: CFTypeRef?
+        if AXUIElementCopyAttributeValue(window, kAXSubroleAttribute as CFString, &subroleRef) == .success,
+           let subrole = subroleRef as? String {
+            if subrole == "AXHostedViewSceneWindow" ||
+                subrole == "AXMenuExtra" ||
+                subrole == "AXApplicationStatusItem" {
+                return true
+            }
+        }
+
+        if let frame = getFrame(for: window), isMenuBarRegion(at: CGPoint(x: frame.midX, y: frame.midY)) {
+            return true
+        }
+
+        var pid: pid_t = 0
+        if AXUIElementGetPid(window, &pid) == .success {
+            if let app = NSRunningApplication(processIdentifier: pid),
+               let bundleID = app.bundleIdentifier {
+                if bundleID == "com.apple.controlcenter" ||
+                    bundleID == "com.apple.systemuiserver" ||
+                    bundleID == "com.apple.MenuBarAgent" {
+                    return true
+                }
+            }
+        }
+
         return false
     }
 

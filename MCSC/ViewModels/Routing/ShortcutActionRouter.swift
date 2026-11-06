@@ -88,9 +88,8 @@ final class ShortcutActionRouter {
         // Binding-table match: which configured actions claim this exact
         // combination? Empty ⇒ nothing to do, skip the AX work entirely.
         let matched = config.matchedActions(keyCode: keyCode, includesShift: includesShift)
-        guard !matched.isEmpty else { return .ignore }
-        guard isActive(isMissionControlActive: isMissionControlActive, target: target,
-                       config: config, isTitleBarHover: isTitleBarHover) else {
+        guard !matched.isEmpty, isActive(isMissionControlActive: isMissionControlActive, target: target,
+                                         config: config, isTitleBarHover: isTitleBarHover) else {
             return .ignore
         }
         if case .none = target, service.isDockRegion(at: location) {

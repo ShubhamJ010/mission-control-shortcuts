@@ -327,8 +327,12 @@ final class MissionControlService: MissionControlServiceProtocol {
     private func postKeyEvent(keyCode: CGKeyCode, flags: CGEventFlags) {
         let source = CGEventSource(stateID: .combinedSessionState)
 
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true) else { return }
-        guard let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else { return }
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
+              let keyUp = CGEvent(
+                  keyboardEventSource: source,
+                  virtualKey: keyCode,
+                  keyDown: false
+              ) else { return }
 
         keyDown.flags = flags
         keyUp.flags = flags

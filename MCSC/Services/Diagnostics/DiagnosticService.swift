@@ -262,8 +262,7 @@ final class DiagnosticService: DiagnosticServiceProtocol {
             let isoFormatter = ISO8601DateFormatter()
 
             for entry in entries {
-                guard let log = entry as? OSLogEntryLog else { continue }
-                guard log.subsystem == AppLogger.subsystem else { continue }
+                guard let log = entry as? OSLogEntryLog, log.subsystem == AppLogger.subsystem else { continue }
 
                 let record: [String: Any] = [
                     "timestamp": isoFormatter.string(from: log.date),
@@ -328,13 +327,13 @@ final class DiagnosticService: DiagnosticServiceProtocol {
 
     private func logLevelString(_ level: OSLogEntryLog.Level) -> String {
         switch level {
-        case .debug: return "DEBUG"
-        case .info: return "INFO"
-        case .notice: return "NOTICE"
-        case .error: return "ERROR"
-        case .fault: return "FAULT"
-        case .undefined: return "UNDEFINED"
-        @unknown default: return "UNKNOWN"
+        case .debug: "DEBUG"
+        case .info: "INFO"
+        case .notice: "NOTICE"
+        case .error: "ERROR"
+        case .fault: "FAULT"
+        case .undefined: "UNDEFINED"
+        @unknown default: "UNKNOWN"
         }
     }
 

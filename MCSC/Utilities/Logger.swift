@@ -14,6 +14,8 @@ enum AppLogger {
     static let eventTap = Logger(subsystem: subsystem, category: "eventTap")
     static let volume = Logger(subsystem: subsystem, category: "volume")
     static let missionControl = Logger(subsystem: subsystem, category: "missionControl")
+    /// Floating/PiP window classification decisions (see `WindowComponentClassifier`).
+    static let components = Logger(subsystem: subsystem, category: "components")
     static let diagnostics = Logger(subsystem: subsystem, category: "diagnostics")
 
     @inline(__always)

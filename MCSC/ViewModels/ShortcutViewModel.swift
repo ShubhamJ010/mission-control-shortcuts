@@ -21,6 +21,10 @@ final class ShortcutViewModel {
     let missionControlService: MissionControlServiceProtocol
     private let launchAtLoginService: LaunchAtLoginService
 
+    /// Floating-window (PiP/panel) classifier. Shared by target resolution,
+    /// Mission Control tracking, and the Settings pane.
+    let windowComponentClassifier = WindowComponentClassifier()
+
     lazy var multitouchService = MultitouchService()
     lazy var gestureEngine = GestureEngine()
     private weak var twoFingerTapRecognizer: TwoFingerDoubleTapRecognizer?
@@ -40,7 +44,8 @@ final class ShortcutViewModel {
         },
         isKeyboardNavigationEnabledProvider: { [weak self] in
             self?.config.isKeyboardNavigationEnabled ?? true
-        }
+        },
+        componentClassifier: windowComponentClassifier
     )
 
     lazy var cursorFeedback: CursorFeedbackOverlay = .init()
@@ -115,6 +120,10 @@ final class ShortcutViewModel {
     /// do not run per-frame. Keeps gesture latency <33ms.
     private var lastGestureFrameTime: Double = 0
     private let gestureFrameInterval: Double = 1.0 / 30.0
+    /// Initial cursor position when a multitouch sequence begins (2+ fingers).
+    /// Used to prevent gestures that started in the macOS menu bar from triggering
+    /// window title-bar actions if the cursor tracks downward during a swipe.
+    var multitouchStartAXPoint: CGPoint?
 
     var holdDetector = TwoFingerHoldDetector()
 
@@ -253,17 +262,16 @@ final class ShortcutViewModel {
 
             // Track 3+ finger contact (MC swipe up/down or space switch).
             // Instantly hide Mission Control close/search overlays so they don't linger during transitions.
-            if touches.count >= 3 {
-                if !self.hadThreeOrMoreTouches {
-                    self.hadThreeOrMoreTouches = true
-                    if self.hoverService.isMissionControlActive {
-                        self.hoverService.beginSpaceTransition(duration: 0.35)
-                    }
+            if touches.count >= 3, !self.hadThreeOrMoreTouches {
+                self.hadThreeOrMoreTouches = true
+                if self.hoverService.isMissionControlActive {
+                    self.hoverService.beginSpaceTransition(duration: 0.35)
                 }
             }
 
             // Handle touch lift immediately without throttling or AX overhead
             if touches.isEmpty {
+                self.multitouchStartAXPoint = nil
                 self.holdDetector.handleTouchesEnded(timestamp: timestamp)
                 self.gestureEngine.processFrame([], timestamp: timestamp)
                 if !(self.twoFingerTapRecognizer?.isGestureInProgress ?? false) {
@@ -288,9 +296,14 @@ final class ShortcutViewModel {
             // Early exit for 1 finger (normal cursor motion/scroll):
             // notify holdDetector so it aborts any pending/held state, then exit with zero AX IPC.
             guard touches.count >= 2 else {
+                self.multitouchStartAXPoint = nil
                 self.dockSuppressor.isSuppressing = false
                 _ = self.holdDetector.processFrame(touches, timestamp: timestamp)
                 return
+            }
+
+            if self.multitouchStartAXPoint == nil {
+                self.multitouchStartAXPoint = self.currentAXMouseLocation()
             }
 
             // Throttle 60-120 Hz multitouch to 30 Hz (~33ms) for 2+ finger gestures.
@@ -304,11 +317,12 @@ final class ShortcutViewModel {
                 if holdJustActivated {
                     let mcActive = self.missionControlService.isMissionControlActive
                     let axPoint = self.currentAXMouseLocation()
-                    let dockHovered = self.isDockTargeted(at: axPoint, mcActive: mcActive)
-                    let titleBarHovered = !mcActive && !dockHovered
+                    let menuBarHovered = !mcActive && self.accessibilityService.isMenuBarRegion(at: axPoint)
+                    let dockHovered = !menuBarHovered && self.isDockTargeted(at: axPoint, mcActive: mcActive)
+                    let titleBarHovered = !mcActive && !dockHovered && !menuBarHovered
                         && self.config.isTitleBarActionsOutsideMCEnabled
                         && self.isTitleBarHovered(at: axPoint)
-                    if mcActive || dockHovered || titleBarHovered {
+                    if mcActive || dockHovered || titleBarHovered, !menuBarHovered {
                         AppLogger.gesture.info(
                             "Two-finger hold activated at point (\(axPoint.x, privacy: .public), \(axPoint.y, privacy: .public))"
                         )
@@ -319,7 +333,8 @@ final class ShortcutViewModel {
                             HapticService.perform(.twoFingerHold)
                         }
                     } else {
-                        // Invalid target region (e.g. empty desktop) - reset hold so Cmd modifier does not stay latched
+                        // Invalid target region (e.g. empty desktop or menu bar) - reset hold so Cmd modifier does not
+                        // stay latched
                         self.holdDetector.reset()
                     }
                 }

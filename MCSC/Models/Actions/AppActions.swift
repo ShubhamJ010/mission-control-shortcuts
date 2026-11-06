@@ -220,9 +220,8 @@ private func performCycleSnapAppAction(
 ) {
     let appElement = AXUIElementCreateApplication(app.processIdentifier)
     guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
-          !windows.isEmpty else { return }
-
-    guard let firstFrame = service.getFrame(for: windows[0]) else { return }
+          !windows.isEmpty,
+          let firstFrame = service.getFrame(for: windows[0]) else { return }
     let anchor = CGPoint(x: firstFrame.midX, y: firstFrame.midY)
     guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { return }
     let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)

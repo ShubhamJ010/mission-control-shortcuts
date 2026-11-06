@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- **PiP and Floating Windows Are No Longer Targets**: Browser picture-in-picture windows (Zen, Dia, Arc, Safari) and always-on-top media panels (floatyMPV) have no title bar, so the 28 pt title-bar strip was video content and gestures fired window actions on them. `WindowComponentClassifier` now rejects any window at CoreGraphics layer 3 or above before target resolution, title-bar hover, or Mission Control tracking. Detection is layer-based because AX metadata differs per browser (Zen reports `AXStandardWindow`, Dia reports `AXSystemDialog`). On by default with no settings UI; change it from Terminal with `defaults write sj010.MCSC mcsc.windowComponents.ignoreFloating -bool false` or opt an app back in with `mcsc.windowComponents.allow.<bundleID>`. See `docs/adr/0001-window-components.md`.
+- **Stable Code Signing for Development Builds**: `make` now signs with a local self-signed `MCSC-Dev` identity when one exists, and clears the project's `DEVELOPMENT_TEAM` for it. Previously every build was ad-hoc signed, so the designated requirement was the cdhash and each rebuild invalidated the Accessibility (TCC) grant. The requirement is now `identifier "sj010.MCSC" and certificate root = H"…"`, which survives rebuilds. Create the identity once with `make signing-identity`; see `scripts/create-signing-identity.sh`.
+
 ## 0.8.3 (22 Oct 2026)
 
 - **Overlay Panels Rebuilt After Space Changes**: Fixed the Mission Control preview close button and the cursor feedback HUD disappearing on Desktops other than the one they were first shown on. A long-lived `.canJoinAllSpaces` panel could silently lose its Space membership in the WindowServer after a Space switch, display reconfiguration, or wake — AppKit still reported it as ordered in with full alpha, but nothing was composited. Both overlays now drop their panel on `activeSpaceDidChange`, `didChangeScreenParameters`, and `didWake`, and lazily build a fresh one (re-admitted on the active Space) on the next show. Event-driven only: no polling, no work per hover, and the rendered symbol cache survives.
