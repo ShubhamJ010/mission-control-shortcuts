@@ -262,12 +262,10 @@ final class ShortcutViewModel {
 
             // Track 3+ finger contact (MC swipe up/down or space switch).
             // Instantly hide Mission Control close/search overlays so they don't linger during transitions.
-            if touches.count >= 3 {
-                if !self.hadThreeOrMoreTouches {
-                    self.hadThreeOrMoreTouches = true
-                    if self.hoverService.isMissionControlActive {
-                        self.hoverService.beginSpaceTransition(duration: 0.35)
-                    }
+            if touches.count >= 3, !self.hadThreeOrMoreTouches {
+                self.hadThreeOrMoreTouches = true
+                if self.hoverService.isMissionControlActive {
+                    self.hoverService.beginSpaceTransition(duration: 0.35)
                 }
             }
 
@@ -324,7 +322,7 @@ final class ShortcutViewModel {
                     let titleBarHovered = !mcActive && !dockHovered && !menuBarHovered
                         && self.config.isTitleBarActionsOutsideMCEnabled
                         && self.isTitleBarHovered(at: axPoint)
-                    if (mcActive || dockHovered || titleBarHovered) && !menuBarHovered {
+                    if mcActive || dockHovered || titleBarHovered, !menuBarHovered {
                         AppLogger.gesture.info(
                             "Two-finger hold activated at point (\(axPoint.x, privacy: .public), \(axPoint.y, privacy: .public))"
                         )
@@ -335,7 +333,8 @@ final class ShortcutViewModel {
                             HapticService.perform(.twoFingerHold)
                         }
                     } else {
-                        // Invalid target region (e.g. empty desktop or menu bar) - reset hold so Cmd modifier does not stay latched
+                        // Invalid target region (e.g. empty desktop or menu bar) - reset hold so Cmd modifier does not
+                        // stay latched
                         self.holdDetector.reset()
                     }
                 }

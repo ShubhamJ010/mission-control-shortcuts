@@ -83,12 +83,8 @@ struct TwoFingerHoldDetector {
             return false
 
         case let .pending(f1ID, f2ID, startX1, startY1, startX2, startY2, startTime):
-            guard touches.count == 2 else {
-                state = .idle
-                return false
-            }
-
-            guard let f1 = touches.first(where: { $0.identifier == f1ID }),
+            guard touches.count == 2,
+                  let f1 = touches.first(where: { $0.identifier == f1ID }),
                   let f2 = touches.first(where: { $0.identifier == f2ID }) else {
                 state = .idle
                 return false

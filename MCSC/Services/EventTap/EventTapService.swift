@@ -83,8 +83,7 @@ final class EventTapService: EventTapServiceProtocol {
     /// input). Without this, the tap silently dies and shortcuts stop working
     /// until the app is restarted.
     private func reEnableTapIfDisabled(for type: CGEventType) {
-        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
-        guard let eventTap else { return }
+        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput, let eventTap else { return }
         CGEvent.tapEnable(tap: eventTap, enable: true)
         let reason = type == .tapDisabledByTimeout ? "timeout" : "user input"
         AppLogger.eventTap.warning("Event tap disabled by system (\(reason, privacy: .public)); re-enabled.")

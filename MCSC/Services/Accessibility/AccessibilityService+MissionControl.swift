@@ -41,32 +41,28 @@ extension AccessibilityService {
             var wmChild: AXUIElement?
             if AXUIElementCopyElementAtPosition(wmElement, Float(point.x), Float(point.y), &wmChild) == .success,
                let wmChild,
-               let preview = getMissionControlPreviewTile(for: wmChild) {
-                if matchingWindowIDs?.contains(preview.windowID) ?? true {
-                    return preview
-                }
+               let preview = getMissionControlPreviewTile(for: wmChild),
+               matchingWindowIDs?.contains(preview.windowID) ?? true {
+                return preview
             }
 
             // On macOS 27, WindowManager hosts preview tiles for all spaces in its AX tree.
             // If the element hit-tested at point belongs to another space or was masked,
             // scan WindowManager's preview tiles to find the matching tile on the active desktop.
-            if let matchingWindowIDs {
-                if let preview = findMatchingPreviewTile(
-                    in: wmElement,
-                    at: point,
-                    matchingWindowIDs: matchingWindowIDs
-                ) {
-                    return preview
-                }
+            if let matchingWindowIDs, let preview = findMatchingPreviewTile(
+                in: wmElement,
+                at: point,
+                matchingWindowIDs: matchingWindowIDs
+            ) {
+                return preview
             }
         }
 
         // 2. Fall back to systemWide element hit-test
         if let hitElement = getElement(at: point),
-           let preview = getMissionControlPreviewTile(for: hitElement) {
-            if matchingWindowIDs?.contains(preview.windowID) ?? true {
-                return preview
-            }
+           let preview = getMissionControlPreviewTile(for: hitElement),
+           matchingWindowIDs?.contains(preview.windowID) ?? true {
+            return preview
         }
 
         // 3. Fall back to Dock element hit-test (classic Dock Exposé)
@@ -74,10 +70,9 @@ extension AccessibilityService {
             var dockChild: AXUIElement?
             if AXUIElementCopyElementAtPosition(dockElement, Float(point.x), Float(point.y), &dockChild) == .success,
                let dockChild,
-               let preview = getMissionControlPreviewTile(for: dockChild) {
-                if matchingWindowIDs?.contains(preview.windowID) ?? true {
-                    return preview
-                }
+               let preview = getMissionControlPreviewTile(for: dockChild),
+               matchingWindowIDs?.contains(preview.windowID) ?? true {
+                return preview
             }
         }
 
@@ -94,8 +89,10 @@ extension AccessibilityService {
         matchingWindowIDs: Set<CGWindowID>,
         depth: Int = 0
     ) -> (tileElement: AXUIElement, windowID: CGWindowID)? {
-        guard depth < Self.maxPreviewTileDepth else { return nil }
-        guard let children: [AXUIElement] = getAttributeValue(kAXChildrenAttribute, for: parent) else {
+        guard depth < Self.maxPreviewTileDepth, let children: [AXUIElement] = getAttributeValue(
+            kAXChildrenAttribute,
+            for: parent
+        ) else {
             return nil
         }
         for child in children {

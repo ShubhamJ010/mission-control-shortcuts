@@ -16,8 +16,7 @@ extension MissionControlHoverService {
     func startKeyboardSession() {
         clearSearch()
 
-        guard isKeyboardNavigationEnabledProvider() else { return }
-        guard keyboardTap == nil else { return }
+        guard isKeyboardNavigationEnabledProvider(), keyboardTap == nil else { return }
 
         debugLog("startKeyboardSession: installing MCKeyboardTapService", category: AppLogger.missionControl)
         let tap = MCKeyboardTapService()

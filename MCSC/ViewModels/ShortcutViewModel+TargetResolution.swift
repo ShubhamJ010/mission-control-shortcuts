@@ -37,10 +37,9 @@ extension ShortcutViewModel {
     /// Core geometry check for an already-resolved window target.
     /// Floating components (PiP, panels) and macOS menu bar elements never report a title-bar hover.
     func isTitleBarHover(window: AXUIElement, at point: CGPoint) -> Bool {
-        guard !windowComponentClassifier.isComponent(window: window) else { return false }
-        guard !accessibilityService.isMenuBarRegion(at: point) else { return false }
-        guard !accessibilityService.isMenuBarWindow(window) else { return false }
-        guard let frame = accessibilityService.getFrame(for: window),
+        guard !windowComponentClassifier.isComponent(window: window), !accessibilityService.isMenuBarRegion(at: point),
+              !accessibilityService.isMenuBarWindow(window),
+              let frame = accessibilityService.getFrame(for: window),
               frame.contains(point) else { return false }
         return point.y - frame.minY <= Self.titleBarHeight
     }

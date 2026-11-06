@@ -119,10 +119,8 @@ final class DockInteractionSuppressor: DockInteractionSuppressorProtocol {
 
         // 1. Always swallow trackpad gesture events (smart zoom/smartMagnify -> App Exposé, magnify, swipe,
         // etc.) when cursor is over the Dock.
-        if Self.gestureEventRawTypes.contains(rawType) {
-            if isDockHoveredProvider?(location) ?? false {
-                return nil // Swallow system gesture (prevents App Exposé)
-            }
+        if Self.gestureEventRawTypes.contains(rawType), isDockHoveredProvider?(location) ?? false {
+            return nil // Swallow system gesture (prevents App Exposé)
         }
 
         // 2. Swallow synthesized clicks (left/right/other click) when actively suppressing

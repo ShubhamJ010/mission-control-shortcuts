@@ -424,9 +424,7 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     func fetchWindows() {
         // Frozen by `_testSeedWindows` in unit tests so assertions are
         // deterministic regardless of the host's real window list.
-        guard !isTestSeedingEnabled else { return }
-
-        guard let list = CGWindowListCopyWindowInfo(
+        guard !isTestSeedingEnabled, let list = CGWindowListCopyWindowInfo(
             [.optionAll, .excludeDesktopElements],
             kCGNullWindowID
         ) as? [[String: Any]] else {

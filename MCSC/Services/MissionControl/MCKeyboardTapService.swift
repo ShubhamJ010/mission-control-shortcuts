@@ -94,8 +94,7 @@ final class MCKeyboardTapService: MCKeyboardTapServiceProtocol {
     }
 
     private func reEnableTapIfDisabled(for type: CGEventType) {
-        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
-        guard let eventTap else { return }
+        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput, let eventTap else { return }
         CGEvent.tapEnable(tap: eventTap, enable: true)
         AppLogger.eventTap.info("Mission Control keyboard tap was disabled by the system; re-enabled.")
         debugLog(
