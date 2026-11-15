@@ -44,7 +44,11 @@ struct MoveWindowToDesktopAction: ShortcutAction {
     // osascript process per invocation; tests substitute recording closures so
     // no event, process, or sleep is ever exercised.
     var postMouseEvent: (CGEventType, CGPoint) -> Void = SystemEffects.postMouse
-    var warpCursor: (CGPoint) -> Void = { _ = CGWarpMouseCursorPosition($0) }
+    var warpCursor: (CGPoint) -> Void = { point in
+        let safePoint = ScreenGeometry.clampAwayFromDockHotEdge(point)
+        _ = CGWarpMouseCursorPosition(safePoint)
+    }
+
     var postEscapeKey: () -> Void = SystemEffects.postEscape
     var sendSpaceSwitchShortcut: (Direction) -> Void = SystemEffects.sendSpaceSwitch
     var waitFor: (TimeInterval) -> Void = { Thread.sleep(forTimeInterval: $0) }
