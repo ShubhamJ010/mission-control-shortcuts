@@ -44,6 +44,7 @@ extension MissionControlHoverService {
         self.runLoopSource = source
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        AppLogger.missionControl.info("MissionControl mouse input tap dynamically enabled for MC session.")
     }
 
     /// Dispatches events received on the input tap. Returns the event to pass through, or nil to swallow.
@@ -52,25 +53,13 @@ extension MissionControlHoverService {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
+            let reason = type == .tapDisabledByTimeout ? "timeout" : "user input"
+            AppLogger.missionControl.warning("MissionControl input tap disabled by system (\(reason, privacy: .public)); re-enabled.")
             return event
         }
 
         if type == .flagsChanged {
-            let cmdPressed = event.flags.contains(.maskCommand)
-            let optionPressed = event.flags.contains(.maskAlternate)
-            let controlPressed = event.flags.contains(.maskControl)
-            let notifyFlags = { [weak self] in
-                self?.handleFlagsChanged(
-                    cmdPressed: cmdPressed,
-                    optionPressed: optionPressed,
-                    controlPressed: controlPressed
-                )
-            }
-            if Thread.isMainThread {
-                notifyFlags()
-            } else {
-                DispatchQueue.main.async { notifyFlags() }
-            }
+            handleFlagsChangedTap(event: event)
             return event
         }
 
@@ -138,6 +127,24 @@ extension MissionControlHoverService {
         return event
     }
 
+    private func handleFlagsChangedTap(event: CGEvent) {
+        let cmdPressed = event.flags.contains(.maskCommand)
+        let optionPressed = event.flags.contains(.maskAlternate)
+        let controlPressed = event.flags.contains(.maskControl)
+        let notifyFlags = { [weak self] in
+            self?.handleFlagsChanged(
+                cmdPressed: cmdPressed,
+                optionPressed: optionPressed,
+                controlPressed: controlPressed
+            )
+        }
+        if Thread.isMainThread {
+            notifyFlags()
+        } else {
+            DispatchQueue.main.async { notifyFlags() }
+        }
+    }
+
     func stopInputTap() {
         if let source = runLoopSource {
             CFRunLoopSourceInvalidate(source)
@@ -148,6 +155,7 @@ extension MissionControlHoverService {
             CGEvent.tapEnable(tap: tap, enable: false)
             CFMachPortInvalidate(tap)
             eventTap = nil
+            AppLogger.missionControl.info("MissionControl mouse input tap dynamically stopped (MC closed).")
         }
     }
 }

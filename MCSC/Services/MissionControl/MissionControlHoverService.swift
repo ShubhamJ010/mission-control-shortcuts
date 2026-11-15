@@ -212,16 +212,18 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         didSet {
             guard isEnabled != oldValue else { return }
             if !isEnabled {
-                // Fully tear down the hover session: stop window polling,
+                // Fully tear down the hover session: stop input tap, window polling,
                 // keyboard navigation, and hide all overlays. The Dock
-                // AXObserver and event tap remain alive so we still track
+                // AXObserver remains alive so we still track
                 // isMissionControlActive for other services.
+                stopInputTap()
                 stopWindowFetchTimer()
                 stopKeyboardSession()
                 hideAllOverlays()
             } else if isMissionControlActive {
                 // Re-enabled while Mission Control is already open:
                 // spin up the full session so the user sees the button.
+                startInputTap()
                 fetchWindows()
                 startWindowFetchTimer()
                 startKeyboardSession()
@@ -267,7 +269,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
         setupDockProcessObservers()
         setupDockObserver()
-        startInputTap()
+        if isMissionControlActiveProvider() {
+            handleActivated()
+        }
         setupSpaceChangeObserver()
     }
 
