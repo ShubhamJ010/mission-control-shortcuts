@@ -121,6 +121,7 @@ extension MissionControlHoverService {
 
         guard isEnabled else { return }
 
+        startInputTap()
         fetchWindows()
         startWindowFetchTimer()
         startKeyboardSession()
@@ -139,12 +140,19 @@ extension MissionControlHoverService {
         spaceTransitionTimeoutTimer?.invalidate()
         spaceTransitionTimeoutTimer = nil
         lastKnownSpaceID = nil
+        stopInputTap()
         stopWindowFetchTimer()
         hideAllOverlays()
         stopKeyboardSession()
         windows = []
         currentMatches = []
         searchSession = WindowSearchSession()
+
+        let app = NSApplication.shared
+        let sel = NSSelectorFromString("_prepareScreensIfNeeded")
+        if app.responds(to: sel) {
+            app.perform(sel)
+        }
     }
 
     func handleDockNotification(_ notification: String) {
