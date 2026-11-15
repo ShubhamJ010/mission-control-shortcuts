@@ -13,7 +13,7 @@ struct FillScreenAction: ShortcutAction {
 
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
         _ = service.setFrame(axScreenBounds, for: window)
     }
 }
@@ -32,7 +32,7 @@ struct MakeLargerAction: ShortcutAction {
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let currentFrame = service.getFrame(for: window),
               let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
         let targetWidth = (currentFrame.width * scaleFactor).rounded()
         let targetHeight = (currentFrame.height * scaleFactor).rounded()
@@ -81,7 +81,7 @@ struct MakeSmallerAction: ShortcutAction {
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let currentFrame = service.getFrame(for: window),
               let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
         let targetWidth = max((currentFrame.width * scaleFactor).rounded(), minWidth)
         let targetHeight = max((currentFrame.height * scaleFactor).rounded(), minHeight)
@@ -121,7 +121,7 @@ struct ReasonableSizeAction: ShortcutAction {
 
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        let axBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
         let w = (axBounds.width * 0.604).rounded()
         let h = (axBounds.height * 0.58).rounded()
         let x = (axBounds.origin.x + (axBounds.width - w) / 2).rounded()
@@ -139,7 +139,7 @@ struct AlmostMaximizeAction: ShortcutAction {
 
     func perform(window: AXUIElement, at point: CGPoint, service: AccessibilityServiceProtocol) {
         guard let screen = ScreenGeometry.screenContaining(axPoint: point) else { return }
-        let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
+        let axBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
         let w = (axBounds.width * 0.904).rounded()
         let h = (axBounds.height * 0.872).rounded()
         let x = (axBounds.origin.x + (axBounds.width - w) / 2).rounded()
@@ -255,7 +255,7 @@ private func performCycleSnapAction(
     let anchor = currentFrame.map { CGPoint(x: $0.midX, y: $0.midY) } ?? point
     guard let screen = ScreenGeometry.screenContaining(axPoint: point) ?? ScreenGeometry
         .screenContaining(axPoint: anchor) else { return }
-    let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
+    let visibleBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
     var wid: CGWindowID = 0
     _ = _AXUIElementGetWindow(window, &wid)
