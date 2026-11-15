@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- **Dock Auto-Hide Desync: prevention + edge-to-edge fill** (`docs/adr/0002`, `docs/adr/0003`, `docs/DOCK_AUTOHIDE.md`): macOS 27 can hold a stale ~113 pt Dock reservation after Mission Control exits while `com.apple.dock autohide` is `1`. The defect also occurs with MCSC not running, so it is OS-side; these changes remove MCSC's contribution and absorb the consequence.
+  1. *Fill bounds*: new `ScreenGeometry.axFillBounds(for:dockAutoHides:)` — all eleven fill/snap call sites ignore the auto-hiding Dock's strip, so windows fill edge to edge even while a stale reservation is held. Pinned-Dock behavior is unchanged. See ADR 0003.
+  2. *Dynamic input tap*: `MissionControlHoverService` creates its `.headInsertEventTap` only while Mission Control is open and invalidates it on exit. Outside Mission Control, MCSC has zero mouse event taps and zero HID interception overhead.
+  3. *Exit scan backoff*: WindowServer window-list scans are suppressed for 500 ms after Mission Control exit, giving WindowManager an uncontended runloop turn for `ExitMissionControl-Discrete` — the strongest supported mitigation of the app's contribution to the desync (hypothesis-grade; ADR 0002).
+  4. *Synthetic pointer hot-edge clamp*: synthetic warps and clicks are clamped away from the Dock's bottom hot edge so they cannot reveal the Dock.
+  - The investigation's resident latch monitor, synthetic-pointer audit trail and osascript auto-heal were removed: a 36 h instrumented run produced 23 monitor reports and **zero real latches** — every report decomposed into legitimate Dock behavior plus a stale in-process read (`docs/DOCK_AUTOHIDE.md` §16, ADR 0002). The cure for a real latch remains manual ⌥⌘D twice.
+
 ## 0.8.4 (06 Nov 2026)
 
 - **PiP and Floating Windows Are No Longer Targets**: Browser picture-in-picture windows (Zen, Dia, Arc, Safari) and always-on-top media panels (floatyMPV) have no title bar, so the 28 pt title-bar strip was video content and gestures fired window actions on them. `WindowComponentClassifier` now rejects any window at CoreGraphics layer 3 or above before target resolution, title-bar hover, or Mission Control tracking. Detection is layer-based because AX metadata differs per browser (Zen reports `AXStandardWindow`, Dia reports `AXSystemDialog`). On by default with no settings UI; change it from Terminal with `defaults write sj010.MCSC mcsc.windowComponents.ignoreFloating -bool false` or opt an app back in with `mcsc.windowComponents.allow.<bundleID>`. See `docs/adr/0001-window-components.md`.
