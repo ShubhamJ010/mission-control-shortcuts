@@ -35,6 +35,58 @@ enum ScreenGeometry {
         )
     }
 
+    /// AX/Quartz bounds a window may occupy when it is being **filled** or
+    /// **snapped** to the screen.
+    ///
+    /// `visibleFrame` is the wrong source for that job. It excludes the
+    /// Dock's strip whenever the Dock is pinned — correct, the Dock really
+    /// does own that space. But it *also* excludes the strip when the Dock is
+    /// set to auto-hide and the system is holding a **stale** reservation: the
+    /// macOS 27 desync between `com.apple.dock` and `com.apple.WindowManager`
+    /// documented in `docs/DOCK_AUTOHIDE.md` §12, where the Dock bar is
+    /// hidden but the layout still reserves ~113 pt for it. Sizing a window
+    /// to `visibleFrame` in that state leaves a dead band at the bottom of
+    /// the screen and the window can never be filled edge to edge.
+    ///
+    /// An auto-hiding Dock *overlays* the screen and reserves nothing, so
+    /// only the menu bar is off limits. The Dock's own strip is therefore
+    /// ignored whenever `dockAutoHides` is `true`.
+    static func axFillBounds(
+        for screen: NSScreen,
+        dockAutoHides: Bool,
+        primaryHeight: CGFloat = primaryScreenHeight
+    ) -> CGRect {
+        guard dockAutoHides else {
+            // Pinned Dock: the reservation is real, keep excluding it.
+            return axVisibleBounds(for: screen, primaryHeight: primaryHeight)
+        }
+        let screenAX = axBounds(for: screen, primaryHeight: primaryHeight)
+        let menuBar = menuBarFrame(for: screen, primaryHeight: primaryHeight)
+        let top = max(screenAX.minY, menuBar?.maxY ?? screenAX.minY)
+        return CGRect(
+            x: screenAX.minX,
+            y: top,
+            width: screenAX.width,
+            height: screenAX.maxY - top
+        )
+    }
+
+    /// Threshold from bottom edge of screen (in points) that could trigger the Dock's
+    /// hot-edge reveal sensor when Dock autohide is enabled.
+    static let dockHotEdgeTriggerThreshold: CGFloat = 8
+
+    /// Clamps an AX coordinate point away from the bottom hot edge to prevent
+    /// synthetic cursor movements or warps from inadvertently triggering Dock reveal.
+    static func clampAwayFromDockHotEdge(_ point: CGPoint) -> CGPoint {
+        guard let screen = screenContaining(axPoint: point) else { return point }
+        let bounds = axBounds(for: screen)
+        var clamped = point
+        if clamped.y >= bounds.maxY - dockHotEdgeTriggerThreshold {
+            clamped.y = bounds.maxY - (dockHotEdgeTriggerThreshold + 4)
+        }
+        return clamped
+    }
+
     /// Returns the AX/Quartz bounds of the macOS menu bar on `screen` if present.
     /// Returns `nil` for secondary screens that do not display a menu bar.
     static func menuBarFrame(for screen: NSScreen, primaryHeight: CGFloat = primaryScreenHeight) -> CGRect? {

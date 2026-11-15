@@ -80,7 +80,7 @@ struct FillScreenAppAction {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axBounds = ScreenGeometry.axVisibleBounds(for: screen)
+            let axBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
             _ = service.setFrame(axBounds, for: window)
         }
     }
@@ -97,7 +97,7 @@ struct MakeLargerAppAction {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
+            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
             let targetWidth = (currentFrame.width * scaleFactor).rounded()
             let targetHeight = (currentFrame.height * scaleFactor).rounded()
@@ -136,7 +136,7 @@ struct MakeSmallerAppAction {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axVisibleBounds(for: screen)
+            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
             let targetWidth = max((currentFrame.width * scaleFactor).rounded(), minWidth)
             let targetHeight = max((currentFrame.height * scaleFactor).rounded(), minHeight)
@@ -224,7 +224,7 @@ private func performCycleSnapAppAction(
           let firstFrame = service.getFrame(for: windows[0]) else { return }
     let anchor = CGPoint(x: firstFrame.midX, y: firstFrame.midY)
     guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { return }
-    let visibleBounds = ScreenGeometry.axVisibleBounds(for: screen)
+    let visibleBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
 
     var wid: CGWindowID = 0
     _ = _AXUIElementGetWindow(windows[0], &wid)
@@ -240,7 +240,7 @@ private func performCycleSnapAppAction(
         guard let frame = service.getFrame(for: window) else { continue }
         let winAnchor = CGPoint(x: frame.midX, y: frame.midY)
         guard let winScreen = ScreenGeometry.screenContaining(axPoint: winAnchor) else { continue }
-        let winVisibleBounds = ScreenGeometry.axVisibleBounds(for: winScreen)
+        let winVisibleBounds = ScreenGeometry.axFillBounds(for: winScreen, dockAutoHides: service.isDockAutoHideEnabled)
         _ = service.setFrame(nextPos.frame(for: winVisibleBounds), for: window)
     }
 }
