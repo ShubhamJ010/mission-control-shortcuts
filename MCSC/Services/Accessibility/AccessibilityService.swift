@@ -162,7 +162,18 @@ final class AccessibilityService: AccessibilityServiceProtocol {
     private let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
 
     var isDockAutoHideEnabled: Bool {
-        dockDefaults?.bool(forKey: "autohide") ?? false
+        CFPreferencesAppSynchronize("com.apple.dock" as CFString)
+        let key = "autohide" as CFString
+        let app = "com.apple.dock" as CFString
+        if let val = CFPreferencesCopyAppValue(key, app) {
+            if let boolVal = val as? Bool {
+                return boolVal
+            }
+            if let numVal = val as? NSNumber {
+                return numVal.boolValue
+            }
+        }
+        return dockDefaults?.bool(forKey: "autohide") ?? false
     }
 
     /// Extra padding (pt) around the cached Dock frame treated as "hovering

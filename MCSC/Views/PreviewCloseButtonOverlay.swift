@@ -92,6 +92,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     private var buttonView: CloseButtonView?
 
     private(set) var isVisible = false
+    private var deferredOrderOutTimer: Timer?
 
     /// Space / display invalidation observers. Long-lived panels are recreated
     /// on these transitions (see `resetPanel()`).
@@ -142,6 +143,7 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
     }
 
     deinit {
+        deferredOrderOutTimer?.invalidate()
         if let spaceChangeObserver {
             NSWorkspace.shared.notificationCenter.removeObserver(spaceChangeObserver)
         }
@@ -161,6 +163,8 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         AppLogger.missionControl.debug(
             "PreviewCloseButtonOverlay: rebuilding panel after \(reason, privacy: .public)"
         )
+        deferredOrderOutTimer?.invalidate()
+        deferredOrderOutTimer = nil
         panel?.orderOut(nil)
         panel = nil
         buttonView = nil
@@ -259,6 +263,11 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
         panel.setFrame(targetRect, display: true)
         buttonView?.setMode(mode, animated: false)
 
+        deferredOrderOutTimer?.invalidate()
+        deferredOrderOutTimer = nil
+
+        panel.ignoresMouseEvents = false
+        panel.alphaValue = 1.0
         panel.orderFrontRegardless()
         if !isVisible {
             isVisible = true
@@ -289,10 +298,39 @@ final class PreviewCloseButtonOverlay: PreviewCloseButtonOverlayProtocol {
 
     /// Hides the overlay panel.
     func hide() {
+        hide(immediateOrderOut: false)
+    }
+
+    /// Hides the overlay panel.
+    /// - Parameter immediateOrderOut: When `true`, removes the panel from WindowServer immediately.
+    ///   When `false` (default), sets `alphaValue = 0` and `ignoresMouseEvents = true` to preserve
+    ///   window list stability during Mission Control transitions, deferring `orderOut` until idle.
+    func hide(immediateOrderOut: Bool) {
         guard isVisible else { return }
-        panel?.orderOut(nil)
         isVisible = false
         currentAXRect = .zero
+
+        guard let panel else { return }
+        panel.ignoresMouseEvents = true
+        panel.alphaValue = 0
+
+        deferredOrderOutTimer?.invalidate()
+        if immediateOrderOut {
+            panel.orderOut(nil)
+            deferredOrderOutTimer = nil
+        } else {
+            // Keep window allocated and hidden with alpha=0 during active Mission Control
+            // transitions. WindowServer window list stays undisturbed (zero 'Model window order
+            // changed' churn emitted to WindowManager). Defer real orderOut until 1.5s idle.
+            deferredOrderOutTimer = Timer.scheduledCommon(
+                interval: 1.5,
+                repeats: false,
+                tolerance: 0.1
+            ) { [weak self] _ in
+                self?.panel?.orderOut(nil)
+                self?.deferredOrderOutTimer = nil
+            }
+        }
     }
 }
 

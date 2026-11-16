@@ -14,12 +14,13 @@ enum WindowActivationAction {
     /// Uses `CGEventSource(stateID: .hidSystemState)` and posts at `.cghidEventTap`
     /// so the synthetic move is seen before WindowServer's Exposé grab.
     static func postSyntheticMouseMoved(to point: CGPoint) {
-        _ = CGWarpMouseCursorPosition(point)
+        let safePoint = ScreenGeometry.clampAwayFromDockHotEdge(point)
+        _ = CGWarpMouseCursorPosition(safePoint)
         let source = CGEventSource(stateID: .hidSystemState)
         CGEvent(
             mouseEventSource: source,
             mouseType: .mouseMoved,
-            mouseCursorPosition: point,
+            mouseCursorPosition: safePoint,
             mouseButton: .left
         )?.post(tap: .cghidEventTap)
     }
@@ -39,14 +40,15 @@ enum WindowActivationAction {
     /// `leftMouseUp` after `dwell` on the main queue with a fresh
     /// `CGEventSource` to avoid retaining a potentially stale CF object.
     static func performSyntheticClick(at point: CGPoint) {
+        let safePoint = ScreenGeometry.clampAwayFromDockHotEdge(point)
         let downSource = CGEventSource(stateID: .hidSystemState)
 
-        postSyntheticMouseMoved(to: point)
+        postSyntheticMouseMoved(to: safePoint)
 
         CGEvent(
             mouseEventSource: downSource,
             mouseType: .leftMouseDown,
-            mouseCursorPosition: point,
+            mouseCursorPosition: safePoint,
             mouseButton: .left
         )?.post(tap: .cghidEventTap)
 
@@ -55,7 +57,7 @@ enum WindowActivationAction {
             CGEvent(
                 mouseEventSource: upSource,
                 mouseType: .leftMouseUp,
-                mouseCursorPosition: point,
+                mouseCursorPosition: safePoint,
                 mouseButton: .left
             )?.post(tap: .cghidEventTap)
         }

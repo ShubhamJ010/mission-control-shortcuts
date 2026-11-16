@@ -121,6 +121,7 @@ extension MissionControlHoverService {
 
         guard isEnabled else { return }
 
+        startInputTap()
         fetchWindows()
         startWindowFetchTimer()
         startKeyboardSession()
@@ -139,6 +140,7 @@ extension MissionControlHoverService {
         spaceTransitionTimeoutTimer?.invalidate()
         spaceTransitionTimeoutTimer = nil
         lastKnownSpaceID = nil
+        stopInputTap()
         stopWindowFetchTimer()
         hideAllOverlays()
         stopKeyboardSession()

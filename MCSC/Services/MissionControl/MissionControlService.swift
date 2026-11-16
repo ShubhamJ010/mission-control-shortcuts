@@ -81,6 +81,9 @@ final class MissionControlService: MissionControlServiceProtocol {
     var detectionCacheInterval: Double = 0.35
     private var cachedIsActive: Bool?
     private var lastDetectionTime: Double = 0
+    /// Timestamp until which WindowServer window list scans are backed off following
+    /// Mission Control exit to eliminate IPC contention with WindowManager's ExitMissionControl.
+    private var exitBackoffUntil: Double = 0
     /// Guards `CGWindowListCopyWindowInfo` from re-entrancy when two HID
     /// sources (event tap + multitouch) miss the cache on the same runloop
     /// turn. Set while the WindowServer IPC is in flight.
@@ -211,6 +214,7 @@ final class MissionControlService: MissionControlServiceProtocol {
         _isMissionControlActive = false
         cachedIsActive = false
         lastDetectionTime = CACurrentMediaTime()
+        exitBackoffUntil = 0
         isStarted = false
     }
 
@@ -224,8 +228,16 @@ final class MissionControlService: MissionControlServiceProtocol {
         guard _isMissionControlActive != active else { return }
         _isMissionControlActive = active
         cachedIsActive = active
-        lastDetectionTime = CACurrentMediaTime()
-        AppLogger.missionControl.info("Mission Control active state changed: \(active, privacy: .public)")
+        let now = CACurrentMediaTime()
+        lastDetectionTime = now
+        if !active {
+            exitBackoffUntil = now + 1.20
+        } else {
+            exitBackoffUntil = 0
+        }
+        AppLogger.missionControl.info(
+            "Mission Control active state changed: \(active, privacy: .public), exit scan backoff: \(!active, privacy: .public)"
+        )
         debugLog("MissionControlService.markActive: \(active)")
         if active {
             onActivated?()
@@ -240,7 +252,14 @@ final class MissionControlService: MissionControlServiceProtocol {
     func checkMissionControlActive(force: Bool = false) -> Bool {
         let now = CACurrentMediaTime()
 
+        // Strict Quiescence: During the exit backoff period, NEVER query WindowServer,
+        // even if `force` is requested. WindowManager and Dock must have zero contention.
+        if now < exitBackoffUntil {
+            return false
+        }
+
         if !force {
+
             // Latch fast-path: trust the notification/AXObserver signal while the
             // cache window is fresh.
             if _isMissionControlActive, now - lastDetectionTime < detectionCacheInterval {
@@ -270,8 +289,13 @@ final class MissionControlService: MissionControlServiceProtocol {
                 let owner = window[kCGWindowOwnerName as String] as? String ?? ""
                 let layer = window[kCGWindowLayer as String] as? Int ?? 0
                 let name = window[kCGWindowName as String] as? String ?? ""
-                if owner == "Dock", name.isEmpty {
-                    emptyNamedDockLayers.append(layer)
+                if owner == "Dock" {
+                    // Match on the name only for the empty-name heuristic:
+                    // `kCGWindowName` is redacted to "" for processes without
+                    // Screen Recording permission, which is MCSC's case.
+                    if name.isEmpty {
+                        emptyNamedDockLayers.append(layer)
+                    }
                 } else if owner == "WindowManager", layer == windowManagerOverlayLayer {
                     hasWindowManagerOverlay = true
                 }
