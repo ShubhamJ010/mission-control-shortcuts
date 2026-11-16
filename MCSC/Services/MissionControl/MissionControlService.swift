@@ -232,7 +232,6 @@ final class MissionControlService: MissionControlServiceProtocol {
         lastDetectionTime = now
         if !active {
             exitBackoffUntil = now + 1.20
-            schedulePostExitDiagnosticCheck()
         } else {
             exitBackoffUntil = 0
         }
@@ -364,57 +363,5 @@ final class MissionControlService: MissionControlServiceProtocol {
 
         keyDown.post(tap: .cghidEventTap)
         keyUp.post(tap: .cghidEventTap)
-    }
-
-    // MARK: - Post-Exit Diagnostics (TODO: Remove once Dock latch root cause is fully resolved)
-
-    /// Schedules a passive screen geometry diagnostic check 1.5 seconds after Mission Control exits,
-    /// once WindowManager mode transitions and Dock autohide animations have completely settled.
-    private func schedulePostExitDiagnosticCheck() {
-        Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            guard let self, !self._isMissionControlActive else { return }
-            self.runPostExitScreenDiagnostic()
-        }
-    }
-
-    /// Checks all connected screens for an unexpected Dock reservation latch while autohide is enabled.
-    /// If latched, logs a high-severity diagnostic fault to the unified logging system.
-    private func runPostExitScreenDiagnostic() {
-        var hasAutohide = false
-        var keyExistsAndHasValidFormat: DarwinBoolean = false
-        let autohidePref = CFPreferencesGetAppBooleanValue(
-            "autohide" as CFString,
-            "com.apple.dock" as CFString,
-            &keyExistsAndHasValidFormat
-        )
-        if keyExistsAndHasValidFormat.boolValue {
-            hasAutohide = autohidePref
-        }
-
-        for (index, screen) in NSScreen.screens.enumerated() {
-            let frame = screen.frame
-            let visible = screen.visibleFrame
-            let bottomMargin = visible.origin.y - frame.origin.y
-
-            // When autohide is enabled, bottomMargin is expected to be 0 (no space reserved).
-            // A bottom margin around ~113pt indicates the Dock has latched its Mission Control
-            // height in WindowManager due to an app termination/tile recalculation during MC.
-            if hasAutohide && bottomMargin > 30 {
-                AppLogger.diagnostics.fault(
-                    """
-                    ⚠️ [TODO: DOCK LATCH DIAGNOSTIC] Dock margin latch detected on screen [\(index, privacy: .public)]!
-                    Screen frame: \(frame.debugDescription, privacy: .public), visibleFrame: \(visible.debugDescription, privacy: .public)
-                    Latched bottom margin: \(bottomMargin, privacy: .public)pt (expected 0pt with autohide).
-                    Autohide pref: \(hasAutohide, privacy: .public).
-                    Cause: Dock sent setDockInfo while MC was unhidden and failed to clear reservation on exit.
-                    """
-                )
-            } else {
-                AppLogger.diagnostics.debug(
-                    "Post-MC exit screen [\(index, privacy: .public)] normal: visibleFrame=\(visible.debugDescription, privacy: .public), bottomMargin=\(bottomMargin, privacy: .public)pt"
-                )
-            }
-        }
     }
 }

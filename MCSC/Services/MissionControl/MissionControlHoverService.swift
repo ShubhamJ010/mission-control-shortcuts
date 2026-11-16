@@ -783,8 +783,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     private func performCloseWindow(on windowInfo: [String: Any]) {
         var closedNatively = false
         let targetWid = windowInfo[kCGWindowNumber as String] as? CGWindowID
-        let ownerName = windowInfo[kCGWindowOwnerName as String] as? String ?? "unknown"
-        let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t ?? 0
         if let frame = currentPreviewFrame,
            let (tileElement, _) = accessibilityService.getMissionControlPreviewTile(
                at: CGPoint(x: frame.midX, y: frame.midY),
@@ -796,15 +794,9 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         if !closedNatively {
             MissionControlWindowActions.performClose(on: windowInfo, accessibilityService: accessibilityService)
         }
-        AppLogger.missionControl.info("performCloseWindow on \(ownerName, privacy: .public) (pid: \(pid, privacy: .public), wid: \(targetWid ?? 0, privacy: .public)), closedNatively: \(closedNatively, privacy: .public)")
     }
 
     func executeAction(mode: PreviewCloseButtonOverlay.Mode, on windowInfo: [String: Any]) {
-        let owner = windowInfo[kCGWindowOwnerName as String] as? String ?? "unknown"
-        let pid = windowInfo[kCGWindowOwnerPID as String] as? pid_t ?? 0
-        let wid = windowInfo[kCGWindowNumber as String] as? CGWindowID ?? 0
-        AppLogger.missionControl.info("executeAction \(String(describing: mode), privacy: .public) on \(owner, privacy: .public) (pid: \(pid, privacy: .public), wid: \(wid, privacy: .public))")
-
         switch mode {
         case .close:
             performCloseWindow(on: windowInfo)
