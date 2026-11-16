@@ -388,12 +388,13 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
         currentMatches = []
         searchSession = WindowSearchSession()
 
-        fetchWindows()
-
+        // Guard Mission Control active state FIRST: a regular desktop space switch
+        // needs zero WindowServer window scans or deactivation side-effects.
         guard isMissionControlActive || isMissionControlActiveProvider() else {
-            handleDeactivated()
             return
         }
+
+        fetchWindows()
 
         let location = mouseLocation ?? CGEvent(source: nil)?.location
         if let location {

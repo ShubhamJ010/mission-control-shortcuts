@@ -147,12 +147,6 @@ extension MissionControlHoverService {
         windows = []
         currentMatches = []
         searchSession = WindowSearchSession()
-
-        let app = NSApplication.shared
-        let sel = NSSelectorFromString("_prepareScreensIfNeeded")
-        if app.responds(to: sel) {
-            app.perform(sel)
-        }
     }
 
     func handleDockNotification(_ notification: String) {

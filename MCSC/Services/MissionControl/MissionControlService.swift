@@ -231,7 +231,7 @@ final class MissionControlService: MissionControlServiceProtocol {
         let now = CACurrentMediaTime()
         lastDetectionTime = now
         if !active {
-            exitBackoffUntil = now + 0.50
+            exitBackoffUntil = now + 1.20
         } else {
             exitBackoffUntil = 0
         }
@@ -252,10 +252,13 @@ final class MissionControlService: MissionControlServiceProtocol {
     func checkMissionControlActive(force: Bool = false) -> Bool {
         let now = CACurrentMediaTime()
 
+        // Strict Quiescence: During the exit backoff period, NEVER query WindowServer,
+        // even if `force` is requested. WindowManager and Dock must have zero contention.
+        if now < exitBackoffUntil {
+            return false
+        }
+
         if !force {
-            if now < exitBackoffUntil {
-                return false
-            }
 
             // Latch fast-path: trust the notification/AXObserver signal while the
             // cache window is fresh.

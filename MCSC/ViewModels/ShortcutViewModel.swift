@@ -282,12 +282,11 @@ final class ShortcutViewModel {
                     if self.hoverService.isMissionControlActive {
                         self.hoverService.beginSpaceTransition()
                     }
-                    // Multitouch gesture ended. If the user swiped up, Mission Control has opened;
-                    // if swiped down, Mission Control has closed.
-                    // Scan immediately and again after transition settles (~150ms).
-                    _ = self.missionControlService.checkMissionControlActive(force: true)
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-                        _ = self?.missionControlService.checkMissionControlActive(force: true)
+                    // Quiescent exit: do not force WindowServer scans during the gesture transition turn.
+                    // Dock AX notifications (AXExposeShowAllWindows / AXExposeExit) handle state updates.
+                    // A passive, non-forced check is scheduled after the exit backoff window has passed.
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) { [weak self] in
+                        _ = self?.missionControlService.checkMissionControlActive(force: false)
                     }
                 }
                 return
