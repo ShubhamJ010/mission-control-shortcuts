@@ -9,6 +9,8 @@ typealias CocoaPoint = CGPoint
 /// Shared coordinate-space transformation helpers bridging Quartz/Accessibility
 /// coordinates (top-left origin) and Cocoa screen coordinates (bottom-left origin).
 enum ScreenGeometry {
+    private static let dockDefaults = UserDefaults(suiteName: "com.apple.dock")
+
     /// Primary display height (in Cocoa points), used as reference for Y-axis inversion.
     static var primaryScreenHeight: CGFloat {
         NSScreen.screens.first?.frame.height ?? 0
@@ -75,9 +77,9 @@ enum ScreenGeometry {
     /// hot-edge reveal sensor when Dock autohide is enabled.
     static let dockHotEdgeTriggerThreshold: CGFloat = 8
 
-    /// Clamps an AX coordinate point away from the bottom hot edge to prevent
-    /// synthetic cursor movements or warps from inadvertently triggering Dock reveal.
+    /// Clamps a point away from the bottom hot edge when Dock auto-hide is enabled.
     static func clampAwayFromDockHotEdge(_ point: CGPoint) -> CGPoint {
+        guard dockDefaults?.bool(forKey: "autohide") == true else { return point }
         guard let screen = screenContaining(axPoint: point) else { return point }
         let bounds = axBounds(for: screen)
         var clamped = point

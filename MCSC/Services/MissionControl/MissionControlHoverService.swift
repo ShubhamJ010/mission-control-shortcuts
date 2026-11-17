@@ -128,9 +128,6 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     var isMouseDown = false
     var isSpaceTransitioning = false
     var spaceTransitionTimeoutTimer: Timer?
-    private var isCmdHeld = false
-    private var isOptionHeld = false
-    private var isControlHeld = false
     private var hoveredWindow: [String: Any]?
     private var overlayRect: CGRect?
     /// Visual frame of the currently hovered Mission Control preview tile in AX coordinates.
@@ -170,13 +167,14 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
     /// neither → close (or eject if hovering an ejectable volume Finder window). Cmd takes precedence when several are
     /// held.
     var currentOverlayMode: PreviewCloseButtonOverlay.Mode {
-        if isCmdHeld {
+        let flags = CGEventSource.flagsState(.combinedSessionState)
+        if flags.contains(.maskCommand) {
             return .quit
         }
-        if isControlHeld {
+        if flags.contains(.maskControl) {
             return .fullscreen
         }
-        if isOptionHeld {
+        if flags.contains(.maskAlternate) {
             return .minimize
         }
         if isAutoEjectEnabledProvider(),
@@ -468,11 +466,8 @@ final class MissionControlHoverService: MissionControlHoverServiceProtocol {
 
     // MARK: - Input Event Tap lives in `+InputTap.swift`.
 
-    func handleFlagsChanged(cmdPressed: Bool, optionPressed: Bool, controlPressed: Bool = false) {
+    func handleFlagsChanged() {
         guard isTracking, isEnabled else { return }
-        isCmdHeld = cmdPressed
-        isOptionHeld = optionPressed
-        isControlHeld = controlPressed
         overlay.setMode(currentOverlayMode)
     }
 

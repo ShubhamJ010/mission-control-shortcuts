@@ -76,11 +76,12 @@ struct FillScreenAppAction {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else { return }
+        let dockAutoHides = service.isDockAutoHideEnabled
         for window in windows {
             guard let frame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: frame.midX, y: frame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
+            let axBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: dockAutoHides)
             _ = service.setFrame(axBounds, for: window)
         }
     }
@@ -93,11 +94,12 @@ struct MakeLargerAppAction {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else { return }
+        let dockAutoHides = service.isDockAutoHideEnabled
         for window in windows {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
+            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: dockAutoHides)
 
             let targetWidth = (currentFrame.width * scaleFactor).rounded()
             let targetHeight = (currentFrame.height * scaleFactor).rounded()
@@ -132,11 +134,12 @@ struct MakeSmallerAppAction {
         let appElement = AXUIElementCreateApplication(app.processIdentifier)
         guard let windows: [AXUIElement] = service.getAttributeValue(kAXWindowsAttribute, for: appElement),
               !windows.isEmpty else { return }
+        let dockAutoHides = service.isDockAutoHideEnabled
         for window in windows {
             guard let currentFrame = service.getFrame(for: window) else { continue }
             let anchor = CGPoint(x: currentFrame.midX, y: currentFrame.midY)
             guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { continue }
-            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
+            let axScreenBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: dockAutoHides)
 
             let targetWidth = max((currentFrame.width * scaleFactor).rounded(), minWidth)
             let targetHeight = max((currentFrame.height * scaleFactor).rounded(), minHeight)
@@ -224,7 +227,8 @@ private func performCycleSnapAppAction(
           let firstFrame = service.getFrame(for: windows[0]) else { return }
     let anchor = CGPoint(x: firstFrame.midX, y: firstFrame.midY)
     guard let screen = ScreenGeometry.screenContaining(axPoint: anchor) else { return }
-    let visibleBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: service.isDockAutoHideEnabled)
+    let dockAutoHides = service.isDockAutoHideEnabled
+    let visibleBounds = ScreenGeometry.axFillBounds(for: screen, dockAutoHides: dockAutoHides)
 
     var wid: CGWindowID = 0
     _ = _AXUIElementGetWindow(windows[0], &wid)
@@ -240,7 +244,7 @@ private func performCycleSnapAppAction(
         guard let frame = service.getFrame(for: window) else { continue }
         let winAnchor = CGPoint(x: frame.midX, y: frame.midY)
         guard let winScreen = ScreenGeometry.screenContaining(axPoint: winAnchor) else { continue }
-        let winVisibleBounds = ScreenGeometry.axFillBounds(for: winScreen, dockAutoHides: service.isDockAutoHideEnabled)
+        let winVisibleBounds = ScreenGeometry.axFillBounds(for: winScreen, dockAutoHides: dockAutoHides)
         _ = service.setFrame(nextPos.frame(for: winVisibleBounds), for: window)
     }
 }

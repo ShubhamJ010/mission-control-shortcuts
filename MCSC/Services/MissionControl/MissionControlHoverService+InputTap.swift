@@ -59,7 +59,7 @@ extension MissionControlHoverService {
         }
 
         if type == .flagsChanged {
-            handleFlagsChangedTap(event: event)
+            handleFlagsChangedTap()
             return event
         }
 
@@ -127,16 +127,9 @@ extension MissionControlHoverService {
         return event
     }
 
-    private func handleFlagsChangedTap(event: CGEvent) {
-        let cmdPressed = event.flags.contains(.maskCommand)
-        let optionPressed = event.flags.contains(.maskAlternate)
-        let controlPressed = event.flags.contains(.maskControl)
+    private func handleFlagsChangedTap() {
         let notifyFlags = { [weak self] in
-            self?.handleFlagsChanged(
-                cmdPressed: cmdPressed,
-                optionPressed: optionPressed,
-                controlPressed: controlPressed
-            )
+            self?.handleFlagsChanged()
         }
         if Thread.isMainThread {
             notifyFlags()
